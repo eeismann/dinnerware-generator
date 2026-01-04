@@ -1,0 +1,165 @@
+{
+  "version": "1.0",
+  "project": {
+    "name": "Test Vase",
+    "dateCreated": null,
+    "lastModified": "2025-12-30T03:32:21.376Z",
+    "isDirty": true
+  },
+  "global": {
+    "wallThickness": 3,
+    "wallThicknessMode": "uniform",
+    "wallThicknessTop": 2.5,
+    "wallThicknessBottom": 4,
+    "proportionMode": "absolute"
+  },
+  "sections": {
+    "lip": {
+      "enabled": true,
+      "style": "straight",
+      "height": 8,
+      "topDiameter": 80,
+      "bottomDiameter": 80,
+      "midDiameter": 80,
+      "thickness": 1,
+      "flareAngle": 15,
+      "rollDiameter": 6,
+      "beadSize": 5,
+      "curvature": 0,
+      "wallModeOverride": "inherit"
+    },
+    "neck": {
+      "enabled": true,
+      "height": 50,
+      "heightLocked": false,
+      "topDiameter": 80,
+      "bottomDiameter": 100,
+      "bottomDiameterLocked": true,
+      "midDiameter": 90,
+      "flatWall": false,
+      "wallModeOverride": "inherit",
+      "curveType": "concave",
+      "curvature": 30,
+      "bezierHandles": {
+        "h1": {
+          "x": 0,
+          "y": 0.33
+        },
+        "h2": {
+          "x": 0,
+          "y": 0.67
+        }
+      },
+      "wallAngle": null
+    },
+    "shoulder": {
+      "enabled": true,
+      "height": 40,
+      "heightLocked": false,
+      "topDiameter": 100,
+      "bottomDiameter": 140,
+      "bottomDiameterLocked": true,
+      "midDiameter": 120,
+      "flatWall": false,
+      "wallModeOverride": "inherit",
+      "curveType": "convex",
+      "curvature": 70,
+      "bezierHandles": {
+        "h1": {
+          "x": 0.3,
+          "y": 0.2
+        },
+        "h2": {
+          "x": 0.3,
+          "y": 0.8
+        }
+      },
+      "wallAngle": null
+    },
+    "body": {
+      "height": 100,
+      "topDiameter": 140,
+      "bottomDiameter": 100,
+      "bottomDiameterLocked": true,
+      "midDiameter": 120,
+      "flatWall": false,
+      "curveType": "convex",
+      "curvature": 25,
+      "bezierHandles": {
+        "h1": {
+          "x": 0.15,
+          "y": 0.25
+        },
+        "h2": {
+          "x": 0.15,
+          "y": 0.75
+        }
+      }
+    },
+    "waist": {
+      "enabled": false,
+      "height": 25,
+      "heightLocked": false,
+      "topDiameter": 100,
+      "bottomDiameter": 100,
+      "bottomDiameterLocked": true,
+      "midDiameter": 70,
+      "flatWall": false,
+      "position": 50,
+      "wallModeOverride": "inherit",
+      "curveType": "circular",
+      "curvature": 50,
+      "bezierHandles": {
+        "h1": {
+          "x": -0.2,
+          "y": 0.3
+        },
+        "h2": {
+          "x": -0.2,
+          "y": 0.7
+        }
+      }
+    },
+    "foot": {
+      "enabled": true,
+      "height": 15,
+      "heightLocked": false,
+      "topDiameter": 100,
+      "bottomDiameter": 60,
+      "midDiameter": 80,
+      "flatWall": false,
+      "wallModeOverride": "inherit",
+      "curveType": "straight",
+      "curvature": 0,
+      "bezierHandles": {
+        "h1": {
+          "x": 0,
+          "y": 0.33
+        },
+        "h2": {
+          "x": 0,
+          "y": 0.67
+        }
+      },
+      "footringWidth": 8,
+      "innerFootringAngle": -15,
+      "baseRecessDepth": -2,
+      "sharpFootringCorners": true
+    }
+  },
+  "transitions": {
+    "lipToNeck": 50,
+    "neckToShoulder": 20,
+    "shoulderToBody": 10,
+    "bodySections": [
+      30,
+      30,
+      30,
+      30,
+      30,
+      30
+    ],
+    "bodyToWaist": 30,
+    "waistToFoot": 20
+  }
+}

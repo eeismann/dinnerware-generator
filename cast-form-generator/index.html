@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cast Form Generator - Playground Ceramics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/shared.css">
+    <link rel="stylesheet" href="../styles/themes.css">
+    <link rel="stylesheet" href="../styles/cast-form-generator.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-left">
+            <a href="/dashboard.html" class="back-button" title="Back to Dashboard">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <h1 class="app-title">Cast Form Generator</h1>
+        </div>
+        <div class="header-center">
+            <span class="project-name" id="projectName">Untitled Cast Form</span>
+            <span class="unsaved-indicator" id="unsavedIndicator" style="display: none;">•</span>
+        </div>
+        <div class="header-right">
+            <button class="header-btn" id="newBtn" title="New Project">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/>
+                    <line x1="9" y1="15" x2="15" y2="15"/>
+                </svg>
+                <span>New</span>
+            </button>
+            <button class="header-btn" id="loadBtn" title="Load Project">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span>Load</span>
+            </button>
+            <button class="header-btn" id="saveBtn" title="Save Project">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17,21 17,13 7,13 7,21"/>
+                    <polyline points="7,3 7,8 15,8"/>
+                </svg>
+                <span>Save</span>
+            </button>
+            <button class="header-btn primary" id="exportBtn" title="Export STL Files">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7,10 12,15 17,10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                <span>Export</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-main">
+        <!-- Parameter Panel -->
+        <aside class="parameter-panel custom-scrollbar" id="parameterPanel">
+            <!-- Input Source Section -->
+            <section class="param-section" data-section="input">
+                <div class="section-header" data-collapse="input">
+                    <span class="collapse-icon">▼</span>
+                    <h3>Input Source</h3>
+                </div>
+                <div class="section-content" id="inputSection">
+                    <div class="file-import" id="fileImport">
+                        <button class="import-btn" id="importFile">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17,8 12,3 7,8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            Import STL / OBJ
+                        </button>
+                        <input type="file" id="fileInput" accept=".stl,.obj" style="display: none;">
+                    </div>
+                    
+                    <div class="input-status" id="inputStatus">
+                        <span class="status-icon">○</span>
+                        <span class="status-text">No model loaded</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Mold Configuration Section -->
+            <section class="param-section" data-section="mold">
+                <div class="section-header" data-collapse="mold">
+                    <span class="collapse-icon">▼</span>
+                    <h3>Mold Configuration</h3>
+                </div>
+                <div class="section-content" id="moldSection">
+                    <div class="param-row">
+                        <label>Plaster Wall Thickness</label>
+                        <div class="param-control">
+                            <input type="range" id="plasterThickness" min="20" max="50" step="1" value="20">
+                            <div class="value-input">
+                                <input type="number" id="plasterThicknessValue" min="20" max="50" step="1" value="20">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="param-row">
+                        <label>Spare Height</label>
+                        <div class="param-control">
+                            <input type="range" id="spareHeight" min="10" max="80" step="1" value="10">
+                            <div class="value-input">
+                                <input type="number" id="spareHeightValue" min="10" max="80" step="1" value="10">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="param-row">
+                        <label>Corner Cut Width</label>
+                        <div class="param-control">
+                            <input type="range" id="cornerCutWidth" min="0" max="100" step="1" value="20">
+                            <div class="value-input">
+                                <input type="number" id="cornerCutWidthValue" min="0" max="100" step="1" value="20">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Registration Keys Section -->
+            <section class="param-section" data-section="natches">
+                <div class="section-header" data-collapse="natches">
+                    <span class="collapse-icon">▼</span>
+                    <h3>Registration Keys</h3>
+                </div>
+                <div class="section-content" id="natchesSection">
+                    <div class="param-row">
+                        <label>Natch Diameter</label>
+                        <div class="param-control">
+                            <input type="range" id="natchDiameter" min="6" max="15" step="1" value="10">
+                            <div class="value-input">
+                                <input type="number" id="natchDiameterValue" min="6" max="15" step="1" value="10">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="param-row">
+                        <label>Natch Depth</label>
+                        <div class="param-control">
+                            <input type="range" id="natchDepth" min="3" max="10" step="0.5" value="5">
+                            <div class="value-input">
+                                <input type="number" id="natchDepthValue" min="3" max="10" step="0.5" value="5">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="param-row">
+                        <label>Tolerance</label>
+                        <div class="param-control">
+                            <input type="range" id="natchTolerance" min="0.1" max="0.5" step="0.05" value="0.2">
+                            <div class="value-input">
+                                <input type="number" id="natchToleranceValue" min="0.1" max="0.5" step="0.05" value="0.2">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="param-row">
+                        <label>Natches Per Seam</label>
+                        <select id="natchCount" class="param-select">
+                            <option value="1">1</option>
+                            <option value="2" selected>2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Shell Properties Section -->
+            <section class="param-section" data-section="shell">
+                <div class="section-header" data-collapse="shell">
+                    <span class="collapse-icon">▼</span>
+                    <h3>Shell Properties</h3>
+                </div>
+                <div class="section-content" id="shellSection">
+                    <div class="param-row">
+                        <label>Shell Thickness</label>
+                        <div class="param-control">
+                            <input type="range" id="shellThickness" min="1.2" max="3.0" step="0.1" value="1.5">
+                            <div class="value-input">
+                                <input type="number" id="shellThicknessValue" min="1.2" max="3.0" step="0.1" value="1.5">
+                                <span class="unit">mm</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Warnings Section -->
+            <section class="param-section warnings-section" data-section="warnings" id="warningsSection" style="display: none;">
+                <div class="section-header">
+                    <span class="collapse-icon">▼</span>
+                    <h3>Warnings</h3>
+                    <span class="warning-count" id="warningCount">0</span>
+                </div>
+                <div class="section-content">
+                    <ul class="warning-list" id="warningList"></ul>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Viewport -->
+        <div class="viewport-container">
+            <div class="viewport" id="viewport"></div>
+            
+            <!-- Part Legend -->
+            <div class="part-legend" id="partLegend">
+                <div class="legend-item" data-part="foot">
+                    <span class="legend-color" style="background: #C45C26;"></span>
+                    <span class="legend-label">Foot</span>
+                </div>
+                <div class="legend-item" data-part="wall1">
+                    <span class="legend-color" style="background: #7D9B76;"></span>
+                    <span class="legend-label">Wall 1</span>
+                </div>
+                <div class="legend-item" data-part="wall2">
+                    <span class="legend-color" style="background: #6B8BA4;"></span>
+                    <span class="legend-label">Wall 2</span>
+                </div>
+                <div class="legend-item" data-part="wall3">
+                    <span class="legend-color" style="background: #9C9588;"></span>
+                    <span class="legend-label">Wall 3</span>
+                </div>
+            </div>
+
+            <!-- Loading Overlay -->
+            <div class="loading-overlay hidden" id="loadingOverlay">
+                <div class="loading-spinner"></div>
+                <span class="loading-text">Generating mold...</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <div class="footer-left">
+            <button class="footer-btn" id="settingsBtn" title="Settings">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+            </button>
+            <div class="view-menu">
+                <button class="footer-btn dropdown-trigger" id="viewMenuBtn">
+                    <span>View</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6,9 12,15 18,9"/>
+                    </svg>
+                </button>
+                <div class="dropdown-menu" id="viewMenu">
+                    <button class="dropdown-item active" data-view="exploded">Exploded View</button>
+                    <button class="dropdown-item" data-view="assembly">Assembly View</button>
+                    <button class="dropdown-item" data-view="crossSection">Cross Section</button>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item slider-item" id="explosionDistanceContainer">
+                        <label for="explosionDistance">Explosion Distance</label>
+                        <div class="slider-row">
+                            <input type="range" id="explosionDistance" min="0" max="150" step="5" value="40">
+                            <span class="slider-value" id="explosionDistanceValue">40</span>
+                            <span class="slider-unit">mm</span>
+                        </div>
+                    </div>
+                    <div class="dropdown-item slider-item" id="crossSectionAngleContainer" style="display: none;">
+                        <label for="crossSectionAngle">Rotation Angle</label>
+                        <div class="slider-row">
+                            <input type="range" id="crossSectionAngle" min="0" max="360" step="5" value="0">
+                            <span class="slider-value" id="crossSectionAngleValue">0</span>
+                            <span class="slider-unit">°</span>
+                        </div>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <label class="dropdown-item checkbox-item">
+                        <input type="checkbox" id="showNatches" checked>
+                        <span>Show Registration Keys</span>
+                    </label>
+                    <label class="dropdown-item checkbox-item">
+                        <input type="checkbox" id="showGrid" checked>
+                        <span>Show Grid</span>
+                    </label>
+                    <div class="dropdown-divider"></div>
+                    <label class="dropdown-item checkbox-item">
+                        <input type="checkbox" id="debugShellCaps">
+                        <span>Debug Shell Caps</span>
+                    </label>
+                </div>
+            </div>
+            <button class="footer-btn debug-btn" id="debugModeBtn" title="Toggle Debug Mode (D)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                    <path d="M12 6v6l4 2"/>
+                </svg>
+                <span class="debug-label">Debug</span>
+            </button>
+        </div>
+        
+        <div class="footer-center">
+            <div class="camera-presets">
+                <button class="preset-btn" data-camera="front" title="Front View">Front</button>
+                <button class="preset-btn" data-camera="side" title="Side View">Side</button>
+                <button class="preset-btn active" data-camera="threeQuarter" title="3/4 View">3/4</button>
+                <button class="preset-btn" data-camera="top" title="Top View">Top</button>
+            </div>
+        </div>
+        
+        <div class="footer-right">
+            <span class="status-text" id="statusText">Ready</span>
+            <span class="warning-badge hidden" id="warningBadge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
+                </svg>
+                <span id="warningBadgeCount">0</span>
+            </span>
+        </div>
+    </footer>
+
+    <!-- Save Modal -->
+    <div class="modal hidden" id="saveModal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Save Project</h2>
+                <button class="modal-close" id="saveModalClose">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="saveProjectName">Project Name</label>
+                    <input type="text" id="saveProjectName" placeholder="Enter project name">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="saveModalCancel">Cancel</button>
+                <button class="btn-primary" id="saveModalConfirm">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal hidden" id="exportModal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content export-modal">
+            <div class="modal-header">
+                <h2>Export Mold Shells</h2>
+                <button class="modal-close" id="exportModalClose">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="export-description">Export 4 STL files for 3D printing:</p>
+                <div class="export-files">
+                    <label class="export-file-item">
+                        <input type="checkbox" checked data-part="foot">
+                        <span class="file-icon" style="color: #C45C26;">◼</span>
+                        <span class="file-name" id="exportFootName">_Shell_Foot.stl</span>
+                    </label>
+                    <label class="export-file-item">
+                        <input type="checkbox" checked data-part="wall1">
+                        <span class="file-icon" style="color: #7D9B76;">◼</span>
+                        <span class="file-name" id="exportWall1Name">_Shell_Wall_1.stl</span>
+                    </label>
+                    <label class="export-file-item">
+                        <input type="checkbox" checked data-part="wall2">
+                        <span class="file-icon" style="color: #6B8BA4;">◼</span>
+                        <span class="file-name" id="exportWall2Name">_Shell_Wall_2.stl</span>
+                    </label>
+                    <label class="export-file-item">
+                        <input type="checkbox" checked data-part="wall3">
+                        <span class="file-icon" style="color: #9C9588;">◼</span>
+                        <span class="file-name" id="exportWall3Name">_Shell_Wall_3.stl</span>
+                    </label>
+                </div>
+                <div class="export-actions">
+                    <button class="btn-link" id="selectAllExport">Select All</button>
+                    <button class="btn-link" id="selectNoneExport">Select None</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="exportModalCancel">Cancel</button>
+                <button class="btn-secondary" id="exportIndividual">Download Selected</button>
+                <button class="btn-primary" id="exportZip">Download ZIP</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Modal -->
+    <div class="modal hidden" id="loadModal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content load-modal">
+            <div class="modal-header">
+                <h2>Load Project</h2>
+                <button class="modal-close" id="loadModalClose">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="project-list" id="projectList">
+                    <!-- Projects will be populated dynamically -->
+                </div>
+                <p class="no-projects hidden" id="noProjects">No saved projects found.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="loadModalCancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Panel (slide-out) -->
+    <div class="settings-panel hidden" id="settingsPanel">
+        <div class="settings-header">
+            <h3>Settings</h3>
+            <button class="settings-close" id="settingsClose">×</button>
+        </div>
+        <div class="settings-content">
+            <div class="setting-group">
+                <label>Theme</label>
+                <div class="theme-toggle">
+                    <button class="theme-btn" data-mode="light">Light</button>
+                    <button class="theme-btn active" data-mode="dark">Dark</button>
+                </div>
+            </div>
+            <div class="setting-group">
+                <label>Accent Color</label>
+                <div class="accent-colors">
+                    <button class="accent-btn active" data-color="#A259FF" style="background: #A259FF;"></button>
+                    <button class="accent-btn" data-color="#1ABCFE" style="background: #1ABCFE;"></button>
+                    <button class="accent-btn" data-color="#0FA958" style="background: #0FA958;"></button>
+                    <button class="accent-btn" data-color="#F24822" style="background: #F24822;"></button>
+                    <button class="accent-btn" data-color="#FF7262" style="background: #FF7262;"></button>
+                    <button class="accent-btn" data-color="#14B8A6" style="background: #14B8A6;"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="../scripts/castForm/castFormMain.js"></script>
+</body>
+</html>

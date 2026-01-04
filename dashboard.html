@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playground Ceramics</title>
+    <link rel="stylesheet" href="/styles/dashboard.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&family=Lato:wght@300;400;500;700&family=DM+Sans:wght@300;400;500;600&family=Source+Sans+3:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="dashboard-page">
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="brand">
+                <h1 class="brand-title">Playground Ceramics</h1>
+                <span class="brand-tagline">Parametric Dinnerware Studio</span>
+            </div>
+            <div class="header-actions">
+                <div class="search-container">
+                    <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search projects...">
+                </div>
+                <button class="btn-dashboard btn-dashboard-secondary" id="btnImportProject">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    Import
+                </button>
+                <button class="btn-dashboard btn-dashboard-primary" id="btnNewProject">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    New Project
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="dashboard-main" id="dashboardMain">
+            <!-- Projects Section -->
+            <section class="projects-section">
+                <div class="section-heading">
+                    <h2 class="section-title">Your Projects</h2>
+                    <span class="section-count" id="projectCount">0 projects</span>
+                </div>
+                
+                <!-- Projects Grid -->
+                <div class="projects-grid" id="projectsGrid">
+                    <!-- Project cards will be dynamically inserted here -->
+                </div>
+
+                <!-- Empty State (shown when no projects) -->
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <ellipse cx="12" cy="16" rx="9" ry="4"/>
+                        <ellipse cx="12" cy="16" rx="5" ry="2"/>
+                        <path d="M12 12V8"/>
+                        <circle cx="12" cy="6" r="2"/>
+                    </svg>
+                    <h3 class="empty-state-title">No projects yet</h3>
+                    <p class="empty-state-text">
+                        Start creating your first dinnerware collection. Design plates, bowls, mugs, and more with parametric precision.
+                    </p>
+                    <button class="btn-dashboard btn-dashboard-primary" id="btnEmptyNewProject">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Create Your First Project
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="dashboard-footer">
+            <div class="footer-left">
+                <div class="settings-menu-container" id="settingsMenuContainer">
+                    <button class="btn-settings" id="btnSettings" title="Settings">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                        </svg>
+                    </button>
+                    <div class="settings-menu" id="settingsMenu">
+                        <div class="settings-section">
+                            <div class="settings-section-title">Appearance</div>
+                            <button class="mode-toggle" id="btnModeToggle">
+                                <span class="mode-toggle-label">
+                                    <svg id="modeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="5"/>
+                                        <line x1="12" y1="1" x2="12" y2="3"/>
+                                        <line x1="12" y1="21" x2="12" y2="23"/>
+                                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                                        <line x1="1" y1="12" x2="3" y2="12"/>
+                                        <line x1="21" y1="12" x2="23" y2="12"/>
+                                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                                    </svg>
+                                    <span>Light Mode</span>
+                                </span>
+                                <span class="mode-toggle-switch" id="modeToggle"></span>
+                            </button>
+                        </div>
+                        <div class="settings-section">
+                            <div class="settings-section-title">Thumbnail Size</div>
+                            <div class="zoom-options" id="zoomOptions">
+                                <button class="zoom-option" data-zoom="small" title="Small">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="7" height="7"/>
+                                        <rect x="14" y="3" width="7" height="7"/>
+                                        <rect x="3" y="14" width="7" height="7"/>
+                                        <rect x="14" y="14" width="7" height="7"/>
+                                    </svg>
+                                    <span>Small</span>
+                                </button>
+                                <button class="zoom-option active" data-zoom="medium" title="Medium">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="8" height="8"/>
+                                        <rect x="13" y="3" width="8" height="8"/>
+                                        <rect x="3" y="13" width="8" height="8"/>
+                                        <rect x="13" y="13" width="8" height="8"/>
+                                    </svg>
+                                    <span>Medium</span>
+                                </button>
+                                <button class="zoom-option" data-zoom="large" title="Large">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="2" y="2" width="20" height="20" rx="2"/>
+                                    </svg>
+                                    <span>Large</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="settings-section">
+                            <div class="settings-section-title">Typeface</div>
+                            <select class="font-select" id="fontSelect">
+                                <option value="system">System (macOS)</option>
+                                <option value="inter" selected>Inter (Figma)</option>
+                                <option value="lato">Lato (Slack)</option>
+                                <option value="dm-sans">DM Sans (Arc)</option>
+                                <option value="source-sans">Source Sans (Discord)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <span class="footer-text">Playground Ceramics v1.0</span>
+            </div>
+            <div class="footer-links">
+                <a href="#" class="footer-link" id="btnClearAll">Clear All Data</a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-dashboard" id="deleteModal" style="display: none;">
+        <div class="modal-dashboard-backdrop"></div>
+        <div class="modal-dashboard-content">
+            <h2 class="modal-dashboard-title">Delete Project?</h2>
+            <p class="modal-dashboard-text" id="deleteModalText">
+                Are you sure you want to delete this project? This action cannot be undone.
+            </p>
+            <div class="modal-dashboard-actions">
+                <button class="btn-dashboard btn-dashboard-secondary" id="btnCancelDelete">Cancel</button>
+                <button class="btn-dashboard btn-dashboard-primary" id="btnConfirmDelete" style="background: var(--th-danger);">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Selection Modal -->
+    <div class="modal-dashboard" id="appSelectModal" style="display: none;">
+        <div class="modal-dashboard-backdrop"></div>
+        <div class="modal-dashboard-content modal-dashboard-large">
+            <h2 class="modal-dashboard-title">Create New Project</h2>
+            <p class="modal-dashboard-text">Choose which type of project you'd like to create:</p>
+            
+            <div class="app-select-grid">
+                <button class="app-select-card" data-app="dinnerware">
+                    <div class="app-select-icon">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <defs>
+                                <linearGradient id="dw-top" x1="14" y1="16" x2="36" y2="32" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#B7F1FF"/>
+                                    <stop offset="1" stop-color="#1ABCFE"/>
+                                </linearGradient>
+                                <linearGradient id="dw-side" x1="16" y1="24" x2="36" y2="42" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#159FD6"/>
+                                    <stop offset="1" stop-color="#0B6FA2"/>
+                                </linearGradient>
+                                <linearGradient id="dw-bowl-top" x1="18" y1="12" x2="32" y2="22" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#D4F8FF"/>
+                                    <stop offset="1" stop-color="#64D6FF"/>
+                                </linearGradient>
+                                <linearGradient id="dw-bowl-side" x1="18" y1="18" x2="32" y2="30" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#1ABCFE"/>
+                                    <stop offset="1" stop-color="#0B6FA2"/>
+                                </linearGradient>
+                            </defs>
+                            <ellipse cx="24" cy="39" rx="16" ry="4.5" fill="#000" opacity="0.10"/>
+
+                            <!-- Plate -->
+                            <path d="M10 24c0 3.6 6.3 6.5 14 6.5S38 27.6 38 24v8c0 3.6-6.3 6.5-14 6.5S10 35.6 10 32v-8z" fill="url(#dw-side)"/>
+                            <ellipse cx="24" cy="24" rx="14" ry="6.5" fill="url(#dw-top)"/>
+                            <ellipse cx="24" cy="24" rx="8.5" ry="3.8" fill="#FFFFFF" opacity="0.22"/>
+
+                            <!-- Bowl -->
+                            <path d="M16 15.5c0 2.6 3.6 4.7 8 4.7s8-2.1 8-4.7v4.2c0 2.6-3.6 4.7-8 4.7s-8-2.1-8-4.7v-4.2z" fill="url(#dw-bowl-side)"/>
+                            <ellipse cx="24" cy="15.5" rx="8" ry="4.7" fill="url(#dw-bowl-top)"/>
+                            <ellipse cx="24" cy="15.6" rx="4.9" ry="2.9" fill="#FFFFFF" opacity="0.28"/>
+                        </svg>
+                    </div>
+                    <div class="app-select-info">
+                        <h3 class="app-select-title">Dinnerware Set</h3>
+                        <p class="app-select-description">Create plates, bowls, mugs, and more with parametric controls for a complete dinnerware collection.</p>
+                    </div>
+                </button>
+                
+                <button class="app-select-card" data-app="handle">
+                    <div class="app-select-icon">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <defs>
+                                <linearGradient id="mh-front" x1="16" y1="12" x2="32" y2="38" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#FFD1F4"/>
+                                    <stop offset="1" stop-color="#FF2AD4"/>
+                                </linearGradient>
+                                <linearGradient id="mh-side" x1="26" y1="18" x2="40" y2="38" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#FF2AD4"/>
+                                    <stop offset="1" stop-color="#A8007F"/>
+                                </linearGradient>
+                                <linearGradient id="mh-lip" x1="16" y1="13" x2="32" y2="21" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#FFFFFF" stop-opacity="0.55"/>
+                                    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.10"/>
+                                </linearGradient>
+                            </defs>
+                            <ellipse cx="24" cy="40" rx="15" ry="4.2" fill="#000" opacity="0.10"/>
+
+                            <!-- Handle (3D ring) -->
+                            <path fill-rule="evenodd" clip-rule="evenodd"
+                                d="M34.2 17.2h1.6c5.4 0 9.2 3.6 9.2 8.8v0.8c0 5.2-3.8 8.8-9.2 8.8h-1.6c-2.3 0-4.2-1.9-4.2-4.2V21.4c0-2.3 1.9-4.2 4.2-4.2Zm0.6 4.4h0.9c3.1 0 4.8 2.0 4.8 4.6v0.4c0 2.6-1.7 4.6-4.8 4.6h-0.9c-0.3 0-0.6-0.3-0.6-0.6V22.2c0-0.3 0.3-0.6 0.6-0.6Z"
+                                fill="url(#mh-side)"/>
+
+                            <!-- Cup body -->
+                            <path d="M14 14.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5V33c0 3.3-2.7 6-6 6H20c-3.3 0-6-2.7-6-6V14.5z" fill="url(#mh-front)"/>
+
+                            <!-- Lip highlight -->
+                            <path d="M16.5 14.4c0-1.4 1.1-2.5 2.5-2.5h9c1.4 0 2.5 1.1 2.5 2.5v1.5c0 0.3-0.2 0.5-0.5 0.5h-13c-0.3 0-0.5-0.2-0.5-0.5v-1.5z" fill="url(#mh-lip)"/>
+
+                            <!-- Subtle specular -->
+                            <path d="M18.4 18.2c0.8-1.8 2.6-3 4.7-3h2.0" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="2.6" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div class="app-select-info">
+                        <h3 class="app-select-title">Mug Handle</h3>
+                        <p class="app-select-description">Design custom handles for your mugs. Import mug dimensions from existing dinnerware projects.</p>
+                    </div>
+                </button>
+                
+                <button class="app-select-card" data-app="vessel">
+                    <div class="app-select-icon">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <defs>
+                                <linearGradient id="vs-front" x1="16" y1="10" x2="34" y2="42" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#E6D6FF"/>
+                                    <stop offset="1" stop-color="#A259FF"/>
+                                </linearGradient>
+                                <linearGradient id="vs-side" x1="22" y1="14" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#A259FF"/>
+                                    <stop offset="1" stop-color="#5B2FA8"/>
+                                </linearGradient>
+                                <linearGradient id="vs-lip" x1="18" y1="10" x2="30" y2="18" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#FFFFFF" stop-opacity="0.55"/>
+                                    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.12"/>
+                                </linearGradient>
+                            </defs>
+                            <ellipse cx="24" cy="40" rx="15" ry="4.2" fill="#000" opacity="0.10"/>
+
+                            <!-- Vase body (front) -->
+                            <path d="M18 11.8c0 3.3 2.6 5.6 2.6 8.2c0 1.5-1 2.6-2.4 3.8c-2.6 2.3-4.2 5.2-4.2 9.3v1.9c0 2.4 1.9 4.3 4.3 4.3h11.4c2.4 0 4.3-1.9 4.3-4.3v-1.9c0-4.1-1.6-7-4.2-9.3c-1.4-1.2-2.4-2.3-2.4-3.8c0-2.6 2.6-4.9 2.6-8.2H18z" fill="url(#vs-front)"/>
+
+                            <!-- Side shade -->
+                            <path d="M27.8 11.8c0 3.2-2.4 5.3-2.4 8.2c0 1.9 1.3 3.1 2.8 4.4c2.2 1.9 3.4 4.3 3.4 8.7v1.9c0 2.4-1.9 4.3-4.3 4.3h2.4c2.4 0 4.3-1.9 4.3-4.3v-1.9c0-4.1-1.6-7-4.2-9.3c-1.4-1.2-2.4-2.3-2.4-3.8c0-2.6 2.6-4.9 2.6-8.2h-2.1Z" fill="url(#vs-side)" opacity="0.9"/>
+
+                            <!-- Lip highlight -->
+                            <path d="M18.6 12.2c0-1.2 1-2.2 2.2-2.2h6.4c1.2 0 2.2 1 2.2 2.2v1.3c0 0.3-0.2 0.5-0.5 0.5H19.1c-0.3 0-0.5-0.2-0.5-0.5v-1.3z" fill="url(#vs-lip)"/>
+
+                            <!-- Specular -->
+                            <path d="M19.6 20.6c1.0-2.8 3.1-4.5 6.3-4.8" stroke="#FFFFFF" stroke-opacity="0.30" stroke-width="2.8" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div class="app-select-info">
+                        <h3 class="app-select-title">Vessel</h3>
+                        <p class="app-select-description">Design vessels with bezier curve controls and multi-section body.</p>
+                    </div>
+                </button>
+                
+                <button class="app-select-card" data-app="castform">
+                    <div class="app-select-icon">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <defs>
+                                <linearGradient id="cf-outer" x1="8" y1="12" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#FFE0C2"/>
+                                    <stop offset="1" stop-color="#C45C26"/>
+                                </linearGradient>
+                                <linearGradient id="cf-inner" x1="14" y1="16" x2="34" y2="36" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#C45C26"/>
+                                    <stop offset="1" stop-color="#8B3D14"/>
+                                </linearGradient>
+                                <linearGradient id="cf-wall1" x1="8" y1="20" x2="20" y2="36" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#B8D4B0"/>
+                                    <stop offset="1" stop-color="#7D9B76"/>
+                                </linearGradient>
+                                <linearGradient id="cf-wall2" x1="28" y1="20" x2="40" y2="36" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#A8C8D8"/>
+                                    <stop offset="1" stop-color="#6B8BA4"/>
+                                </linearGradient>
+                            </defs>
+                            <ellipse cx="24" cy="42" rx="16" ry="3.5" fill="#000" opacity="0.10"/>
+                            
+                            <!-- Foot mold (bottom center) -->
+                            <ellipse cx="24" cy="38" rx="12" ry="4" fill="url(#cf-outer)"/>
+                            <ellipse cx="24" cy="38" rx="8" ry="2.5" fill="url(#cf-inner)"/>
+                            
+                            <!-- Wall segment 1 (left) -->
+                            <path d="M8 18c0-2 1.5-3.5 3.5-3.5h6c1 0 2 .8 2 1.8v16c0 1.5-1.2 2.7-2.7 2.7H11c-1.7 0-3-1.3-3-3V18z" fill="url(#cf-wall1)"/>
+                            
+                            <!-- Wall segment 2 (right) -->
+                            <path d="M28.5 14.5h6c2 0 3.5 1.5 3.5 3.5v14c0 1.7-1.3 3-3 3h-5.8c-1.5 0-2.7-1.2-2.7-2.7v-16c0-1 1-1.8 2-1.8z" fill="url(#cf-wall2)"/>
+                            
+                            <!-- Wall segment 3 (center back, implied) -->
+                            <path d="M17 12h14v2H17z" fill="#9C9588" opacity="0.7"/>
+                            
+                            <!-- Separation lines -->
+                            <line x1="20" y1="14" x2="20" y2="35" stroke="#FFF" stroke-width="1.5" opacity="0.4"/>
+                            <line x1="28" y1="14" x2="28" y2="35" stroke="#FFF" stroke-width="1.5" opacity="0.4"/>
+                            
+                            <!-- Registration key dots -->
+                            <circle cx="20" cy="22" r="2" fill="#D4A84B"/>
+                            <circle cx="28" cy="22" r="2" fill="#D4A84B"/>
+                            <circle cx="20" cy="30" r="2" fill="#D4A84B"/>
+                            <circle cx="28" cy="30" r="2" fill="#D4A84B"/>
+                        </svg>
+                    </div>
+                    <div class="app-select-info">
+                        <h3 class="app-select-title">Cast Form</h3>
+                        <p class="app-select-description">Generate 4-part slip casting molds from vessels. Includes registration keys.</p>
+                    </div>
+                </button>
+            </div>
+            
+            <div class="modal-dashboard-actions">
+                <button class="btn-dashboard btn-dashboard-secondary" id="btnCancelAppSelect">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/scripts/dashboard/dashboard.js"></script>
+</body>
+</html>
+
