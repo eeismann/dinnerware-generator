@@ -339,12 +339,12 @@ class HandleViewport {
      * @returns {string} Base64 data URL of the thumbnail
      */
     captureThumbnail(width = 400, height = 300) {
-        // Store current size
-        const currentWidth = this.renderer.domElement.width;
-        const currentHeight = this.renderer.domElement.height;
-        
+        // Store current size (use container dimensions, not canvas pixel dimensions)
+        const currentWidth = this.container.clientWidth;
+        const currentHeight = this.container.clientHeight;
+
         // Temporarily resize renderer for thumbnail
-        this.renderer.setSize(width, height);
+        this.renderer.setSize(width, height, false); // false = don't update CSS style
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
         
@@ -390,10 +390,13 @@ class HandleViewport {
         this.controls.target.copy(savedTarget);
         this.controls.update();
         
-        // Restore original size
+        // Restore original size (and update CSS to match container)
         this.renderer.setSize(currentWidth, currentHeight);
         this.camera.aspect = currentWidth / currentHeight;
         this.camera.updateProjectionMatrix();
+
+        // Restore pixel ratio
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         
         // Re-render at original size
         this.renderer.render(this.scene, this.camera);

@@ -18,6 +18,7 @@ import { exportMultipleSTL } from './geometry/stlExporter.js';
 import { warningSystem, clampValue, roundToStep } from './utils/validation.js';
 import { saveProject as saveToStorage, getProject } from './dashboard/projectStorage.js';
 import { init as initTheme } from './ui/themeManager.js';
+import { ProjectFileFormat } from './storage/fileFormat.js';
 
 // DOM Elements
 let viewport;
@@ -97,6 +98,7 @@ function cacheElements() {
         exportProgressText: document.getElementById('exportProgressText'),
         saveModal: document.getElementById('saveModal'),
         saveProjectName: document.getElementById('saveProjectName'),
+        saveAsFile: document.getElementById('saveAsFile'),
         confirmModal: document.getElementById('confirmModal'),
         confirmTitle: document.getElementById('confirmTitle'),
         confirmMessage: document.getElementById('confirmMessage'),
@@ -615,14 +617,32 @@ function saveProject(name, downloadFile = false) {
     
     // Optionally download as file
     if (downloadFile) {
-        const projectData = stateManager.exportState();
-        const json = JSON.stringify(projectData, null, 2);
+        // Create project data for file export (use exportState for proper format)
+        const projectForFile = {
+            id: savedProject.id,
+            projectName: name,
+            thumbnail: thumbnail,
+            dateCreated: savedProject.dateCreated,
+            lastModified: savedProject.lastModified,
+            state: stateManager.exportState()  // Use exportState for file format
+        };
+
+        // Create enhanced JSON format
+        const enhancedData = ProjectFileFormat.serialize(projectForFile, 'dinnerware');
+        const json = JSON.stringify(enhancedData, null, 2);
         const blob = new Blob([json], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        
+
+        // Generate filename with timestamp
+        const filename = ProjectFileFormat.generateFilename(
+            name,
+            'dinnerware',
+            new Date()
+        );
+
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${name}.json`;
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -641,30 +661,50 @@ function loadProject() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
-    
+
     input.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
+
         const reader = new FileReader();
         reader.onload = (event) => {
             try {
                 const data = JSON.parse(event.target.result);
-                stateManager.importState(data);
+
+                // Detect format (enhanced or legacy)
+                const format = ProjectFileFormat.detectFormat(data);
+
+                let stateData;
+                let projectName;
+
+                if (format === 'enhanced') {
+                    // New enhanced format
+                    const deserialized = ProjectFileFormat.deserialize(data);
+                    stateData = deserialized.state;
+                    projectName = deserialized.project.name;
+                } else {
+                    // Legacy format
+                    stateData = data;
+                    projectName = data.projectName || 'Imported Project';
+                }
+
+                // Import the state
+                stateManager.importState(stateData);
                 viewport.updateAllItems();
                 updateUIFromState();
                 warningSystem.validate();
                 updateWarningsDisplay();
-                
-                elements.projectName.textContent = data.projectName || 'Imported Project';
+
+                elements.projectName.textContent = projectName;
                 elements.unsavedIndicator.style.display = 'none';
             } catch (error) {
+                console.error('Load project error:', error);
                 alert('Failed to load project file: ' + error.message);
             }
         };
         reader.readAsText(file);
     });
-    
+
     input.click();
 }
 
@@ -778,7 +818,8 @@ function initModals() {
     
     document.getElementById('btnConfirmSave').addEventListener('click', () => {
         const name = elements.saveProjectName.value.trim() || 'Untitled';
-        saveProject(name);
+        const downloadFile = elements.saveAsFile.checked;
+        saveProject(name, downloadFile);
     });
     
     // Confirm modal

@@ -3,15 +3,17 @@
  * Main dashboard script for project management
  */
 
-import { 
-    getAllProjects, 
-    getProject, 
-    deleteProject, 
+import {
+    getAllProjects,
+    getProject,
+    deleteProject,
     clearAllProjects,
     formatDate,
     countVisibleItems
 } from './projectStorage.js';
 import { init as initTheme } from '../ui/themeManager.js';
+import { ProjectFileFormat } from '../storage/fileFormat.js';
+import { DragDropHandler } from '../storage/dragDropHandler.js';
 
 // DOM Elements
 let elements = {};
@@ -19,6 +21,7 @@ let elements = {};
 // State
 let projectToDelete = null;
 let searchQuery = '';
+let dragDropHandler = null;
 
 /**
  * Initialize the dashboard
@@ -26,6 +29,7 @@ let searchQuery = '';
 function init() {
     cacheElements();
     bindEvents();
+    initDragDrop();
     renderProjects();
 }
 
@@ -109,6 +113,120 @@ function bindEvents() {
             closeDeleteModal();
         }
     });
+}
+
+/**
+ * Initialize drag-and-drop file import
+ */
+function initDragDrop() {
+    dragDropHandler = new DragDropHandler(document.body, handleFilesDropped);
+    dragDropHandler.init();
+}
+
+/**
+ * Handle files dropped on the dashboard
+ * @param {File[]} files - Array of dropped files
+ */
+async function handleFilesDropped(files) {
+    if (files.length === 0) return;
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    for (const file of files) {
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+
+            // Detect format (enhanced or legacy)
+            const format = ProjectFileFormat.detectFormat(data);
+
+            let projectData;
+            if (format === 'enhanced') {
+                // New enhanced format
+                const deserialized = ProjectFileFormat.deserialize(data);
+                projectData = deserialized;
+            } else {
+                // Legacy format - migrate
+                projectData = ProjectFileFormat.migrateFromLegacy(data);
+            }
+
+            // Import based on app type
+            await importProjectData(projectData);
+            successCount++;
+        } catch (error) {
+            console.error(`Failed to import ${file.name}:`, error);
+            errorCount++;
+            errors.push(`${file.name}: ${error.message}`);
+        }
+    }
+
+    // Show results
+    if (successCount > 0) {
+        renderProjects();
+    }
+
+    if (errorCount > 0) {
+        alert(`Imported ${successCount} project(s) successfully.\n${errorCount} file(s) failed:\n${errors.join('\n')}`);
+    } else {
+        alert(`Successfully imported ${successCount} project(s)!`);
+    }
+}
+
+/**
+ * Import project data based on app type
+ * @param {Object} projectData - Enhanced format project data
+ */
+async function importProjectData(projectData) {
+    const appType = projectData.fileFormat.appType;
+    const { saveProject, saveVesselProject } = await import('./projectStorage.js');
+
+    if (appType === 'dinnerware') {
+        // Import dinnerware project
+        const project = {
+            id: null,
+            projectName: projectData.project.name,
+            dateCreated: projectData.fileFormat.created,
+            lastModified: new Date().toISOString(),
+            thumbnail: projectData.metadata.thumbnailDataUrl,
+            state: projectData.state
+        };
+        saveProject(project);
+    } else if (appType === 'vessel') {
+        // Import vessel project
+        const project = {
+            id: null,
+            thumbnail: projectData.metadata.thumbnailDataUrl,
+            ...projectData.state
+        };
+        saveVesselProject(project);
+    } else if (appType === 'handle' || appType === 'castform') {
+        // For handle and castform, save directly to their respective storage keys
+        const storageKey = appType === 'handle'
+            ? 'playground_ceramics_handle_projects'
+            : 'playground_ceramics_castform_projects';
+
+        let projects = [];
+        try {
+            const stored = localStorage.getItem(storageKey);
+            if (stored) projects = JSON.parse(stored);
+        } catch (e) {
+            console.error('Error loading projects:', e);
+        }
+
+        const project = {
+            ...projectData.state,
+            thumbnail: projectData.metadata.thumbnailDataUrl,
+            project: {
+                ...projectData.project,
+                id: `${appType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+            }
+        };
+
+        projects.push(project);
+        localStorage.setItem(storageKey, JSON.stringify(projects));
+    }
 }
 
 /**

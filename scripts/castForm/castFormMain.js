@@ -11,6 +11,7 @@ import { ParameterPanel } from './ui/parameterPanel.js';
 import { InputProcessor } from './geometry/inputProcessor.js';
 import { MoldGenerator } from './geometry/moldGenerator.js';
 import { CastFormSTLExporter } from './geometry/castFormSTLExporter.js';
+import { ProjectFileFormat } from '../storage/fileFormat.js';
 
 class CastFormApp {
     constructor() {
@@ -53,7 +54,7 @@ class CastFormApp {
     setupEventListeners() {
         // Header buttons
         document.getElementById('newBtn')?.addEventListener('click', () => this.newProject());
-        document.getElementById('loadBtn')?.addEventListener('click', () => this.showLoadModal());
+        document.getElementById('loadBtn')?.addEventListener('click', () => this.loadProjectFromFile());
         document.getElementById('saveBtn')?.addEventListener('click', () => this.showSaveModal());
         document.getElementById('exportBtn')?.addEventListener('click', () => this.showExportModal());
         
@@ -276,7 +277,10 @@ class CastFormApp {
         const saveModal = document.getElementById('saveModal');
         document.getElementById('saveModalClose')?.addEventListener('click', () => this.hideModal(saveModal));
         document.getElementById('saveModalCancel')?.addEventListener('click', () => this.hideModal(saveModal));
-        document.getElementById('saveModalConfirm')?.addEventListener('click', () => this.saveProject());
+        document.getElementById('saveModalConfirm')?.addEventListener('click', () => {
+            const downloadFile = document.getElementById('saveAsFile')?.checked || false;
+            this.saveProject(downloadFile);
+        });
         
         // Export modal
         const exportModal = document.getElementById('exportModal');
@@ -319,28 +323,33 @@ class CastFormApp {
     /**
      * Save project
      */
-    saveProject() {
+    saveProject(downloadFile = false) {
         const input = document.getElementById('saveProjectName');
         const name = input?.value.trim() || 'Untitled Cast Form';
-        
+
         castFormState.setState('project.name', name);
-        
+
         // Generate thumbnail
         const thumbnail = this.viewport?.captureThumbnail(256, 256);
-        
+
         // Get state for saving
         const projectData = castFormState.exportState();
         projectData.thumbnail = thumbnail;
-        
+
         // Ensure project has ID
         if (!projectData.project.id) {
             projectData.project.id = `cast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             castFormState.setState('project.id', projectData.project.id);
         }
-        
+
         // Save to localStorage
         this.saveToStorage(projectData);
-        
+
+        // Optionally download as file
+        if (downloadFile) {
+            this.downloadProjectFile();
+        }
+
         castFormState.markSaved();
         this.hideModal(document.getElementById('saveModal'));
         this.updateStatus('Project saved');
@@ -353,12 +362,12 @@ class CastFormApp {
         try {
             const key = 'playground_ceramics_castform_projects';
             let projects = [];
-            
+
             const existing = localStorage.getItem(key);
             if (existing) {
                 projects = JSON.parse(existing);
             }
-            
+
             // Find and update or add new
             const idx = projects.findIndex(p => p.project?.id === projectData.project.id);
             if (idx >= 0) {
@@ -366,12 +375,112 @@ class CastFormApp {
             } else {
                 projects.push(projectData);
             }
-            
+
             localStorage.setItem(key, JSON.stringify(projects));
         } catch (e) {
             console.error('Failed to save project:', e);
             alert('Failed to save project. Storage may be full.');
         }
+    }
+
+    /**
+     * Download project as JSON file
+     */
+    downloadProjectFile() {
+        const name = castFormState.getState('project.name') || 'Untitled Cast Form';
+        const thumbnail = this.viewport?.captureThumbnail(256, 256);
+
+        const projectData = castFormState.exportState();
+        projectData.thumbnail = thumbnail;
+
+        // Ensure project has ID
+        if (!projectData.project.id) {
+            projectData.project.id = `cast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+
+        // Create enhanced JSON format
+        const enhancedData = ProjectFileFormat.serialize(projectData, 'castform');
+        const json = JSON.stringify(enhancedData, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        // Generate filename with timestamp
+        const filename = ProjectFileFormat.generateFilename(
+            name,
+            'castform',
+            new Date()
+        );
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        this.updateStatus('Project downloaded');
+    }
+
+    /**
+     * Load project from JSON file
+     */
+    loadProjectFromFile() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+
+        input.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+
+                // Detect format (enhanced or legacy)
+                const format = ProjectFileFormat.detectFormat(data);
+
+                let projectData;
+
+                if (format === 'enhanced') {
+                    // New enhanced format
+                    const deserialized = ProjectFileFormat.deserialize(data);
+
+                    // Validate it's a castform project
+                    if (deserialized.fileFormat.appType !== 'castform') {
+                        throw new Error('This is not a cast form project file');
+                    }
+
+                    projectData = deserialized.state;
+                } else {
+                    // Legacy format
+                    projectData = data;
+                }
+
+                // Load the project
+                castFormState.loadState(projectData);
+
+                // Check if geometry was loaded
+                const hasGeometry = castFormState.getState('input.geometry');
+                if (!hasGeometry && projectData.input?.source) {
+                    // Geometry not saved in file - inform user
+                    alert('Note: This project file does not contain the input geometry. You will need to re-import the original STL/OBJ file to regenerate the mold.');
+                    this.updateStatus('Project loaded (geometry missing)');
+                } else if (hasGeometry) {
+                    // Regenerate mold from loaded geometry
+                    this.regenerateMold();
+                    this.updateStatus('Project loaded from file');
+                } else {
+                    this.updateStatus('Project loaded');
+                }
+            } catch (error) {
+                console.error('Load project file error:', error);
+                alert('Failed to load project file: ' + error.message);
+            }
+        });
+
+        input.click();
     }
 
     /**
@@ -443,13 +552,17 @@ class CastFormApp {
     loadProject(id) {
         const projects = this.loadProjectsFromStorage();
         const project = projects.find(p => p.project?.id === id);
-        
+
         if (project) {
             castFormState.loadState(project);
-            this.updateStatus('Project loaded');
-            
+
+            // Regenerate mold from loaded geometry
+            this.regenerateMold();
+
             // Sync UI
             this.parameterPanel?.syncUIFromState();
+
+            this.updateStatus('Project loaded');
         }
     }
 

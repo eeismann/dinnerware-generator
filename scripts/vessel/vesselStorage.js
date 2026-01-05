@@ -5,6 +5,7 @@
 
 import vesselState from './state/vesselState.js';
 import { saveVesselProject, getVesselProjectData } from '../dashboard/projectStorage.js';
+import { ProjectFileFormat } from '../storage/fileFormat.js';
 
 // Storage key for vessel projects (same as in projectStorage.js)
 const VESSEL_PROJECTS_STORAGE_KEY = 'playground_ceramics_vessel_projects';
@@ -113,20 +114,37 @@ export class VesselStorage {
         const state = vesselState.exportState();
         state.project.name = filename;
         state.project.lastModified = new Date().toISOString();
-        
-        const json = JSON.stringify(state, null, 2);
+
+        // Create project object for enhanced format
+        const projectData = {
+            id: state.project.id,
+            project: state.project,
+            state: state,
+            thumbnail: null
+        };
+
+        // Use enhanced JSON format
+        const enhancedData = ProjectFileFormat.serialize(projectData, 'vessel');
+        const json = JSON.stringify(enhancedData, null, 2);
         const blob = new Blob([json], { type: this.FILE_TYPE });
-        
+
+        // Generate filename with timestamp
+        const generatedFilename = ProjectFileFormat.generateFilename(
+            filename,
+            'vessel',
+            new Date()
+        );
+
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${filename}${this.FILE_EXTENSION}`;
+        link.download = generatedFilename;
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        
+
         // Mark as saved
         vesselState.setState('project.isDirty', false, { silent: true });
     }
@@ -139,32 +157,50 @@ export class VesselStorage {
         return new Promise((resolve, reject) => {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = this.FILE_EXTENSION + ',.json';
-            
+            input.accept = '.json,.vessel.json';
+
             input.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (!file) {
                     reject(new Error('No file selected'));
                     return;
                 }
-                
+
                 try {
                     const text = await file.text();
                     const data = JSON.parse(text);
-                    
-                    // Validate
-                    if (!data.version || !data.global || !data.sections) {
-                        throw new Error('Invalid vessel file format');
+
+                    // Detect format (enhanced or legacy)
+                    const format = ProjectFileFormat.detectFormat(data);
+
+                    let stateData;
+
+                    if (format === 'enhanced') {
+                        // New enhanced format
+                        const deserialized = ProjectFileFormat.deserialize(data);
+
+                        // Validate it's a vessel project
+                        if (deserialized.fileFormat.appType !== 'vessel') {
+                            throw new Error('This is not a vessel project file');
+                        }
+
+                        stateData = deserialized.state;
+                    } else {
+                        // Legacy format - validate basic structure
+                        if (!data.version || !data.global || !data.sections) {
+                            throw new Error('Invalid vessel file format');
+                        }
+                        stateData = data;
                     }
-                    
+
                     // Load into state
-                    vesselState.loadState(data);
-                    resolve(data);
+                    vesselState.loadState(stateData);
+                    resolve(stateData);
                 } catch (err) {
                     reject(err);
                 }
             };
-            
+
             input.click();
         });
     }

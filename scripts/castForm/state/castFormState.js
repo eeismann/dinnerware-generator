@@ -3,6 +3,7 @@
  * Reactive state with path-based subscriptions
  */
 
+import * as THREE from 'three';
 import { DEFAULT_PARAMS, deepClone } from './castFormDefaults.js';
 
 class CastFormStateManager {
@@ -209,6 +210,12 @@ class CastFormStateManager {
      * Export state for saving
      */
     exportState() {
+        // Serialize input geometry to JSON if it exists
+        let geometryData = null;
+        if (this.state.input.geometry) {
+            geometryData = this.state.input.geometry.toJSON();
+        }
+
         return {
             version: '1.0',
             appType: 'cast-form-generator',
@@ -218,7 +225,10 @@ class CastFormStateManager {
                 source: this.state.input.source,
                 fileName: this.state.input.fileName,
                 sourceApp: this.state.input.sourceApp,
-                sourceProjectId: this.state.input.sourceProjectId
+                sourceProjectId: this.state.input.sourceProjectId,
+                geometryData: geometryData,  // Serialized geometry
+                bounds: this.state.input.bounds,
+                isValid: this.state.input.isValid
             },
             view: { ...this.state.view }
         };
@@ -230,25 +240,44 @@ class CastFormStateManager {
     loadState(data) {
         this.disposeGeometries();
         this.state = this.createInitialState();
-        
+
         if (data.project) {
             Object.assign(this.state.project, data.project);
         }
         if (data.params) {
             this.state.params = deepClone(data.params);
         }
-        if (data.input) {
+
+        // Deserialize and set input geometry properly
+        if (data.input && data.input.geometryData) {
+            const loader = new THREE.ObjectLoader();
+            const geometry = loader.parseGeometries([data.input.geometryData])[data.input.geometryData.uuid];
+
+            // Use setInputGeometry to properly initialize bounds and computed values
+            this.setInputGeometry(
+                geometry,
+                data.input.fileName || '',
+                data.input.sourceApp || null,
+                data.input.sourceProjectId || null
+            );
+
+            // Restore the source field
+            this.state.input.source = data.input.source || 'file';
+        } else if (data.input) {
+            // No geometry data, just set metadata
             Object.assign(this.state.input, {
                 source: data.input.source,
                 fileName: data.input.fileName,
                 sourceApp: data.input.sourceApp,
-                sourceProjectId: data.input.sourceProjectId
+                sourceProjectId: data.input.sourceProjectId,
+                isValid: false
             });
         }
+
         if (data.view) {
             Object.assign(this.state.view, data.view);
         }
-        
+
         this.state.project.isDirty = false;
         this.notifyListeners('*');
     }

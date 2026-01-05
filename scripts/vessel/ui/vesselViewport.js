@@ -508,28 +508,32 @@ export class VesselViewport {
      * @returns {string} Data URL
      */
     captureThumbnail(width = 400, height = 300) {
-        // Store original size
-        const originalWidth = this.renderer.domElement.width;
-        const originalHeight = this.renderer.domElement.height;
+        // Store original size (use container dimensions, not canvas pixel dimensions)
+        const originalWidth = this.container.clientWidth;
+        const originalHeight = this.container.clientHeight;
         const originalAspect = this.camera.aspect;
-        
-        // Set to thumbnail size
-        this.renderer.setSize(width, height);
+
+        // Set to thumbnail size (don't update CSS style)
+        this.renderer.setSize(width, height, false);
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
-        
+
         // Render
         this.renderer.render(this.scene, this.camera);
-        
+
         // Capture
         const dataUrl = this.renderer.domElement.toDataURL('image/jpeg', 0.85);
-        
+
         // Restore original size
         this.renderer.setSize(originalWidth, originalHeight);
         this.camera.aspect = originalAspect;
         this.camera.updateProjectionMatrix();
+
+        // Restore pixel ratio
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
         this.needsRender = true;
-        
+
         return dataUrl;
     }
 

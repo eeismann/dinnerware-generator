@@ -10,6 +10,7 @@ import { initCrossSectionPreview, getCrossSectionPreview } from './ui/crossSecti
 import { initDimensionOverlays, getDimensionOverlays } from './ui/dimensionOverlays.js';
 import { showMugImportModal, getDinnerwareProjects } from './ui/mugImporter.js';
 import { exportHandleToSTL, downloadSTL, getSuggestedFilename } from './geometry/handleSTLExporter.js';
+import { ProjectFileFormat } from '../storage/fileFormat.js';
 
 // Storage key for handle projects
 const HANDLE_STORAGE_KEY = 'playground_ceramics_handle_projects';
@@ -387,7 +388,7 @@ function initHeaderButtons() {
     });
     
     // Load Project
-    document.getElementById('btnLoadProject').addEventListener('click', showLoadModal);
+    document.getElementById('btnLoadProject').addEventListener('click', loadProjectFromFile);
     
     // Save Project
     document.getElementById('btnSaveProject').addEventListener('click', showSaveModal);
@@ -732,7 +733,8 @@ function showSaveModal() {
     
     const handleSave = () => {
         const name = nameInput.value.trim() || 'Untitled Handle';
-        saveProject(name);
+        const downloadFile = document.getElementById('saveAsFile')?.checked || false;
+        saveProject(name, downloadFile);
         modal.style.display = 'none';
         cleanup();
     };
@@ -763,22 +765,22 @@ function showSaveModal() {
 /**
  * Save project to localStorage
  */
-function saveProject(name) {
+function saveProject(name, downloadFile = false) {
     const state = handleStateManager.getState();
     const projectId = state.project.id || generateId();
     const now = new Date().toISOString();
-    
+
     // Capture thumbnail from viewport
     const viewport = getHandleViewport();
     const thumbnail = viewport ? viewport.captureThumbnail(400, 300) : null;
-    
+
     handleStateManager.setProject({
         id: projectId,
         name: name,
         modifiedAt: now,
         createdAt: state.project.createdAt || now,
     });
-    
+
     const projectData = {
         ...handleStateManager.getProjectData(),
         thumbnail: thumbnail,
@@ -790,7 +792,7 @@ function saveProject(name) {
             createdAt: state.project.createdAt || now,
         },
     };
-    
+
     // Get existing projects
     let projects = [];
     try {
@@ -799,7 +801,7 @@ function saveProject(name) {
     } catch (e) {
         console.error('Error loading projects:', e);
     }
-    
+
     // Update or add project
     const existingIndex = projects.findIndex(p => p.project?.id === projectId);
     if (existingIndex >= 0) {
@@ -807,14 +809,19 @@ function saveProject(name) {
     } else {
         projects.push(projectData);
     }
-    
+
     // Save back
     localStorage.setItem(HANDLE_STORAGE_KEY, JSON.stringify(projects));
-    
+
+    // Optionally download as file
+    if (downloadFile) {
+        downloadProjectFile(name);
+    }
+
     // Mark as saved
     handleStateManager.markSaved();
     updateUI();
-    
+
     // Show success feedback
     showSaveSuccessToast(name);
 }
@@ -860,6 +867,100 @@ function showSaveSuccessToast(projectName) {
         toast.style.transform = 'translateX(-50%) translateY(100px)';
         toast.style.opacity = '0';
     }, 3000);
+}
+
+/**
+ * Download project as JSON file
+ */
+function downloadProjectFile(name) {
+    const state = handleStateManager.getState();
+    const projectId = state.project.id || generateId();
+    const now = new Date().toISOString();
+
+    // Capture thumbnail
+    const viewport = getHandleViewport();
+    const thumbnail = viewport ? viewport.captureThumbnail(400, 300) : null;
+
+    // Prepare project data
+    const projectData = {
+        ...handleStateManager.getProjectData(),
+        thumbnail: thumbnail,
+        project: {
+            id: projectId,
+            name: name,
+            modifiedAt: now,
+            createdAt: state.project.createdAt || now,
+        },
+    };
+
+    // Create enhanced JSON format
+    const enhancedData = ProjectFileFormat.serialize(projectData, 'handle');
+    const json = JSON.stringify(enhancedData, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    // Generate filename with timestamp
+    const filename = ProjectFileFormat.generateFilename(
+        name,
+        'handle',
+        new Date()
+    );
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * Load project from JSON file
+ */
+function loadProjectFromFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+
+            // Detect format (enhanced or legacy)
+            const format = ProjectFileFormat.detectFormat(data);
+
+            let projectData;
+
+            if (format === 'enhanced') {
+                // New enhanced format
+                const deserialized = ProjectFileFormat.deserialize(data);
+
+                // Validate it's a handle project
+                if (deserialized.fileFormat.appType !== 'handle') {
+                    throw new Error('This is not a handle project file');
+                }
+
+                projectData = deserialized.state;
+            } else {
+                // Legacy format - assume it's handle data
+                projectData = data;
+            }
+
+            // Load the project
+            loadProject(projectData);
+            showSaveSuccessToast(projectData.project?.name || 'Imported Project');
+        } catch (error) {
+            console.error('Load project file error:', error);
+            alert('Failed to load project file: ' + error.message);
+        }
+    });
+
+    input.click();
 }
 
 /**

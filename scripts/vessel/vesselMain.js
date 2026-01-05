@@ -180,7 +180,8 @@ class VesselGeneratorApp {
 
         document.getElementById('btnConfirmSave')?.addEventListener('click', () => {
             const name = document.getElementById('saveProjectName')?.value || 'vessel';
-            this.saveProject(name);
+            const downloadFile = document.getElementById('saveAsFile')?.checked || false;
+            this.saveProject(name, downloadFile);
             saveModal.style.display = 'none';
         });
 
@@ -342,21 +343,26 @@ class VesselGeneratorApp {
      * Save project to dashboard storage
      * @param {string} name - Project name
      */
-    saveProject(name) {
+    saveProject(name, downloadFile = false) {
         // Capture thumbnail from viewport
         const thumbnail = this.viewport ? this.viewport.captureThumbnail() : null;
-        
+
         // Save to project storage
         const saved = VesselStorage.saveToProjectStorage(name, thumbnail);
-        
+
         // Update the editing project ID
         this.editingProjectId = saved.id;
-        
+
         // Update UI
         vesselState.setState('project.name', name);
         this.updateProjectName();
         this.updateUnsavedIndicator();
-        
+
+        // Optionally download as file
+        if (downloadFile) {
+            VesselStorage.saveToFile(name);
+        }
+
         // Show success feedback
         this.showSaveSuccessToast(name);
         this.setStatus('Project saved');
