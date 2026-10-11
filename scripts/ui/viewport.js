@@ -11,6 +11,8 @@ import { planSetLayout } from '../geometry/setLayout.js';
 import { RenderScheduler } from './renderScheduler.js';
 import { createWorldAxes } from './studio/worldAxes.js';
 import { createOrbitPanMode } from './orbitPanMode.js';
+import { createOutlineMaterial, createViewerStyle } from './viewerStyle.js';
+import { shadedPalette } from './viewerSettings.js';
 
 // Material for dinnerware items - smooth shading for circumference, geometry controls sharp profile edges
 const ITEM_MATERIAL = new THREE.MeshStandardMaterial({
@@ -65,32 +67,6 @@ const GHOST_MATERIAL = new THREE.MeshBasicMaterial({
 });
 const GHOST_EDGE_MATERIAL = new THREE.LineBasicMaterial({ color: 0x1abcfe, transparent: true, opacity: 0.55 });
 
-// Ink outline drawn as an inverted hull pushed out a constant number of
-// screen pixels, so every silhouette reads like a pen line at any zoom.
-function createOutlineMaterial(color, pixels) {
-    return new THREE.ShaderMaterial({
-        side: THREE.BackSide,
-        uniforms: {
-            uColor: { value: new THREE.Color(color) },
-            uPixels: { value: pixels },
-            uResolution: { value: new THREE.Vector2(1, 1) }
-        },
-        vertexShader: `
-            uniform float uPixels;
-            uniform vec2 uResolution;
-            void main() {
-                vec4 clip = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                vec3 viewNormal = normalize(normalMatrix * normal);
-                vec2 offset = normalize((projectionMatrix * vec4(viewNormal, 0.0)).xy + 1e-6);
-                clip.xy += offset * uPixels * 2.0 / uResolution * clip.w;
-                gl_Position = clip;
-            }`,
-        fragmentShader: `
-            uniform vec3 uColor;
-            void main() { gl_FragColor = vec4(uColor, 1.0); }`
-    });
-}
-
 const CLIPPING_PLANE_MATERIAL = new THREE.MeshBasicMaterial({
     color: 0x00b4d8,
     transparent: true,
@@ -134,6 +110,26 @@ export class ViewportManager {
         this.setupResizeHandler();
         this.setupRenderScheduler();
         this.setupSelection();
+        // Background, axis lines and line art follow the shared view settings;
+        // line art uses this viewport's own ink treatment (setAppearance)
+        this.viewerStyle = createViewerStyle({
+            scene: this.scene,
+            requestRender: () => this.requestRender(),
+            axesExtent: 300,
+            applyBackground: (mode, inkPaper) => {
+                if (inkPaper) return; // setAppearance owns paper and grid
+                this.setBackgroundColor(shadedPalette(mode).background);
+                this.setGridColors(mode === 'light');
+            },
+            lineArt: {
+                enable: ({ ink, paper }) => this.setAppearance({
+                    ink, paper, outlinePixels: 1.4 * Math.min(window.devicePixelRatio || 1, 2)
+                }),
+                disable: () => {
+                    if (this.lineStyle) this.clearAppearance({});
+                }
+            }
+        });
         this.requestRender();
     }
     

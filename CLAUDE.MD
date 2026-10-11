@@ -69,7 +69,13 @@
 - View controls live in the shared **view dock** (`scripts/ui/dialkit/viewDock.js`): a floating card in
   the lower left of each viewport with the Studio shell's X/Y/Z orientation cube (click a face to snap,
   drag to orbit, reset button) and an expand icon revealing the app's view controls plus global
-  Appearance (light/dark). Apps pass sections of toggle/select/slider/actions/group controls.
+  Appearance: Interface and Background light/dark (independent), Axes, Line Art. Apps pass sections of
+  toggle/select/slider/actions/group controls.
+- Viewer appearance is global (`scripts/ui/viewerSettings.js`, localStorage) and applied per viewport by
+  `scripts/ui/viewerStyle.js`: each viewport supplies `applyBackground(mode, inkPaper)` for its
+  background/grid; the controller adds colour-coded axis lines (X red, Y green on the floor, Z blue
+  vertical, matching the cube) and line art. Dinnerware uses its own `setAppearance`; the others get a
+  generic line art that restyles every scene mesh before each render (handles inside-out geometry).
 - Generators that need an input (Cast Form's vessel, Handle's mug/vessel) share one source flow: a
   `.dk-start-card` over the empty viewport until a source is chosen (nothing is generated before), and a
   `.dk-source-card` at the top of the parameter card with a Choose…/Change… button.

@@ -24,12 +24,13 @@ export function viewDock(page) {
         return group;
     }
 
+    // Segments carry data-value="true|false" whatever their labels (On/Off, Light/Dark)
     async function setToggle(label, on) {
-        await row(label).getByRole('button', { name: on ? 'On' : 'Off', exact: true }).click();
+        await row(label).locator(`.dk-seg[data-value="${Boolean(on)}"]`).click();
     }
 
     async function toggleState(label) {
-        return (await row(label).getByRole('button', { name: 'On', exact: true }).getAttribute('aria-pressed')) === 'true';
+        return (await row(label).locator('.dk-seg[data-value="true"]').getAttribute('aria-pressed')) === 'true';
     }
 
     async function choose(label, value) {

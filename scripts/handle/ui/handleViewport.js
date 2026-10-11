@@ -23,6 +23,8 @@ import {
 import { RenderScheduler } from '../../ui/renderScheduler.js';
 import { createWorldAxes } from '../../ui/studio/worldAxes.js';
 import { createOrbitPanMode } from '../../ui/orbitPanMode.js';
+import { getViewerSettings, shadedPalette } from '../../ui/viewerSettings.js';
+import { createViewerStyle } from '../../ui/viewerStyle.js';
 
 // Default camera: three-quarter view about 27° above the floor
 const THREE_QUARTER_POSITION = [150, 130, 120];
@@ -88,7 +90,7 @@ export class HandleViewport {
     init() {
         // Scene
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x1e1e1e);
+        this.scene.background = new THREE.Color(shadedPalette(getViewerSettings().background).background);
 
         // Camera
         const aspect = this.container.clientWidth / this.container.clientHeight;
@@ -174,6 +176,14 @@ export class HandleViewport {
         window.addEventListener('resize', this.resizeHandler);
 
         this.setupRenderScheduler();
+        // Background, axis lines and line art follow the shared view settings
+        this.viewerStyle = createViewerStyle({
+            scene: this.scene,
+            renderer: this.renderer,
+            requestRender: () => this.requestRender(),
+            applyBackground: (mode, inkPaper) => this.applyBackground(mode, inkPaper),
+            axesExtent: 200
+        });
         this.requestRender();
     }
 
@@ -314,10 +324,16 @@ export class HandleViewport {
         });
     }
 
-    createGrid() {
+    createGrid(mode = getViewerSettings().background, inkPaper = null) {
         // Floor grid under the mug (which stands on y=0), like the other generators
-        const dark = document.documentElement.dataset.mode !== 'light';
-        this.grid = new THREE.GridHelper(400, 40, dark ? 0x444444 : 0xcccccc, dark ? 0x333333 : 0xdddddd);
+        const shaded = shadedPalette(mode);
+        this.grid = inkPaper
+            ? new THREE.GridHelper(400, 40, inkPaper.ink, inkPaper.ink)
+            : new THREE.GridHelper(400, 40, shaded.grid, shaded.gridCenter);
+        if (inkPaper) {
+            this.grid.material.transparent = true;
+            this.grid.material.opacity = 0.14;
+        }
 
         if (this.showGrid) {
             this.scene.add(this.grid);
@@ -773,14 +789,15 @@ export class HandleViewport {
         this.requestRender({ settle: true });
     }
 
-    setTheme(isDark) {
-        this.scene.background = new THREE.Color(isDark ? 0x1e1e1e : 0xf5f5f5);
-        // GridHelper colours live in vertex colours; rebuild it for the theme
+    /** Background and grid for the viewer background mode, or ink on paper for line art. */
+    applyBackground(mode, inkPaper) {
+        this.scene.background = new THREE.Color(inkPaper ? inkPaper.paper : shadedPalette(mode).background);
+        // GridHelper colours live in vertex colours; rebuild it
         if (this.grid) {
             this.scene.remove(this.grid);
             this.grid.geometry.dispose();
             this.grid.material.dispose();
-            this.createGrid();
+            this.createGrid(mode, inkPaper);
         }
         this.requestRender();
     }
@@ -935,6 +952,7 @@ export class HandleViewport {
     dispose() {
         // Clean up resources
         this.renderScheduler?.dispose();
+        this.viewerStyle?.dispose();
         if (this.resizeHandler) {
             window.removeEventListener('resize', this.resizeHandler);
         }

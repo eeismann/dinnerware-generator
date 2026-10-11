@@ -6,7 +6,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VesselMeshGenerator } from '../geometry/vesselMeshGenerator.js';
-import { getMode } from '../../ui/themeManager.js';
+import { getViewerSettings, shadedPalette } from '../../ui/viewerSettings.js';
+import { createViewerStyle } from '../../ui/viewerStyle.js';
 import { RenderScheduler } from '../../ui/renderScheduler.js';
 import { createWorldAxes } from '../../ui/studio/worldAxes.js';
 import { createOrbitPanMode } from '../../ui/orbitPanMode.js';
@@ -52,7 +53,7 @@ export class VesselViewport {
         this.panController = null;
 
         // Theme observer
-        this.themeObserver = null;
+        this.viewerStyle = null;
 
         this.init();
     }
@@ -68,6 +69,14 @@ export class VesselViewport {
         this.setupHelpers();
         this.setupEventListeners();
         this.setupRenderScheduler();
+        // Background, axis lines and line art follow the shared view settings
+        this.viewerStyle = createViewerStyle({
+            scene: this.scene,
+            renderer: this.renderer,
+            requestRender: () => this.requestRender(),
+            applyBackground: (mode, inkPaper) => this.updateSceneColors(mode, inkPaper),
+            axesExtent: 300
+        });
 
         // Initial vessel
         this.updateVessel();
@@ -76,41 +85,44 @@ export class VesselViewport {
     setupScene() {
         this.scene = new THREE.Scene();
 
-        // Set initial colors based on theme
-        this.updateSceneColors();
+        // Initial colors; the viewer style controller keeps them in step
+        this.updateSceneColors(getViewerSettings().background, null);
     }
 
     /**
-     * Update scene colors based on current theme mode
+     * Background, fog and grid for the viewer background mode, or ink on
+     * paper while line art is on.
+     * @param {'light'|'dark'} mode
+     * @param {{ ink: number, paper: number }|null} inkPaper
      */
-    updateSceneColors() {
-        const mode = getMode();
-        const isDark = mode === 'dark';
-
-        // Background and fog colors
-        const bgColor = isDark ? 0x1E1E1E : 0xF5F5F5;
+    updateSceneColors(mode, inkPaper) {
+        const shaded = shadedPalette(mode);
+        const bgColor = inkPaper ? inkPaper.paper : shaded.background;
 
         this.scene.background = new THREE.Color(bgColor);
         this.scene.fog = new THREE.Fog(bgColor, 500, 1500);
 
         // Update grid colors if it exists
         if (this.gridHelper) {
-            const gridColor = isDark ? 0x444444 : 0xCCCCCC;
-            const gridCenterColor = isDark ? 0x333333 : 0xDDDDDD;
-
             // Remove old grid and create new one with updated colors
             this.scene.remove(this.gridHelper);
             this.gridHelper.geometry.dispose();
             this.gridHelper.material.dispose();
-
-            this.gridHelper = new THREE.GridHelper(600, 30, gridColor, gridCenterColor);
-            this.gridHelper.material.opacity = 0.5;
-            this.gridHelper.material.transparent = true;
-            this.gridHelper.visible = this.showGrid;
-            this.scene.add(this.gridHelper);
+            this.createGridHelper(mode, inkPaper);
         }
 
         this.requestRender();
+    }
+
+    createGridHelper(mode, inkPaper = null) {
+        const shaded = shadedPalette(mode);
+        this.gridHelper = inkPaper
+            ? new THREE.GridHelper(600, 30, inkPaper.ink, inkPaper.ink)
+            : new THREE.GridHelper(600, 30, shaded.grid, shaded.gridCenter);
+        this.gridHelper.material.opacity = inkPaper ? 0.14 : 0.5;
+        this.gridHelper.material.transparent = true;
+        this.gridHelper.visible = this.showGrid;
+        this.scene.add(this.gridHelper);
     }
 
     setupCamera() {
@@ -276,16 +288,8 @@ export class VesselViewport {
     }
 
     setupHelpers() {
-        // Grid helper - use theme-aware colors
-        const mode = getMode();
-        const isDark = mode === 'dark';
-        const gridColor = isDark ? 0x444444 : 0xCCCCCC;
-        const gridCenterColor = isDark ? 0x333333 : 0xDDDDDD;
-
-        this.gridHelper = new THREE.GridHelper(600, 30, gridColor, gridCenterColor);
-        this.gridHelper.material.opacity = 0.5;
-        this.gridHelper.material.transparent = true;
-        this.scene.add(this.gridHelper);
+        // Grid helper; recoloured by updateSceneColors
+        this.createGridHelper(getViewerSettings().background);
 
         // Create vessel group
         this.vesselGroup = new THREE.Group();
@@ -302,20 +306,6 @@ export class VesselViewport {
             this.resizeObserver = new ResizeObserver(() => this.onResize());
             this.resizeObserver.observe(this.container);
         }
-
-        // Observe theme changes
-        this.themeObserver = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                if (mutation.attributeName === 'data-mode') {
-                    this.updateSceneColors();
-                }
-            }
-        });
-
-        this.themeObserver.observe(document.documentElement, {
-            attributes: true,
-            attributeFilter: ['data-mode']
-        });
     }
 
     onResize() {
@@ -664,9 +654,7 @@ export class VesselViewport {
             window.removeEventListener('resize', this.resizeHandler);
         }
 
-        if (this.themeObserver) {
-            this.themeObserver.disconnect();
-        }
+        this.viewerStyle?.dispose();
 
         this.panController?.dispose();
         this.controls.dispose();

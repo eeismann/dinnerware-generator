@@ -66,7 +66,6 @@ async function init() {
     initHeaderButtons();
     initProjectNameEditing();
     initDialogs();
-    initThemeSync();
     initReadouts();
     initStartCard();
     await initDials();
@@ -415,21 +414,6 @@ function initProjectNameEditing() {
             ui: { ...state.ui, hasUnsavedChanges: true },
         }), ['ui']);
     });
-}
-
-/**
- * Keep the viewport in step with light/dark mode
- */
-function initThemeSync() {
-    const applyTheme = () => {
-        const isDark = document.documentElement.getAttribute('data-mode') !== 'light';
-        getHandleViewport()?.setTheme(isDark);
-    };
-    new MutationObserver(applyTheme).observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ['data-mode']
-    });
-    applyTheme();
 }
 
 /**

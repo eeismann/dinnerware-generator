@@ -11,14 +11,9 @@ import { buildWallCaseBox, buildFootCaseBox, buildContinuousWallCaseBox } from '
 import { RenderScheduler } from '../../ui/renderScheduler.js';
 import { createWorldAxes } from '../../ui/studio/worldAxes.js';
 import { createOrbitPanMode } from '../../ui/orbitPanMode.js';
+import { getViewerSettings, shadedPalette } from '../../ui/viewerSettings.js';
+import { createViewerStyle } from '../../ui/viewerStyle.js';
 
-// Same palette as the Vessel and Handle viewports
-function sceneColors() {
-    const dark = document.documentElement.dataset.mode !== 'light';
-    return dark
-        ? { background: 0x1e1e1e, grid: 0x444444, gridCenter: 0x333333 }
-        : { background: 0xf5f5f5, grid: 0xcccccc, gridCenter: 0xdddddd };
-}
 
 export class CastFormViewport {
     constructor(container) {
@@ -90,8 +85,8 @@ export class CastFormViewport {
     init() {
         // Scene
         this.scene = new THREE.Scene();
-        // Follows the app theme like the other generators' viewports
-        this.scene.background = new THREE.Color(sceneColors().background);
+        // Recoloured by the viewer style controller (background mode, line art)
+        this.scene.background = new THREE.Color(shadedPalette(getViewerSettings().background).background);
         
         // Camera
         const aspect = this.container.clientWidth / this.container.clientHeight;
@@ -167,6 +162,15 @@ export class CastFormViewport {
         window.addEventListener('resize', this.resizeHandler);
 
         this.setupRenderScheduler();
+        // Background, axis lines and line art follow the shared view settings
+        this.viewerStyle = createViewerStyle({
+            scene: this.scene,
+            renderer: this.renderer,
+            requestRender: () => this.requestRender(),
+            applyBackground: (mode, inkPaper) => this.applyBackground(mode, inkPaper),
+            axesExtent: 200
+        });
+        this.unsubscribers.push(() => this.viewerStyle.dispose());
         this.updateValidationState();
         this.requestRender();
     }
@@ -201,22 +205,28 @@ export class CastFormViewport {
         this.scene.add(rimLight);
     }
 
-    setupGrid() {
-        const { grid, gridCenter } = sceneColors();
-        this.gridHelper = new THREE.GridHelper(400, 40, grid, gridCenter);
+    setupGrid(mode = getViewerSettings().background, inkPaper = null) {
+        const shaded = shadedPalette(mode);
+        this.gridHelper = inkPaper
+            ? new THREE.GridHelper(400, 40, inkPaper.ink, inkPaper.ink)
+            : new THREE.GridHelper(400, 40, shaded.grid, shaded.gridCenter);
+        if (inkPaper) {
+            this.gridHelper.material.transparent = true;
+            this.gridHelper.material.opacity = 0.14;
+        }
         this.gridHelper.position.y = 0;
         this.scene.add(this.gridHelper);
     }
 
-    /** Re-colour the background and grid when the light/dark theme changes. */
-    applyThemeColors() {
-        this.scene.background = new THREE.Color(sceneColors().background);
+    /** Background and grid for the viewer background mode, or ink on paper for line art. */
+    applyBackground(mode, inkPaper) {
+        this.scene.background = new THREE.Color(inkPaper ? inkPaper.paper : shadedPalette(mode).background);
         if (this.gridHelper) {
             const visible = this.gridHelper.visible;
             this.scene.remove(this.gridHelper);
             this.gridHelper.geometry.dispose();
             this.gridHelper.material.dispose();
-            this.setupGrid();
+            this.setupGrid(mode, inkPaper);
             this.gridHelper.visible = visible;
         }
         this.requestRender();
@@ -292,11 +302,6 @@ export class CastFormViewport {
         // Subscribe to cross-section angle changes
         this.unsubscribers.push(castFormState.subscribe('view.crossSectionAngle', () => { this.updateCrossSectionAngle(); this.requestRender(); }));
         
-        // Follow the light/dark theme
-        const themeObserver = new MutationObserver(() => this.applyThemeColors());
-        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-mode'] });
-        this.unsubscribers.push(() => themeObserver.disconnect());
-
         // Subscribe to grid visibility
         this.unsubscribers.push(castFormState.subscribe('view.showGrid', (show) => {
             if (this.gridHelper) {

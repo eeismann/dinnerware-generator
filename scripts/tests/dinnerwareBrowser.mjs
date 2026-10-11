@@ -129,10 +129,31 @@ try {
         return offset.z > 0.9;
     });
     await dock.open();
-    await dock.setToggle('Light Mode', true);
+    const viewer = () => page.evaluate(async () => {
+        const vp = (await import('/scripts/ui/viewport.js')).getViewport();
+        return {
+            background: '#' + vp.scene.background.getHexString(),
+            axes: vp.scene.getObjectByName('dk-axis-lines')?.visible,
+            lineArt: Boolean(vp.lineStyle)
+        };
+    });
+    await dock.setToggle('Interface', true);
     assert.equal(await page.evaluate(() => document.documentElement.dataset.mode), 'light');
-    await dock.setToggle('Light Mode', false);
-    pass('View dock: cube faces snap the camera, reset restores it; Light Mode toggles the theme');
+    await dock.setToggle('Interface', false);
+    await dock.setToggle('Background', true);
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.mode), 'dark', 'interface stays dark');
+    assert.equal((await viewer()).background, '#f5f5f5', 'light background with a dark interface');
+    assert.equal((await viewer()).axes, true, 'axis lines on by default');
+    await dock.setToggle('Axes', false);
+    assert.equal((await viewer()).axes, false);
+    await dock.setToggle('Axes', true);
+    await dock.setToggle('Line Art', true);
+    assert.deepEqual(await viewer(), { background: '#ffffff', axes: true, lineArt: true }, 'black ink on white paper');
+    await dock.setToggle('Background', false);
+    assert.equal((await viewer()).background, '#141414', 'white ink on black paper');
+    await dock.setToggle('Line Art', false);
+    assert.deepEqual(await viewer(), { background: '#1e1e1e', axes: true, lineArt: false });
+    pass('View dock: cube snaps and resets; interface and background modes are independent; axes and line art toggle');
 
     // --- Hidden items are rebuilt only when shown
     await dock.openGroup('Items');

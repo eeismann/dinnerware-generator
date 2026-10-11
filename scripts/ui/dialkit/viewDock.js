@@ -3,7 +3,9 @@
  * viewport holding an orientation cube (X/Y/Z, Shapr3D-style). Click a face
  * to snap the view, drag the cube to orbit; the cube follows the camera when
  * the canvas is orbited. A small icon expands the card into the app's view
- * controls plus global ones (light/dark mode).
+ * controls plus global ones: interface and background light/dark, X/Y/Z
+ * axis lines and line-art rendering (viewerSettings.js; each viewport
+ * applies them through viewerStyle.js).
  *
  * The cube itself is the Studio shell's (`../studio/viewCube.js`), driven by
  * the viewport's `getCameraRig()`. Controls are plain dk rows rather than
@@ -12,7 +14,7 @@
  *
  * Section spec:
  *   { title, controls: [
- *       { type: 'toggle', label, get(), set(value) },
+ *       { type: 'toggle', label, get(), set(value), labels?: [offLabel, onLabel] },
  *       { type: 'select', label, options: [{ value, label }], get(), set(value) },
  *       { type: 'slider', label, min, max, step, get(), set(value), format?(value) },
  *       { type: 'actions', items: [{ label, run() }] },
@@ -25,6 +27,7 @@
 
 import { createViewCube } from '../studio/viewCube.js';
 import { getMode, setMode } from '../themeManager.js';
+import { getViewerSettings, setViewerSetting, onViewerSettings } from '../viewerSettings.js';
 
 const EXPAND_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
     <line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2.2" fill="currentColor" stroke="none"/>
@@ -82,12 +85,34 @@ export function createViewDock({ container, rig, onReset, sections = [], storage
 
     const globalSection = {
         title: 'Appearance',
-        controls: [{
-            type: 'toggle',
-            label: 'Light Mode',
-            get: () => getMode() === 'light',
-            set: (light) => setMode(light ? 'light' : 'dark')
-        }]
+        controls: [
+            {
+                type: 'toggle',
+                label: 'Interface',
+                labels: ['Dark', 'Light'],
+                get: () => getMode() === 'light',
+                set: (light) => setMode(light ? 'light' : 'dark')
+            },
+            {
+                type: 'toggle',
+                label: 'Background',
+                labels: ['Dark', 'Light'],
+                get: () => getViewerSettings().background === 'light',
+                set: (light) => setViewerSetting('background', light ? 'light' : 'dark')
+            },
+            {
+                type: 'toggle',
+                label: 'Axes',
+                get: () => getViewerSettings().axes,
+                set: (on) => setViewerSetting('axes', on)
+            },
+            {
+                type: 'toggle',
+                label: 'Line Art',
+                get: () => getViewerSettings().lineArt,
+                set: (on) => setViewerSetting('lineArt', on)
+            }
+        ]
     };
     const refreshers = [];
 
@@ -156,7 +181,8 @@ export function createViewDock({ container, rig, onReset, sections = [], storage
         let refresh;
 
         if (control.type === 'toggle') {
-            const toggle = segmented();
+            const [offLabel, onLabel] = control.labels ?? ['Off', 'On'];
+            const toggle = segmented(onLabel, offLabel);
             toggle.setAttribute('role', 'group');
             toggle.setAttribute('aria-label', control.label);
             toggle.querySelectorAll('.dk-seg').forEach(seg => {
@@ -253,8 +279,8 @@ export function createViewDock({ container, rig, onReset, sections = [], storage
             expand.focus();
         }
     });
-    // Theme changes from elsewhere (another tab, the dashboard) update the toggle
-    new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ['data-mode'] });
+    // Theme and viewer changes from elsewhere (another tab, the dashboard)
+    onViewerSettings(sync);
 
     let stored = null;
     try {

@@ -947,7 +947,7 @@ function initDials() {
 // === View dock (lower left) ===
 
 let viewDock = null;
-const viewDisplay = { crossSection: false, showGrid: true, lightBackground: true };
+const viewDisplay = { crossSection: false, showGrid: true };
 
 const LAYOUT_OPTIONS = [
     { value: 'row', label: 'Row' },
@@ -1005,16 +1005,6 @@ function initViewDock() {
                     label: 'Show Grid',
                     get: () => viewDisplay.showGrid,
                     set: (on) => { viewDisplay.showGrid = on; viewport.toggleGrid(on); }
-                },
-                {
-                    type: 'toggle',
-                    label: 'Light Background',
-                    get: () => viewDisplay.lightBackground,
-                    set: (on) => {
-                        viewDisplay.lightBackground = on;
-                        viewport.setBackgroundColor(on ? 0xf0f0f0 : 0x1a1a1a);
-                        viewport.setGridColors(on);
-                    }
                 },
                 { type: 'group', label: 'Items', controls: itemControls }
             ]

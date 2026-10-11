@@ -160,6 +160,26 @@ try {
     });
     pass('View dock: cross-section, grid and the cube snaps to Top');
 
+    // --- Line art and axes on a viewport without its own line treatment
+    await dock.open();
+    await dock.setToggle('Cross Section', false);
+    await dock.setToggle('Show Grid', true);
+    await dock.setToggle('Line Art', true);
+    await page.waitForFunction(() => {
+        const mesh = window.vesselApp.viewport.vesselGroup.children.find(child => child.isMesh);
+        return mesh?.material.isMeshBasicMaterial && Boolean(mesh.userData.lineArt?.hull);
+    });
+    await dock.setToggle('Axes', false);
+    assert.equal(await page.evaluate(() => window.vesselApp.viewport.scene.getObjectByName('dk-axis-lines').visible), false);
+    await dock.setToggle('Axes', true);
+    await dock.setToggle('Line Art', false);
+    await page.waitForFunction(() => {
+        const mesh = window.vesselApp.viewport.vesselGroup.children.find(child => child.isMesh);
+        return !mesh.material.isMeshBasicMaterial && !mesh.userData.lineArt;
+    });
+    await dock.close();
+    pass('Line art restyles the vessel with ink outlines and restores it; axes toggle');
+
     // --- File menu: Save dialog, Export download, confirm dialog
     const fileItem = async (label) => {
         await page.locator('#btnFileMenu').click();
