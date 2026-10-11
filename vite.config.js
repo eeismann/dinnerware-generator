@@ -233,6 +233,11 @@ export default defineConfig({
     },
     server: {
         port: 3000,
-        open: '/dashboard.html'
+        open: '/dashboard.html',
+        // Agent worktrees and tool output live inside the repo; watching them
+        // floods the dev server with reloads
+        watch: {
+            ignored: ['**/.claude/**', '**/output/**', '**/.playwright-cli/**']
+        }
     }
 });
