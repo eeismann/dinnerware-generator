@@ -1,135 +1,8 @@
 /* ================================================
    DialKit chrome: Dinnerware Designer
-   Page-specific layout on top of dialkit-chrome.css: header, the right-hand
-   parameter card, the selection chip and the export dialog contents.
+   Page-specific pieces on top of dialkit-chrome.css: the viewport
+   selection chip and the export dialog contents.
    ================================================ */
-
-/* ---------- Header ---------- */
-
-.header.dk-header {
-    height: 52px;
-    padding: 0 12px;
-    background: var(--dk-glass-bg);
-    border-bottom: 1px solid var(--dk-border);
-    font-family: var(--dk-font);
-    -webkit-font-smoothing: antialiased;
-}
-
-.dk-header .header-left,
-.dk-header .header-right {
-    gap: 6px;
-}
-
-.dk-header .app-title {
-    margin-left: 6px;
-    font-family: var(--dk-font);
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 0;
-    color: var(--dk-text-root);
-}
-
-.dk-header .project-name {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--dk-text-label);
-}
-
-.dk-header .project-name[contenteditable]:hover,
-.dk-header .project-name[contenteditable]:focus {
-    color: var(--dk-text-root);
-}
-
-.dk-header .project-name[contenteditable]:focus {
-    background: var(--dk-surface);
-    box-shadow: 0 0 0 1px var(--dk-border);
-}
-
-.dk-header .unsaved-indicator {
-    font-size: 18px;
-}
-
-/* Back link: no slide/accent from the classic header */
-.dk-header #btnBackToDashboard {
-    width: 32px;
-    height: 32px;
-    background: var(--dk-surface);
-    border: none;
-    border-radius: var(--dk-radius);
-    color: var(--dk-text-label);
-    transform: none;
-}
-
-.dk-header #btnBackToDashboard:hover {
-    background: var(--dk-surface-hover);
-    color: var(--dk-text-root);
-}
-
-/* Parameters toggle: the filled column shows the panel is open */
-#btnTogglePanel .dk-panel-fill {
-    opacity: 0.45;
-    transition: opacity 0.15s;
-}
-
-#btnTogglePanel[aria-pressed="false"] .dk-panel-fill {
-    opacity: 0;
-}
-
-#btnTogglePanel[aria-pressed="true"] {
-    color: var(--dk-text-root);
-}
-
-/* ---------- Parameter card (right side) ---------- */
-
-.parameter-panel.dials-panel {
-    left: auto;
-    right: 12px;
-    width: 320px;
-    background: var(--dk-glass-bg);
-    border: 1px solid var(--dk-border);
-    border-radius: 14px;
-    box-shadow: var(--dk-shadow);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    transform: none;
-    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
-}
-
-.params-hidden .parameter-panel.dials-panel {
-    transform: translateX(calc(100% + 24px));
-    opacity: 0;
-    pointer-events: none;
-    visibility: hidden;
-    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease, visibility 0s 0.25s;
-}
-
-.dinnerware-dials {
-    font-family: var(--dk-font);
-}
-
-/* No DialKit chrome: drop the root "DialKit" header (Set Style leads) and
-   each panel's Version menu / copy toolbar. Project state, undo and style
-   presets already cover versioning. */
-.dinnerware-dials .dialkit-folder-root > .dialkit-panel-header,
-.dinnerware-dials .dialkit-panel-section-toolbar-clip,
-.dinnerware-dials .dialkit-panel-toolbar {
-    display: none !important;
-}
-
-/* Warning "reveal" highlight on a control row */
-.dinnerware-dials .dial-flash {
-    animation: dial-flash 1.2s ease-out;
-    border-radius: var(--dk-radius);
-}
-
-@keyframes dial-flash {
-    0%, 30% { box-shadow: 0 0 0 2px var(--dk-focus-ring); }
-    100% { box-shadow: 0 0 0 2px transparent; }
-}
 
 /* Selection chip in the same language */
 .selection-chip {
@@ -319,21 +192,8 @@
     color: var(--dk-text-root);
 }
 
+/* main.css hides these ids on narrow screens; inside the File menu they stay */
 @media (max-width: 900px) {
-    .parameter-panel.dials-panel {
-        top: 0;
-        right: 0;
-        bottom: 0;
-        left: auto;
-        width: min(320px, 88vw);
-        max-height: none;
-        border-radius: 14px 0 0 14px;
-    }
-
-    .dk-header .app-title {
-        display: none;
-    }
-
     .dk-menu #btnNewProject,
     .dk-menu #btnLoadProject {
         display: flex;
@@ -341,12 +201,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .parameter-panel.dials-panel,
-    .params-hidden .parameter-panel.dials-panel,
-    .dk-menu-list,
-    .dk-modal .modal-content,
-    .dinnerware-dials .dial-flash {
-        transition: none;
+    .dk-modal .modal-content {
         animation: none;
     }
 }

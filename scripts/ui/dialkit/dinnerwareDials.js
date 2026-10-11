@@ -1,20 +1,13 @@
 /**
  * DialKit controls for the Dinnerware Designer
  *
- * Replaces the classic parameter panel with DialKit panels mounted inline in
- * the left column. The project state stays the single source of truth: dial
- * edits are forwarded to the app through `api`, and `sync()` pushes state back
- * into the dials after anything else changes it (undo, load, the
- * profile panel).
- *
- * DialKit re-renders every panel whenever any panel's control list changes,
- * so structural updates (rows that appear/disappear, relabelled overrides)
- * wait until a pointer gesture ends, and folder open state is remembered and
- * written back into each config as `_collapsed`.
+ * Panel definitions for the shared DialKit host (dialHost.js): set style,
+ * surface pattern, item proportions, per-item overrides and view. Project
+ * state stays the source of truth; dial edits go through `api` (see
+ * scripts/main.js initDials()) and `sync()` pushes state back after undo or
+ * load.
  */
 
-import { createDialKit, createDialRoot, DialStore } from 'dialkit/vanilla';
-import 'dialkit/vanilla/styles.css';
 import {
     stateManager,
     parameterResolver,
@@ -22,6 +15,7 @@ import {
     ITEM_NAMES,
     PARAMETER_CONSTRAINTS
 } from '../../state/projectState.js';
+import { createDialHost, formatLabel } from './dialHost.js';
 
 export const PATTERN_PREFIXES = ['wall', 'footring'];
 export const PATTERN_PARAM_SUFFIXES = [
@@ -92,16 +86,6 @@ const LAYOUT_OPTIONS = [
     { value: 'table', label: 'Table Setting' }
 ];
 
-// Folder open state is applied on rebuild but never triggers one
-function configSignature(config) {
-    return JSON.stringify(config, (key, value) => (key === '_collapsed' ? undefined : value));
-}
-
-// Same transform DialKit applies to config keys
-function formatLabel(key) {
-    return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim();
-}
-
 function formatValue(param, value) {
     const constraints = PARAMETER_CONSTRAINTS[param] || {};
     if (constraints.type === 'boolean') return value ? 'On' : 'Off';
@@ -111,62 +95,16 @@ function formatValue(param, value) {
 }
 
 /**
- * Collects a panel's config together with the bindings from DialKit value
- * paths to app parameters, and applies remembered folder open state.
- */
-class ConfigBuilder {
-    constructor(panelName, folderOpen) {
-        this.panelName = panelName;
-        this.folderOpen = folderOpen;
-        this.bindings = new Map();
-    }
-
-    folder(key, children, { collapsed = false } = {}) {
-        const open = this.folderOpen.get(`${this.panelName}/${formatLabel(key)}`);
-        return { ...children, _collapsed: open === undefined ? collapsed : !open };
-    }
-
-    control(path, param, { constraints = PARAMETER_CONSTRAINTS[param], ...binding } = {}) {
-        this.bindings.set(path, { param, ...binding });
-        if (constraints.type === 'boolean') return Boolean(constraints.default);
-        if (constraints.options) {
-            return { type: 'select', options: constraints.options, default: constraints.default };
-        }
-        return [constraints.default, constraints.min, constraints.max, constraints.step];
-    }
-}
-
-/**
  * @param {Object} api - App hooks; see scripts/main.js initDials()
  * @returns {{ sync: Function, setOverrideItem: Function, revealOverrides: Function, element: HTMLElement }}
  */
 export function initDinnerwareDials(api) {
-    const { container } = api;
-    const folderOpen = new Map();
     const view = {
         crossSection: false,
         showGrid: true,
         lightBackground: true
     };
     let overrideItem = ITEM_TYPES[0];
-    let syncing = false;
-    let gesture = false;
-    let gestureChanged = false;
-    let structurePending = false;
-    let syncQueued = false;
-
-    const root = createDialRoot({ mode: 'inline', target: container, theme: currentTheme() });
-    root.element.classList.add('dinnerware-dials');
-
-    // --- Panel definitions -------------------------------------------------
-
-    const panels = [
-        { id: 'dinnerware-style', name: 'Set Style', build: buildStyleConfig, read: readGlobal },
-        { id: 'dinnerware-pattern', name: 'Surface Pattern', build: buildPatternConfig, read: readGlobal },
-        { id: 'dinnerware-proportions', name: 'Item Proportions', build: buildProportionsConfig, read: readMultiplier },
-        { id: 'dinnerware-overrides', name: 'Per-Item Overrides', build: buildOverridesConfig, read: readOverride },
-        { id: 'dinnerware-view', name: 'View', build: buildViewConfig, read: readView }
-    ];
 
     function readGlobal({ param }) {
         return stateManager.getState(`globalParameters.${param}`);
@@ -352,56 +290,6 @@ export function initDinnerwareDials(api) {
         };
     }
 
-    // --- Registration ------------------------------------------------------
-
-    panels.forEach(panel => {
-        const builder = new ConfigBuilder(panel.name, folderOpen);
-        panel.config = panel.build(builder);
-        panel.bindings = builder.bindings;
-        panel.signature = configSignature(panel.config);
-        panel.kit = createDialKit(panel.name, panel.config, {
-            id: panel.id,
-            defaultCollapsed: panel.id !== 'dinnerware-style',
-            onAction: (path) => handleAction(panel, path)
-        });
-        panel.lastSeen = {};
-        panel.kit.subscribe(() => handleDialChange(panel), false);
-    });
-
-    // --- Dial → app --------------------------------------------------------
-
-    function handleDialChange(panel) {
-        if (syncing) return;
-        const values = DialStore.getValues(panel.id);
-        const changed = [];
-        panel.bindings.forEach((binding, path) => {
-            if (values[path] !== panel.lastSeen[path]) changed.push([path, binding, values[path]]);
-        });
-        panel.lastSeen = { ...values };
-        if (!changed.length) return;
-        const interactive = gesture;
-        if (gesture) gestureChanged = true;
-
-        changed.forEach(([, binding, value]) => {
-            const { param, item, axis } = binding;
-            if (panel.id === 'dinnerware-style' || panel.id === 'dinnerware-pattern') {
-                api.setGlobal(param, value, { interactive });
-            } else if (panel.id === 'dinnerware-proportions') {
-                api.setMultiplier(item, axis, value, { interactive });
-            } else if (panel.id === 'dinnerware-overrides') {
-                if (param === '__item') {
-                    overrideItem = value;
-                    api.onSelectItem(value);
-                } else {
-                    api.setOverride(overrideItem, param, value, { interactive });
-                }
-            } else if (panel.id === 'dinnerware-view') {
-                applyViewChange(param, item, value);
-            }
-        });
-        requestSync();
-    }
-
     function applyViewChange(param, item, value) {
         if (param === 'layout') {
             api.setLayout(value);
@@ -418,179 +306,86 @@ export function initDinnerwareDials(api) {
         }
     }
 
-    function handleAction(panel, path) {
-        const action = path.split('.').pop();
-        if (panel.id === 'dinnerware-pattern' && action === 'copyWallToFootring') {
-            api.copyWallPatternToFootring();
-        } else if (panel.id === 'dinnerware-overrides') {
-            if (action === 'clearAll') {
-                api.clearAllOverrides(overrideItem);
-            } else if (action.startsWith('reset_')) {
-                api.clearOverride(overrideItem, action.slice('reset_'.length));
-            }
-        } else if (panel.id === 'dinnerware-view') {
-            if (CAMERA_ACTIONS[action]) api.setCamera(CAMERA_ACTIONS[action].preset);
-            else if (action === 'resetView') api.resetView();
-            else if (action === 'showAll') api.setVisibleItems([...ITEM_TYPES]);
-            else if (action === 'hideAll') api.setVisibleItems([]);
-        }
-        requestSync();
-    }
-
-    // --- App → dial --------------------------------------------------------
-
-    function requestSync() {
-        if (syncQueued) return;
-        syncQueued = true;
-        queueMicrotask(() => {
-            syncQueued = false;
-            sync();
-        });
-    }
-
-    /**
-     * Rebuild configs whose structure changed (deferred during a drag), then
-     * push current state into every bound control.
-     */
-    function sync() {
-        const scroller = container;
-        const scrollTop = scroller.scrollTop;
-        const focus = focusedControl();
-        let rebuilt = false;
-        syncing = true;
-        try {
-            panels.forEach(panel => {
-                const builder = new ConfigBuilder(panel.name, folderOpen);
-                const config = panel.build(builder);
-                const signature = configSignature(config);
-                if (signature !== panel.signature) {
-                    if (gesture) {
-                        structurePending = true;
-                    } else {
-                        panel.config = config;
-                        panel.signature = signature;
-                        panel.kit.updateConfig(config);
-                        rebuilt = true;
-                    }
+    const host = createDialHost({
+        container: api.container,
+        constraints: PARAMETER_CONSTRAINTS,
+        className: 'dinnerware-dials',
+        onGestureStart: api.onGestureStart,
+        onGestureEnd: api.onGestureEnd,
+        panels: [
+            {
+                id: 'dinnerware-style',
+                name: 'Set Style',
+                build: buildStyleConfig,
+                read: readGlobal,
+                change: ({ param }, value, options) => api.setGlobal(param, value, options)
+            },
+            {
+                id: 'dinnerware-pattern',
+                name: 'Surface Pattern',
+                collapsed: true,
+                build: buildPatternConfig,
+                read: readGlobal,
+                change: ({ param }, value, options) => api.setGlobal(param, value, options),
+                action: (name) => {
+                    if (name === 'copyWallToFootring') api.copyWallPatternToFootring();
                 }
-                if (panel.signature === signature) panel.bindings = builder.bindings;
-                const updates = {};
-                panel.bindings.forEach((binding, path) => {
-                    const value = panel.read(binding);
-                    if (value !== undefined && DialStore.getValue(panel.id, path) !== value) {
-                        updates[path] = value;
+            },
+            {
+                id: 'dinnerware-proportions',
+                name: 'Item Proportions',
+                collapsed: true,
+                build: buildProportionsConfig,
+                read: readMultiplier,
+                change: ({ item, axis }, value, options) => api.setMultiplier(item, axis, value, options)
+            },
+            {
+                id: 'dinnerware-overrides',
+                name: 'Per-Item Overrides',
+                collapsed: true,
+                build: buildOverridesConfig,
+                read: readOverride,
+                change: ({ param }, value, options) => {
+                    if (param === '__item') {
+                        overrideItem = value;
+                        api.onSelectItem(value);
+                    } else {
+                        api.setOverride(overrideItem, param, value, options);
                     }
-                });
-                if (Object.keys(updates).length) DialStore.updateValues(panel.id, updates);
-                panel.lastSeen = { ...DialStore.getValues(panel.id) };
-            });
-        } finally {
-            syncing = false;
-        }
-        scroller.scrollTop = scrollTop;
-        if (rebuilt && focus) restoreFocus(focus);
-    }
-
-    // A rebuild replaces every control element; keep keyboard users on the
-    // control they were adjusting (matched by section and accessible name).
-    function focusedControl() {
-        const active = document.activeElement;
-        if (!active || !root.element.contains(active)) return null;
-        const label = active.getAttribute('aria-label');
-        const section = active.closest('.dialkit-folder-section')
-            ?.querySelector(':scope > .dialkit-folder-header .dialkit-folder-title')?.textContent;
-        return label ? { label, section } : null;
-    }
-
-    function restoreFocus({ label, section }) {
-        const match = [...root.element.querySelectorAll('[aria-label]')].find(node =>
-            node.getAttribute('aria-label') === label
-            && node.closest('.dialkit-folder-section')
-                ?.querySelector(':scope > .dialkit-folder-header .dialkit-folder-title')?.textContent === section);
-        match?.focus({ preventScroll: true });
-    }
-
-    // --- Gestures, folders, theme --------------------------------------------
-
-    // A slider drag previews interactively and is one undo step; the release
-    // triggers the full-resolution rebuild and any deferred structure change.
-    root.element.addEventListener('pointerdown', () => {
-        gesture = true;
-        gestureChanged = false;
-        api.onGestureStart();
-    }, true);
-    const endGesture = () => {
-        if (!gesture) return;
-        gesture = false;
-        api.onGestureEnd(gestureChanged);
-        gestureChanged = false;
-        if (structurePending) {
-            structurePending = false;
-            requestSync();
-        }
-    };
-    document.addEventListener('pointerup', endGesture, true);
-    document.addEventListener('pointercancel', endGesture, true);
-
-    // Remember folder open state across DialKit's full re-renders
-    new MutationObserver(records => {
-        records.forEach(({ target }) => {
-            // Folders torn down by a re-render still report their old state
-            if (!target.isConnected || !target.classList?.contains('dialkit-folder')
-                || target.classList.contains('dialkit-folder-root')
-                || target.classList.contains('dialkit-folder-section')) return;
-            const key = folderKey(target);
-            if (key) folderOpen.set(key, target.dataset.open === 'true');
-        });
-    }).observe(root.element, { attributes: true, attributeFilter: ['data-open'], subtree: true });
-
-    function folderKey(folder) {
-        const title = folder.querySelector(':scope > .dialkit-folder-header .dialkit-folder-title')?.textContent;
-        const section = folder.closest('.dialkit-folder-section');
-        const panelName = section?.querySelector(':scope > .dialkit-folder-header .dialkit-folder-title')?.textContent;
-        return title && panelName ? `${panelName}/${title}` : null;
-    }
-
-    function currentTheme() {
-        return document.documentElement.dataset.mode === 'light' ? 'light' : 'dark';
-    }
-    new MutationObserver(() => {
-        root.element.dataset.theme = currentTheme();
-    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-mode'] });
-
-    // --- Public helpers ------------------------------------------------------
-
-    function panelById(id) {
-        return panels.find(panel => panel.id === id);
-    }
+                },
+                action: (name) => {
+                    if (name === 'clearAll') api.clearAllOverrides(overrideItem);
+                    else if (name.startsWith('reset_')) api.clearOverride(overrideItem, name.slice('reset_'.length));
+                }
+            },
+            {
+                id: 'dinnerware-view',
+                name: 'View',
+                collapsed: true,
+                build: buildViewConfig,
+                read: readView,
+                change: ({ param, item }, value) => applyViewChange(param, item, value),
+                action: (name) => {
+                    if (CAMERA_ACTIONS[name]) api.setCamera(CAMERA_ACTIONS[name].preset);
+                    else if (name === 'resetView') api.resetView();
+                    else if (name === 'showAll') api.setVisibleItems([...ITEM_TYPES]);
+                    else if (name === 'hideAll') api.setVisibleItems([]);
+                }
+            }
+        ]
+    });
 
     function setOverrideItem(item) {
         if (!ITEM_TYPES.includes(item) || item === overrideItem) return;
         overrideItem = item;
-        requestSync();
-    }
-
-    /** Scroll to and flash the first control whose label matches. */
-    function revealLabel(label) {
-        const match = [...root.element.querySelectorAll('span, label, div')]
-            .find(node => node.childElementCount === 0 && node.textContent.trim() === label);
-        const row = match?.closest('[class*="dialkit-slider"], [class*="dialkit-select"], [class*="dialkit-toggle"], [class*="dialkit-text"]') || match;
-        if (!row) return;
-        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        row.classList.remove('dial-flash');
-        void row.offsetWidth;
-        row.classList.add('dial-flash');
+        host.sync();
     }
 
     /** Open the overrides panel on an item. */
     function revealOverrides(item) {
         setOverrideItem(item);
-        const panel = panelById('dinnerware-overrides');
-        panel.kit.setOpen(true);
-        requestAnimationFrame(() => revealLabel(panel.name));
+        host.reveal('dinnerware-overrides');
     }
 
-    sync();
-
-    return { sync: requestSync, setOverrideItem, revealOverrides, element: root.element };
+    return { sync: host.sync, setOverrideItem, revealOverrides, element: host.element };
 }

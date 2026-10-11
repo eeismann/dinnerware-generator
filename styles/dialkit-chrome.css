@@ -2,7 +2,8 @@
    DialKit chrome (shared)
    Tokens and controls that mirror DialKit's look (dialkit/vanilla/styles.css):
    icon/label buttons, menus, dialog frame, 36px rows, Off/On segmented
-   toggles. Used by the Dinnerware Designer and the dashboard.
+   toggles, the app header and the right-hand DialKit parameter card. Used by
+   every generator and the dashboard.
    ================================================ */
 
 :root {
@@ -526,6 +527,185 @@
 @media (prefers-reduced-motion: reduce) {
     .dk-menu-list,
     .dk-modal .modal-content {
+        animation: none;
+    }
+}
+
+/* ---------- Header ---------- */
+
+.dk-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: none;
+    box-sizing: border-box;
+    z-index: 100;
+    height: 52px;
+    padding: 0 12px;
+    background: var(--dk-glass-bg);
+    border-bottom: 1px solid var(--dk-border);
+    font-family: var(--dk-font);
+    -webkit-font-smoothing: antialiased;
+}
+
+.dk-header .header-left,
+.dk-header .header-center,
+.dk-header .header-right {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.dk-header .header-center {
+    justify-content: center;
+}
+
+.dk-header .header-right {
+    justify-content: flex-end;
+}
+
+.dk-header .app-title {
+    margin-left: 6px;
+    font-family: var(--dk-font);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--dk-text-root);
+}
+
+.dk-header .project-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-label);
+}
+
+.dk-header .project-name[contenteditable]:hover,
+.dk-header .project-name[contenteditable]:focus {
+    color: var(--dk-text-root);
+}
+
+.dk-header .project-name[contenteditable]:focus {
+    background: var(--dk-surface);
+    box-shadow: 0 0 0 1px var(--dk-border);
+}
+
+.dk-header .unsaved-indicator {
+    font-size: 18px;
+}
+
+/* Parameters toggle: the filled column shows the panel is open */
+/* Every app styles its back link by id; reset it to a DialKit icon button */
+.dk-header #btnBackToDashboard {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: var(--dk-surface);
+    border: none;
+    border-radius: var(--dk-radius);
+    color: var(--dk-text-label);
+    transform: none;
+}
+
+.dk-header #btnBackToDashboard:hover {
+    background: var(--dk-surface-hover);
+    color: var(--dk-text-root);
+}
+
+.dk-panel-toggle .dk-panel-fill {
+    opacity: 0.45;
+    transition: opacity 0.15s;
+}
+
+.dk-panel-toggle[aria-pressed="false"] .dk-panel-fill {
+    opacity: 0;
+}
+
+.dk-panel-toggle[aria-pressed="true"] {
+    color: var(--dk-text-root);
+}
+
+/* ---------- Parameter card (right side) ----------
+   An absolutely positioned card inside the app's positioned main area. */
+
+.dk-dials-card {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 320px;
+    max-height: calc(100% - 24px);
+    box-sizing: border-box;
+    z-index: 50;
+    background: var(--dk-glass-bg);
+    border: 1px solid var(--dk-border);
+    border-radius: 14px;
+    box-shadow: var(--dk-shadow);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    transform: none;
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
+}
+
+.params-hidden .dk-dials-card {
+    transform: translateX(calc(100% + 24px));
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease, visibility 0s 0.25s;
+}
+
+.dk-dials {
+    font-family: var(--dk-font);
+}
+
+/* No DialKit chrome: drop the root "DialKit" header (the first panel leads)
+   and each panel's Version menu / copy toolbar. Project state and undo
+   already cover versioning. */
+.dk-dials .dialkit-folder-root > .dialkit-panel-header,
+.dk-dials .dialkit-panel-section-toolbar-clip,
+.dk-dials .dialkit-panel-toolbar {
+    display: none !important;
+}
+
+/* Warning "reveal" highlight on a control row */
+.dk-dials .dial-flash {
+    animation: dial-flash 1.2s ease-out;
+    border-radius: var(--dk-radius);
+}
+
+@keyframes dial-flash {
+    0%, 30% { box-shadow: 0 0 0 2px var(--dk-focus-ring); }
+    100% { box-shadow: 0 0 0 2px transparent; }
+}
+
+@media (max-width: 900px) {
+    .dk-dials-card {
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: min(320px, 88vw);
+        max-height: none;
+        border-radius: 14px 0 0 14px;
+    }
+
+    .dk-header .app-title {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dk-dials-card,
+    .params-hidden .dk-dials-card,
+    .dk-dials .dial-flash {
+        transition: none;
         animation: none;
     }
 }

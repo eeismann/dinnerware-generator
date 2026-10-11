@@ -22,6 +22,7 @@ import { openDialog, closeDialog } from './ui/accessibility.js';
 import {
     initDinnerwareDials, PATTERN_PARAM_SUFFIXES, patternParamName
 } from './ui/dialkit/dinnerwareDials.js';
+import { initDkMenu, initPanelToggle } from './ui/dialkit/dkChrome.js';
 
 let stlExporterPromise = null;
 
@@ -83,8 +84,7 @@ function init() {
     initDials();
     initSelection();
     initKeyboardShortcuts();
-    initPanelToggle();
-    initFileMenu();
+    initHeaderChrome();
 
     // Restore the saved layout without marking the project dirty
     const savedLayout = stateManager.getState('ui.layoutMode');
@@ -951,77 +951,17 @@ function initDials() {
     });
 }
 
-// === Parameter panel toggle ===
+// === Header chrome ===
 
-const PANEL_VISIBLE_KEY = 'dinnerware_dials_visible';
+let panelToggle = null;
 
 function setPanelVisible(visible) {
-    document.documentElement.classList.toggle('params-hidden', !visible);
-    const button = document.getElementById('btnTogglePanel');
-    button?.setAttribute('aria-pressed', String(visible));
-    button?.setAttribute('title', visible ? 'Hide parameters' : 'Show parameters');
-    localStorage.setItem(PANEL_VISIBLE_KEY, visible ? '1' : '0');
+    panelToggle?.setVisible(visible);
 }
 
-function initPanelToggle() {
-    setPanelVisible(localStorage.getItem(PANEL_VISIBLE_KEY) !== '0');
-    document.getElementById('btnTogglePanel')?.addEventListener('click', () => {
-        setPanelVisible(document.documentElement.classList.contains('params-hidden'));
-    });
-}
-
-// === File menu ===
-
-function initFileMenu() {
-    const menu = document.getElementById('fileMenu');
-    const button = document.getElementById('btnFileMenu');
-    const list = document.getElementById('fileMenuList');
-    if (!menu || !button || !list) return;
-    const items = () => [...list.querySelectorAll('[role="menuitem"]')];
-
-    const setOpen = (open, { focus = false } = {}) => {
-        list.hidden = !open;
-        menu.classList.toggle('open', open);
-        button.setAttribute('aria-expanded', String(open));
-        if (open && focus) items()[0]?.focus();
-    };
-
-    button.addEventListener('click', (event) => {
-        event.stopPropagation();
-        setOpen(list.hidden);
-    });
-    button.addEventListener('keydown', (event) => {
-        if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            setOpen(true, { focus: true });
-        }
-    });
-    // Items run their own handlers (initHeaderButtons). Close first, in the
-    // capture phase, so dialogs they open return focus to the File button.
-    list.addEventListener('click', (event) => {
-        if (!event.target.closest('[role="menuitem"]')) return;
-        setOpen(false);
-        button.focus();
-    }, true);
-    list.addEventListener('keydown', (event) => {
-        const all = items();
-        const index = all.indexOf(document.activeElement);
-        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-            event.preventDefault();
-            const step = event.key === 'ArrowDown' ? 1 : -1;
-            all[(index + step + all.length) % all.length]?.focus();
-        } else if (event.key === 'Escape') {
-            event.stopPropagation();
-            setOpen(false);
-            button.focus();
-        }
-    });
-    document.addEventListener('click', (event) => {
-        if (!menu.contains(event.target)) setOpen(false);
-    });
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !list.hidden) setOpen(false);
-    });
+function initHeaderChrome() {
+    panelToggle = initPanelToggle(document.getElementById('btnTogglePanel'), 'dinnerware_dials_visible');
+    initDkMenu(document.getElementById('fileMenu'));
 }
 
 // Initialize when DOM is ready
