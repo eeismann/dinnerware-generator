@@ -6,7 +6,6 @@
 import { init as initThemeManager } from '../ui/themeManager.js';
 import { handleStateManager } from './state/handleState.js';
 import { initHandleViewport, getHandleViewport } from './ui/handleViewport.js';
-import { initCrossSectionPreview, getCrossSectionPreview } from './ui/crossSectionPreview.js';
 import { initDimensionOverlays, getDimensionOverlays } from './ui/dimensionOverlays.js';
 import { showMugImportModal } from './ui/mugImporter.js';
 import { ProjectFileFormat } from '../storage/fileFormat.js';
@@ -58,9 +57,6 @@ async function init() {
 
     // Initialize viewport
     const viewport = initHandleViewport('viewport');
-
-    // Initialize cross-section preview
-    initCrossSectionPreview('crossSectionCanvas');
 
     // Initialize dimension overlays
     initDimensionOverlays('dimensionOverlays');
@@ -286,29 +282,14 @@ function regenerateHandle(options = {}) {
         viewport.updateMug(state.mugData);
     }
 
-    renderCrossSectionPreview();
-
     // Update dimension overlays
     updateDimensionOverlays();
-
-    // Update handle size readout
-    updateDimensionsSummary();
 
     // Update mold kit summary
     updateMoldKitSummary();
 
     // Update warnings
     updateWarnings();
-}
-
-function renderCrossSectionPreview() {
-    const { handleParams } = handleStateManager.getState();
-    getCrossSectionPreview()?.render(
-        handleParams.crossSectionWidth,
-        handleParams.crossSectionHeight,
-        handleParams.crossSectionType,
-        handleParams.crossSectionCornerRadius
-    );
 }
 
 /**
@@ -437,13 +418,12 @@ function initProjectNameEditing() {
 }
 
 /**
- * Keep the viewport and cross-section preview in step with light/dark mode
+ * Keep the viewport in step with light/dark mode
  */
 function initThemeSync() {
     const applyTheme = () => {
         const isDark = document.documentElement.getAttribute('data-mode') !== 'light';
         getHandleViewport()?.setTheme(isDark);
-        renderCrossSectionPreview();
     };
     new MutationObserver(applyTheme).observe(document.documentElement, {
         attributes: true,
@@ -526,20 +506,6 @@ function updateWarnings() {
             </span>
         </button>
     `).join('');
-}
-
-/**
- * Update the handle size readout
- */
-function updateDimensionsSummary() {
-    const state = handleStateManager.getState();
-    const { topAttachmentHeight, bottomAttachmentHeight, handleProtrusion, handleWidth } = state.handleParams;
-    const summaryEl = document.getElementById('handleDimensionsSummary');
-    if (!summaryEl) return;
-
-    // Handle height is derived from attachment points
-    const handleHeight = topAttachmentHeight - bottomAttachmentHeight;
-    summaryEl.textContent = `${handleHeight} × ${handleProtrusion} × ${handleWidth}mm`;
 }
 
 function getMoldConstructionSettingsFromState(state = handleStateManager.getState()) {

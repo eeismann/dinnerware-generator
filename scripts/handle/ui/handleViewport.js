@@ -24,6 +24,9 @@ import { RenderScheduler } from '../../ui/renderScheduler.js';
 import { createWorldAxes } from '../../ui/studio/worldAxes.js';
 import { createOrbitPanMode } from '../../ui/orbitPanMode.js';
 
+// Default camera: three-quarter view about 27° above the floor
+const THREE_QUARTER_POSITION = [150, 130, 120];
+
 function canCreateWebGLContext() {
     try {
         const canvas = document.createElement('canvas');
@@ -90,7 +93,9 @@ export class HandleViewport {
         // Camera
         const aspect = this.container.clientWidth / this.container.clientHeight;
         this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
-        this.camera.position.set(150, 80, 0); // Side view default
+        // Elevated three-quarter default, looking down onto the floor grid
+        // like the other generators
+        this.camera.position.set(...THREE_QUARTER_POSITION);
         this.camera.lookAt(50, 50, 0);
 
         if (!canCreateWebGLContext()) {
@@ -310,13 +315,9 @@ export class HandleViewport {
     }
 
     createGrid() {
-        // Create a custom grid aligned to the XY plane (vertical)
-        const gridSize = 200;
-        const gridDivisions = 20;
-
-        this.grid = new THREE.GridHelper(gridSize, gridDivisions, 0x444444, 0x333333);
-        this.grid.rotation.x = Math.PI / 2; // Rotate to XY plane
-        this.grid.position.z = -1; // Slightly behind the model
+        // Floor grid under the mug (which stands on y=0), like the other generators
+        const dark = document.documentElement.dataset.mode !== 'light';
+        this.grid = new THREE.GridHelper(400, 40, dark ? 0x444444 : 0xcccccc, dark ? 0x333333 : 0xdddddd);
 
         if (this.showGrid) {
             this.scene.add(this.grid);
@@ -697,7 +698,7 @@ export class HandleViewport {
                 this.camera.position.set(150, 50, 0);
                 break;
             case 'threeQuarter':
-                this.camera.position.set(120, 80, 80);
+                this.camera.position.set(...THREE_QUARTER_POSITION);
                 break;
             case 'top':
                 this.camera.position.set(50, 200, 0);
@@ -715,7 +716,7 @@ export class HandleViewport {
     }
 
     resetView() {
-        this.setCameraView('side');
+        this.setCameraView('threeQuarter');
     }
 
     setShowGrid(show) {
@@ -773,16 +774,13 @@ export class HandleViewport {
     }
 
     setTheme(isDark) {
-        if (isDark) {
-            this.scene.background = new THREE.Color(0x1e1e1e);
-            if (this.grid) {
-                this.grid.material.color.set(0x444444);
-            }
-        } else {
-            this.scene.background = new THREE.Color(0xf5f5f5);
-            if (this.grid) {
-                this.grid.material.color.set(0xcccccc);
-            }
+        this.scene.background = new THREE.Color(isDark ? 0x1e1e1e : 0xf5f5f5);
+        // GridHelper colours live in vertex colours; rebuild it for the theme
+        if (this.grid) {
+            this.scene.remove(this.grid);
+            this.grid.geometry.dispose();
+            this.grid.material.dispose();
+            this.createGrid();
         }
         this.requestRender();
     }

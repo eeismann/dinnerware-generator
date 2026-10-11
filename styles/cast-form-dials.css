@@ -161,10 +161,8 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
+/* Lives in the view dock, stacked above the cube (castFormMain initViewDock) */
 .part-legend {
-    position: absolute;
-    top: 12px;
-    left: 12px;
     display: flex;
     flex-direction: column;
     gap: 2px;

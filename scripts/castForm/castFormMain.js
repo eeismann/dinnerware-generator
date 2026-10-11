@@ -284,6 +284,8 @@ export class CastFormApp {
             rig: viewport?.getCameraRig(),
             onReset: () => viewport?.setCameraPreset('threeQuarter'),
             storageKey: 'castform_view_dock_open',
+            // The part legend stacks above the cube
+            accessory: document.getElementById('partLegend'),
             sections: [{
                 title: 'View',
                 controls: [

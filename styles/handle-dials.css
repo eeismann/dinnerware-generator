@@ -180,13 +180,6 @@ body::after {
     color: var(--dk-danger);
 }
 
-/* Cross-section preview */
-.cross-section-inset canvas {
-    align-self: center;
-    border-radius: var(--dk-radius);
-    background: var(--dk-surface);
-}
-
 /* ---------- Viewport dimension labels ---------- */
 
 .dimension-label {

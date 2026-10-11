@@ -392,8 +392,9 @@ export function generateAttachmentZoneGeometry(handleParams, mugData) {
  */
 export function generateMugPreviewMesh(mugData) {
     if (!mugData.loaded) {
-        // Return default mug shape
+        // Default mug shape, standing on y=0 like a loaded mug
         const geometry = new THREE.CylinderGeometry(40, 30, 95, 32, 1, true);
+        geometry.translate(0, 95 / 2, 0);
         return geometry;
     }
     

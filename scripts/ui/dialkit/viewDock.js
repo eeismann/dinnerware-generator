@@ -43,8 +43,9 @@ let dockCount = 0;
  * @param {Function} [options.onReset] - App's default view
  * @param {Array<Object>} [options.sections] - App view controls (see header)
  * @param {string} [options.storageKey] - Remembers expanded state
+ * @param {HTMLElement} [options.accessory] - Card stacked above the cube (e.g. a part legend)
  */
-export function createViewDock({ container, rig, onReset, sections = [], storageKey = 'dk_view_dock_open' }) {
+export function createViewDock({ container, rig, onReset, sections = [], storageKey = 'dk_view_dock_open', accessory }) {
     const id = `dkViewPanel${++dockCount}`;
     const dock = document.createElement('div');
     dock.className = 'dk-view-dock';
@@ -57,6 +58,8 @@ export function createViewDock({ container, rig, onReset, sections = [], storage
                 aria-expanded="false" aria-controls="${id}">${EXPAND_ICON}</button>
         </div>`;
     container.appendChild(dock);
+    // Above the panel, so the expanded controls stay attached to the cube
+    if (accessory) dock.prepend(accessory);
 
     const panel = dock.querySelector('.dk-view-panel');
     const expand = dock.querySelector('.dk-view-expand');

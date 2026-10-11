@@ -1,6 +1,6 @@
 // Real-browser regression for the Handle Designer's DialKit interface:
-// first-open source dialog, dial edits driving state and geometry,
-// conditional rows, the cross-section preview, File menu save/export/mold
+// first-open start card, dial edits driving state and geometry,
+// conditional rows, the view dock, File menu save/export/mold
 // kit, the source picker, the parameters toggle and light mode. Starts its
 // own Vite server and a software-WebGL Chromium.
 import assert from 'node:assert/strict';
@@ -35,7 +35,6 @@ try {
         const viewport = (await import('/scripts/handle/ui/handleViewport.js')).getHandleViewport();
         return viewport.handleMesh?.geometry.uuid ?? null;
     });
-    const previewPixels = () => page.locator('#crossSectionCanvas').evaluate(canvas => canvas.toDataURL());
 
     // DialKit helpers (see dinnerwareBrowser.mjs)
     const dials = page.locator('.handle-dials');
@@ -136,25 +135,22 @@ try {
     const params = (await state()).handleParams;
     assert.equal(params.topAttachmentHeight, 80);
     assert.notEqual(await handleGeometry(), geometry, 'typed value rebuilds the mesh');
-    assert.equal(await page.locator('#handleDimensionsSummary').textContent(),
-        `${80 - params.bottomAttachmentHeight} × ${params.handleProtrusion} × ${params.handleWidth}mm`);
     assert.equal(await page.locator('#unsavedIndicator').isVisible(), true, 'edit marks the project unsaved');
-    pass('Arrow keys and Enter-to-type edit state, rebuild the handle and update readouts');
+    pass('Arrow keys and Enter-to-type edit state and rebuild the handle');
 
-    // --- Profile switch changes the visible rows; the preview redraws
+    // --- Profile switch changes the visible rows and the geometry
     assert.equal(await slider(handle, 'Corner Radius').count(), 0, 'oval has no corner radius');
-    let pixels = await previewPixels();
+    geometry = await handleGeometry();
     await choose(handle, 'Profile', 'Rectangular');
     assert.equal((await state()).handleParams.crossSectionType, 'rectangular');
     await slider(handle, 'Corner Radius').waitFor();
-    assert.notEqual(await previewPixels(), pixels, 'preview shows the rectangular profile');
-    pixels = await previewPixels();
+    assert.notEqual(await handleGeometry(), geometry, 'rectangular profile rebuilds the handle');
     await typeValue(handle, 'Width', 14);
     assert.equal((await state()).handleParams.crossSectionHeight, 14, 'Width dial drives crossSectionHeight');
-    assert.notEqual(await previewPixels(), pixels, 'preview follows the width');
     await choose(handle, 'Profile', 'Oval');
     await slider(handle, 'Corner Radius').waitFor({ state: 'detached' });
-    pass('Profile select swaps the corner-radius row and the cross-section preview redraws');
+    assert.equal(await page.locator('#crossSectionInset').count(), 0, 'no cross-section card');
+    pass('Profile select swaps the corner-radius row and rebuilds the handle; no cross-section card');
 
     // --- Matching the mug wall angle replaces the manual arm angle
     await setToggle(handle, 'Match Mug Wall Angle', true);
