@@ -1,0 +1,276 @@
+/* ================================================
+   DialKit chrome: Vessel Designer V3
+   Page-specific pieces on top of dialkit-chrome.css: the page frame, the
+   freeform profile editor (left column) in DialKit's language, the motif
+   preview strip and the dialogs' visibility.
+   ================================================ */
+
+body {
+    background: var(--dk-page-bg);
+    font-family: var(--dk-font);
+    -webkit-font-smoothing: antialiased;
+}
+
+body::after {
+    display: none;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+/* The dials card is positioned inside the main area, over the viewport */
+.main-content {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    grid-template-columns: minmax(340px, 36vw) minmax(0, 1fr);
+    gap: 0;
+    background: var(--dk-page-bg);
+}
+
+.viewport-shell {
+    background: var(--dk-page-bg);
+}
+
+/* ---------- Profile editor ---------- */
+
+.profile-workspace {
+    grid-template-rows: auto minmax(240px, 1fr) auto auto auto;
+    background: var(--dk-glass-bg);
+    border-right: 1px solid var(--dk-border);
+    color: var(--dk-text-label);
+    font-family: var(--dk-font);
+    font-size: 13px;
+    scrollbar-width: thin;
+}
+
+.profile-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px 0;
+}
+
+.profile-toolbar .dk-icon-btn.active,
+.profile-toolbar .dk-icon-btn[aria-pressed="true"] {
+    background: var(--dk-surface-active);
+    color: var(--dk-text-root);
+    box-shadow: inset 0 0 0 1px var(--dk-border-hover);
+}
+
+.dk-icon-btn.dk-icon-btn-danger:hover:not(:disabled) {
+    background: var(--dk-danger-surface);
+    color: var(--dk-danger);
+}
+
+.zoom-value {
+    min-width: 46px;
+    align-self: center;
+    color: var(--dk-text-tertiary);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.profile-canvas-wrap {
+    padding: 10px 12px;
+}
+
+.profile-svg {
+    background: var(--dk-surface);
+    border: 1px solid var(--dk-border);
+    border-radius: 10px;
+}
+
+.profile-grid-line {
+    stroke: var(--dk-text-root);
+    opacity: 0.07;
+}
+
+.profile-grid-line.major {
+    opacity: 0.14;
+}
+
+.profile-centerline {
+    stroke: var(--dk-text-tertiary);
+}
+
+.profile-baseline {
+    stroke: var(--dk-text-tertiary);
+}
+
+.profile-path {
+    stroke: var(--dk-text-root);
+}
+
+.profile-sampled-path {
+    stroke: var(--dk-text-label);
+    opacity: 0.4;
+}
+
+.profile-segment-selected {
+    stroke: var(--dk-text-root);
+    stroke-width: 5;
+    opacity: 0.28;
+}
+
+.profile-motif-badge {
+    stroke: var(--dk-glass-bg);
+}
+
+.profile-anchor {
+    fill: var(--dk-glass-bg);
+    stroke: var(--dk-text-root);
+}
+
+.profile-anchor.selected {
+    fill: var(--dk-text-root);
+    stroke: var(--dk-glass-bg);
+}
+
+.profile-anchor.locked {
+    fill: var(--dk-text-tertiary);
+}
+
+.profile-handle-line {
+    stroke: var(--dk-text-label);
+    opacity: 0.6;
+}
+
+.profile-handle {
+    fill: var(--dk-glass-bg);
+    stroke: var(--dk-text-label);
+}
+
+/* Stats read like DialKit value rows */
+.profile-stats {
+    gap: 4px;
+    padding: 0 12px;
+    background: none;
+    border: none;
+    color: var(--dk-text-tertiary);
+    font-size: 12px;
+}
+
+.profile-stats > span {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    color: var(--dk-text-label);
+    font-weight: 500;
+}
+
+.profile-stats strong {
+    color: var(--dk-text-root);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.profile-warnings {
+    min-height: 0;
+    padding: 8px 12px 12px;
+    background: none;
+    color: #f5a623;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+[data-mode="light"] .profile-warnings,
+[data-mode="light"] .motif-strip-warning {
+    color: #b26a00;
+}
+
+.profile-warning {
+    padding: 3px 0;
+}
+
+.profile-warning.muted {
+    color: var(--dk-text-tertiary);
+}
+
+/* ---------- Motif preview strip ---------- */
+
+.motif-strip {
+    margin: 8px 12px 0;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    overflow: hidden;
+}
+
+.motif-strip-cap {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 10px;
+    color: var(--dk-text-label);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.motif-strip-cap > span:last-child {
+    color: var(--dk-text-tertiary);
+}
+
+#motifPreview {
+    display: block;
+    width: 100%;
+    height: 56px;
+}
+
+.motif-strip-warning {
+    margin: 0;
+    padding: 7px 10px;
+    color: #f5a623;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+/* ---------- Header ---------- */
+
+/* The classic vessel header adds blur and its own spacing */
+.dk-header {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.dk-header .unsaved-indicator {
+    color: var(--dk-text-label);
+}
+
+/* ---------- Dialogs ---------- */
+
+.dk-modal .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.dk-modal .modal-footer {
+    display: flex;
+}
+
+@media (max-width: 980px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-workspace {
+        border-right: none;
+        border-bottom: 1px solid var(--dk-border);
+    }
+}
+
+@media (max-width: 760px) {
+    .main-content {
+        overflow-y: auto;
+    }
+}

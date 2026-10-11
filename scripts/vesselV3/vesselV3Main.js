@@ -9,11 +9,13 @@ import { validateVesselV3Profile } from './geometry/profileSampler.js';
 import { buildLidGeometry, deriveVesselNeckContext } from './geometry/lidGenerator.js';
 import { VesselV3Storage } from './vesselV3Storage.js';
 import { ProfileEditor } from './ui/profileEditor.js';
-import { MotifInspector } from './ui/motifInspector.js';
-import { SpoutInspector } from './ui/spoutInspector.js';
-import { LidInspector } from './ui/lidInspector.js';
+import { MotifPreview } from './ui/motifPreview.js';
 import { VesselViewport } from '../vessel/ui/vesselViewport.js';
 import { init as initThemeManager } from '../ui/themeManager.js';
+import { openDialog, closeDialog } from '../ui/accessibility.js';
+import { initVesselV3Dials, wallSegments } from '../ui/dialkit/vesselV3Dials.js';
+import { initDkMenu, initPanelToggle } from '../ui/dialkit/dkChrome.js';
+import { getDefaultMotif } from '../geometry/surfacePatternOptions.js';
 
 let vesselExporterPromise = null;
 
@@ -48,20 +50,19 @@ class VesselV3App {
 
         this.initViewport();
         this.initProfileEditor();
-        this.motifInspector = new MotifInspector();
-        this.spoutInspector = new SpoutInspector();
-        this.lidInspector = new LidInspector();
+        this.initDials();
+        this.motifPreview = new MotifPreview(document.getElementById('motifStrip'),
+            () => this.dials.activeSegmentId());
         this.bindHeaderButtons();
+        this.bindProjectNameEditing();
         this.bindToolButtons();
-        this.bindGlobalControls();
-        this.bindViewControls();
         this.bindModals();
         this.bindKeyboard();
         this.subscribeToState();
+        this.initHeaderChrome();
 
         this.autosaveInterval = VesselV3Storage.setupAutosave(30000);
         this.updateAll();
-        this.setStatus('Ready');
     }
 
     initViewport() {
@@ -85,12 +86,136 @@ class VesselV3App {
         this.profileEditor = new ProfileEditor(container);
     }
 
+    /**
+     * DialKit parameter panels (scripts/ui/dialkit/vesselV3Dials.js). Edits go
+     * through vesselV3State; profile edits made during a slider drag skip
+     * history and commit as one undo step on release.
+     */
+    initDials() {
+        this.dials = initVesselV3Dials({
+            container: document.getElementById('parameterPanel'),
+            setGlobal: (param, value) => vesselV3State.setState(`global.${param}`, value, { history: false }),
+            setProfileMode: (mode) => {
+                vesselV3State.setState('profile.mode', mode);
+                vesselV3State.setState('ui.selectedHandle', null, { history: false });
+            },
+            setCornerRadius: (value, { interactive }) => {
+                const selectedId = vesselV3State.getState('ui.selectedPointId');
+                this.updatePoints((points) => {
+                    const point = points.find((entry) => entry.id === selectedId);
+                    if (point && !point.locked) point.cornerRadius = value;
+                }, { interactive });
+            },
+            setFooterOverlap: (enabled) => {
+                vesselV3State.setState('profile.allowFooterOverlap', enabled);
+                vesselV3State.setProfilePoints(vesselV3State.getState('profile.points'));
+            },
+            selectSegment: (segmentId) => {
+                vesselV3State.setState('ui.selectedPointId', null, { history: false });
+                vesselV3State.setState('ui.selectedHandle', null, { history: false });
+                vesselV3State.setState('ui.selectedSegmentId', segmentId, { history: false });
+            },
+            setMotif: (segmentId, patch, { interactive }) => {
+                this.updatePoints((points) => {
+                    const point = points.find((entry) => entry.id === segmentId);
+                    if (point) point.motif = { ...(point.motif || getDefaultMotif()), ...patch };
+                }, { interactive });
+            },
+            copyMotifToAdjacent: (segmentId) => this.copyMotif(segmentId, 'adjacent'),
+            applyMotifToAll: (segmentId) => this.copyMotif(segmentId, 'all'),
+            setSpout: (patch) => vesselV3State.setSpout(patch, { history: false }),
+            setLid: (patch) => vesselV3State.setLid(patch, { history: false }),
+            setLidPreviewMode: (mode) => vesselV3State.setState('ui.lidPreviewMode', mode, { history: false }),
+            setCamera: (preset) => this.viewport?.setCameraPreset(preset),
+            resetView: () => this.viewport?.resetCamera(),
+            setCrossSection: (enabled) => this.viewport?.toggleCrossSection(enabled),
+            setGrid: (visible) => this.viewport?.toggleGrid(visible),
+            onGestureStart: () => {},
+            onGestureEnd: (changed) => {
+                if (!changed) return;
+                vesselV3State.commitHistory();
+                this.updateHistoryButtons();
+            }
+        });
+    }
+
+    /** Apply `mutate` to a copy of the profile points and store the result. */
+    updatePoints(mutate, { interactive = false } = {}) {
+        const points = vesselV3State.getState('profile.points').map((point) => ({
+            ...point,
+            motif: point.motif ? { ...point.motif } : point.motif
+        }));
+        mutate(points);
+        vesselV3State.setProfilePoints(points, { history: !interactive });
+    }
+
+    /** Copy one segment's motif to its wall neighbours or to every wall segment. */
+    copyMotif(segmentId, scope) {
+        const segments = wallSegments();
+        const position = segments.findIndex((segment) => segment.id === segmentId);
+        if (position < 0) return;
+        const targets = scope === 'all'
+            ? segments
+            : segments.filter((segment) => Math.abs(segment.index - segments[position].index) === 1);
+        const motif = vesselV3State.getState('profile.points')[segments[position].index].motif;
+        this.updatePoints((points) => {
+            targets.forEach(({ index }) => {
+                points[index].motif = { ...getDefaultMotif(), ...motif };
+            });
+        });
+    }
+
+    initHeaderChrome() {
+        initPanelToggle(document.getElementById('btnTogglePanel'), 'vessel_v3_dials_visible');
+        initDkMenu(document.getElementById('fileMenu'));
+    }
+
     bindHeaderButtons() {
         document.getElementById('btnNewProject')?.addEventListener('click', () => this.newProject());
         document.getElementById('btnLoadProject')?.addEventListener('click', () => this.loadProject());
         document.getElementById('btnSaveProject')?.addEventListener('click', () => this.showSaveModal());
         document.getElementById('btnExportSTL')?.addEventListener('click', () => this.exportSTL());
         document.getElementById('btnExportLidSTL')?.addEventListener('click', () => this.exportLidSTL());
+        document.getElementById('btnUndo')?.addEventListener('click', () => vesselV3State.undo());
+        document.getElementById('btnRedo')?.addEventListener('click', () => vesselV3State.redo());
+    }
+
+    /**
+     * The header title renames in place: commits on blur/Enter through the
+     * normal save path, Escape restores the previous name.
+     */
+    bindProjectNameEditing() {
+        const nameEl = document.getElementById('projectName');
+        if (!nameEl) return;
+        let originalName = '';
+        let cancelEdit = false;
+
+        nameEl.addEventListener('focus', () => {
+            originalName = vesselV3State.getState('project.name') || 'Untitled Vessel V3';
+            cancelEdit = false;
+            requestAnimationFrame(() => {
+                const range = document.createRange();
+                range.selectNodeContents(nameEl);
+                window.getSelection()?.removeAllRanges();
+                window.getSelection()?.addRange(range);
+            });
+        });
+        nameEl.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === 'Escape') {
+                event.preventDefault();
+                cancelEdit = event.key === 'Escape';
+                nameEl.blur();
+            }
+        });
+        nameEl.addEventListener('blur', () => {
+            const nextName = cancelEdit
+                ? originalName
+                : nameEl.textContent.replace(/\s+/g, ' ').trim() || originalName;
+            nameEl.textContent = nextName;
+            if (!cancelEdit && nextName !== vesselV3State.getState('project.name')) {
+                this.saveProject(nextName, false);
+            }
+        });
     }
 
     bindToolButtons() {
@@ -101,224 +226,79 @@ class VesselV3App {
             });
         });
 
-        document.getElementById('btnProfileZoomOut')?.addEventListener('click', () => {
-            this.profileEditor?.zoomOut();
-            this.setStatus(`Profile zoom ${this.profileEditor?.getZoomPercent() || 100}%`);
-        });
-
-        document.getElementById('btnProfileZoomIn')?.addEventListener('click', () => {
-            this.profileEditor?.zoomIn();
-            this.setStatus(`Profile zoom ${this.profileEditor?.getZoomPercent() || 100}%`);
-        });
-
-        document.getElementById('btnProfileFit')?.addEventListener('click', () => {
-            this.profileEditor?.fitView();
-            this.setStatus('Profile fit');
-        });
-
-        document.getElementById('btnProfilePan')?.addEventListener('click', () => {
-            const active = this.profileEditor?.togglePanMode();
-            this.setStatus(active ? 'Profile pan on' : 'Profile pan off');
-        });
-
-        document.getElementById('btnUndo')?.addEventListener('click', () => {
-            if (vesselV3State.undo()) this.setStatus('Undone');
-        });
-
-        document.getElementById('btnRedo')?.addEventListener('click', () => {
-            if (vesselV3State.redo()) this.setStatus('Redone');
-        });
+        document.getElementById('btnProfileZoomOut')?.addEventListener('click', () => this.profileEditor?.zoomOut());
+        document.getElementById('btnProfileZoomIn')?.addEventListener('click', () => this.profileEditor?.zoomIn());
+        document.getElementById('btnProfileFit')?.addEventListener('click', () => this.profileEditor?.fitView());
+        document.getElementById('btnProfilePan')?.addEventListener('click', () => this.profileEditor?.togglePanMode());
 
         document.getElementById('btnDeletePoint')?.addEventListener('click', () => {
             this.profileEditor?.deleteSelectedPoint();
         });
     }
 
-    bindGlobalControls() {
-        this.bindNumberControl('wallThickness', 'global.wallThickness');
-        this.bindNumberControl('snapSize', 'global.snapSize');
-        this.bindNumberControl('radialSegments', 'global.radialSegments');
-        this.bindGridStepButton('btnGridSmaller', -1);
-        this.bindGridStepButton('btnGridLarger', 1);
-        this.bindProfileModeButtons();
-        this.bindCornerRadiusControl();
-
-        document.getElementById('snapToggle')?.addEventListener('change', (event) => {
-            vesselV3State.setState('global.snapEnabled', event.target.checked, { history: false });
-        });
-
-        document.getElementById('footerOverlapToggle')?.addEventListener('change', (event) => {
-            vesselV3State.setState('profile.allowFooterOverlap', event.target.checked);
-            vesselV3State.setProfilePoints(vesselV3State.getState('profile.points'));
-            this.setStatus(event.target.checked ? 'Footer overlap on' : 'Footer overlap off');
-        });
-    }
-
-    bindNumberControl(id, path) {
-        const input = document.getElementById(id);
-        if (!input) return;
-        input.addEventListener('input', () => {
-            let value = Number(input.value);
-            if (Number.isFinite(value)) {
-                const min = Number(input.min);
-                const max = Number(input.max);
-                if (Number.isFinite(min)) value = Math.max(min, value);
-                if (Number.isFinite(max)) value = Math.min(max, value);
-                if (input.step && !String(input.step).includes('.')) value = Math.round(value);
-                input.value = value;
-                vesselV3State.setState(path, value, { history: false });
-            }
-        });
-    }
-
-    bindGridStepButton(id, direction) {
-        const button = document.getElementById(id);
-        const input = document.getElementById('snapSize');
-        if (!button || !input) return;
-
-        button.addEventListener('click', () => {
-            const step = Number(input.step) || 1;
-            const min = Number(input.min) || 1;
-            const max = Number(input.max) || 50;
-            const current = Number(vesselV3State.getState('global.snapSize')) || 5;
-            const next = Math.max(min, Math.min(max, current + direction * step));
-            vesselV3State.setState('global.snapSize', next, { history: false });
-            this.setStatus(`Grid ${next} mm`);
-        });
-    }
-
-    bindProfileModeButtons() {
-        document.querySelectorAll('[data-profile-mode]').forEach((button) => {
-            button.addEventListener('click', () => {
-                const mode = button.dataset.profileMode === 'straight-rounded'
-                    ? 'straight-rounded'
-                    : 'bezier';
-                vesselV3State.setState('profile.mode', mode);
-                vesselV3State.setState('ui.selectedHandle', null, { history: false });
-                this.setStatus(mode === 'straight-rounded' ? 'Straight mode' : 'Bezier mode');
-            });
-        });
-    }
-
-    bindCornerRadiusControl() {
-        const input = document.getElementById('cornerRadius');
-        if (!input) return;
-
-        input.addEventListener('input', () => {
-            const selectedId = vesselV3State.getState('ui.selectedPointId');
-            if (!selectedId) return;
-
-            const min = Number(input.min) || 0;
-            const max = Number(input.max) || 80;
-            const value = Math.max(min, Math.min(max, Number(input.value) || 0));
-            const points = vesselV3State.getState('profile.points').map((point) => ({ ...point }));
-            const index = points.findIndex((point) => point.id === selectedId);
-            if (index < 0) return;
-
-            points[index] = {
-                ...points[index],
-                cornerRadius: value
-            };
-            input.value = value;
-            vesselV3State.setProfilePoints(points);
-        });
-    }
-
-    bindViewControls() {
-        const viewMenuContainer = document.getElementById('viewMenuContainer');
-        document.getElementById('btnViewMenu')?.addEventListener('click', (event) => {
-            event.stopPropagation();
-            viewMenuContainer?.classList.toggle('open');
-        });
-
-        document.addEventListener('click', (event) => {
-            if (!viewMenuContainer?.contains(event.target)) {
-                viewMenuContainer?.classList.remove('open');
-            }
-        });
-
-        document.querySelectorAll('[data-view]').forEach((button) => {
-            button.addEventListener('click', () => {
-                const view = button.dataset.view;
-                this.viewport?.setCameraPreset(view);
-                document.querySelectorAll('[data-view]').forEach((item) => item.classList.remove('active'));
-                button.classList.add('active');
-            });
-        });
-
-        document.getElementById('btnToggleCrossSection')?.addEventListener('click', () => {
-            const toggle = document.getElementById('crossSectionToggle');
-            toggle?.classList.toggle('active');
-            this.viewport?.toggleCrossSection(toggle?.classList.contains('active'));
-        });
-
-        document.getElementById('btnToggleGrid')?.addEventListener('click', () => {
-            const toggle = document.getElementById('gridToggle');
-            toggle?.classList.toggle('active');
-            this.viewport?.toggleGrid(toggle?.classList.contains('active'));
-        });
-    }
-
     bindModals() {
         const saveModal = document.getElementById('saveModal');
-        document.getElementById('btnCloseSaveModal')?.addEventListener('click', () => {
-            saveModal.style.display = 'none';
-        });
-        document.getElementById('btnCancelSave')?.addEventListener('click', () => {
-            saveModal.style.display = 'none';
+        const confirmModal = document.getElementById('confirmModal');
+        ['btnCloseSaveModal', 'btnCancelSave'].forEach((id) => {
+            document.getElementById(id)?.addEventListener('click', () => closeDialog(saveModal));
         });
         document.getElementById('btnConfirmSave')?.addEventListener('click', () => {
-            const name = document.getElementById('saveProjectName')?.value || 'Vessel V3';
+            const name = document.getElementById('saveProjectName')?.value.trim() || 'Vessel V3';
             const downloadFile = document.getElementById('saveAsFile')?.checked || false;
+            closeDialog(saveModal);
             this.saveProject(name, downloadFile);
-            saveModal.style.display = 'none';
         });
-        saveModal?.querySelector('.modal-backdrop')?.addEventListener('click', () => {
-            saveModal.style.display = 'none';
+        document.getElementById('saveProjectName')?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') document.getElementById('btnConfirmSave')?.click();
         });
 
-        const confirmModal = document.getElementById('confirmModal');
-        document.getElementById('btnCloseConfirmModal')?.addEventListener('click', () => {
-            confirmModal.style.display = 'none';
+        ['btnCloseConfirmModal', 'btnConfirmCancel'].forEach((id) => {
+            document.getElementById(id)?.addEventListener('click', () => closeDialog(confirmModal));
         });
-        document.getElementById('btnConfirmCancel')?.addEventListener('click', () => {
-            confirmModal.style.display = 'none';
+        document.getElementById('btnConfirmOk')?.addEventListener('click', () => {
+            const onConfirm = this.confirmCallback;
+            this.confirmCallback = null;
+            closeDialog(confirmModal);
+            onConfirm?.();
         });
-        confirmModal?.querySelector('.modal-backdrop')?.addEventListener('click', () => {
-            confirmModal.style.display = 'none';
+
+        [saveModal, confirmModal].forEach((modal) => {
+            modal?.querySelector('.modal-backdrop')?.addEventListener('click', () => closeDialog(modal));
         });
     }
 
     bindKeyboard() {
         document.addEventListener('keydown', (event) => {
-            const editableTarget = event.target.matches('input, textarea');
+            const target = event.target;
+            const typing = target.isContentEditable || target.matches('input, textarea, select');
+            // Canvas shortcuts stay out of the dials, dialogs and header buttons
+            const inControls = typing || Boolean(target.closest('#parameterPanel, .modal, button, a, [role="slider"]'));
             const meta = event.ctrlKey || event.metaKey;
-            if (meta && event.key === 's') {
+            const key = event.key.toLowerCase();
+            if (meta && key === 's') {
                 event.preventDefault();
                 this.showSaveModal();
-            } else if (meta && event.key === 'o') {
+            } else if (meta && key === 'o') {
                 event.preventDefault();
                 this.loadProject();
-            } else if (meta && event.key === 'z' && !event.shiftKey) {
+            } else if (meta && !typing && key === 'z') {
                 event.preventDefault();
-                vesselV3State.undo();
-            } else if ((meta && event.key === 'y') || (meta && event.shiftKey && event.key === 'Z')) {
+                if (event.shiftKey) vesselV3State.redo();
+                else vesselV3State.undo();
+            } else if (meta && !typing && key === 'y') {
                 event.preventDefault();
                 vesselV3State.redo();
+            } else if (meta || event.altKey || inControls) {
+                // Leave everything else to the focused control
             } else if (event.key === 'Backspace' || event.key === 'Delete') {
-                if (!editableTarget) {
-                    event.preventDefault();
-                    this.profileEditor?.deleteSelectedPoint();
-                }
-            } else if (event.code === 'Space' && !editableTarget) {
+                event.preventDefault();
+                this.profileEditor?.deleteSelectedPoint();
+            } else if (event.code === 'Space') {
                 event.preventDefault();
                 this.profileEditor?.setSpacePanning(true);
-            } else if (event.key === 'v') {
+            } else if (key === 'v' || key === 'p') {
                 this.profileEditor?.setPanMode(false);
-                vesselV3State.setState('ui.tool', 'edit', { history: false });
-            } else if (event.key === 'p') {
-                this.profileEditor?.setPanMode(false);
-                vesselV3State.setState('ui.tool', 'pen', { history: false });
+                vesselV3State.setState('ui.tool', key === 'v' ? 'edit' : 'pen', { history: false });
             }
         });
 
@@ -397,30 +377,35 @@ class VesselV3App {
 
     syncUIFromState(state) {
         document.querySelectorAll('[data-tool]').forEach((button) => {
-            button.classList.toggle('active', button.dataset.tool === state.ui.tool);
+            const active = button.dataset.tool === state.ui.tool;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', String(active));
         });
-
-        this.syncInputValue('wallThickness', state.global.wallThickness);
-        this.syncInputValue('snapSize', state.global.snapSize);
-        this.syncInputValue('radialSegments', state.global.radialSegments);
-        this.syncProfileMode(state);
-        this.syncCornerRadiusControl(state);
-
-        const snapToggle = document.getElementById('snapToggle');
-        if (snapToggle) snapToggle.checked = state.global.snapEnabled;
-
-        const footerOverlapToggle = document.getElementById('footerOverlapToggle');
-        if (footerOverlapToggle) footerOverlapToggle.checked = state.profile.allowFooterOverlap === true;
 
         const dimensions = this.calculateDimensions(state);
         document.getElementById('profileHeight').textContent = `${Math.round(dimensions.height)} mm`;
         document.getElementById('profileDiameter').textContent = `${Math.round(dimensions.maxRadius * 2)} mm`;
         document.getElementById('profilePointCount').textContent = String(state.profile.points.length);
 
+        // Hidden menu items also leave the menu's arrow-key order
         const exportLidButton = document.getElementById('btnExportLidSTL');
         if (exportLidButton) {
-            exportLidButton.hidden = state.lid?.enabled !== true;
+            const lidEnabled = state.lid?.enabled === true;
+            exportLidButton.hidden = !lidEnabled;
+            if (lidEnabled) exportLidButton.setAttribute('role', 'menuitem');
+            else exportLidButton.removeAttribute('role');
         }
+
+        this.updateHistoryButtons();
+        this.dials?.sync();
+        this.motifPreview?.update();
+    }
+
+    updateHistoryButtons() {
+        const undo = document.getElementById('btnUndo');
+        const redo = document.getElementById('btnRedo');
+        if (undo) undo.disabled = vesselV3State.historyIndex <= 0;
+        if (redo) redo.disabled = vesselV3State.historyIndex >= vesselV3State.history.length - 1;
     }
 
     /**
@@ -499,35 +484,6 @@ class VesselV3App {
         return this._lidSolidMaterial;
     }
 
-    syncProfileMode(state) {
-        const mode = state.profile.mode === 'straight-rounded' ? 'straight-rounded' : 'bezier';
-        document.querySelectorAll('[data-profile-mode]').forEach((button) => {
-            button.classList.toggle('active', button.dataset.profileMode === mode);
-        });
-    }
-
-    syncCornerRadiusControl(state) {
-        const control = document.getElementById('cornerRadiusControl');
-        const input = document.getElementById('cornerRadius');
-        if (!control || !input) return;
-
-        const straightMode = state.profile.mode === 'straight-rounded';
-        control.hidden = !straightMode;
-
-        const selected = state.profile.points.find((point) => point.id === state.ui.selectedPointId);
-        input.disabled = !straightMode || !selected || selected.locked;
-        if (document.activeElement !== input) {
-            input.value = selected ? Number(selected.cornerRadius || 0) : 0;
-        }
-    }
-
-    syncInputValue(id, value) {
-        const input = document.getElementById(id);
-        if (input && document.activeElement !== input) {
-            input.value = value;
-        }
-    }
-
     calculateDimensions(state) {
         const points = state.profile.points || [];
         return {
@@ -557,7 +513,6 @@ class VesselV3App {
             url.searchParams.delete('project');
             window.history.replaceState({}, '', url);
             this.updateAll();
-            this.setStatus('New project created');
         };
 
         if (vesselV3State.getState('project.isDirty')) {
@@ -572,10 +527,9 @@ class VesselV3App {
             try {
                 await VesselV3Storage.loadFromFile();
                 this.updateAll();
-                this.setStatus('Project loaded');
             } catch (error) {
                 console.error('Failed to load Vessel V3 project:', error);
-                this.setStatus('Failed to load project');
+                alert(`Could not load the project: ${error.message}`);
             }
         };
 
@@ -592,9 +546,8 @@ class VesselV3App {
         if (nameInput) {
             nameInput.value = vesselV3State.getState('project.name') || 'Vessel V3';
         }
-        modal.style.display = 'flex';
-        nameInput?.focus();
-        nameInput?.select();
+        openDialog(modal, { initialFocus: '#saveProjectName' });
+        requestAnimationFrame(() => nameInput?.select());
     }
 
     saveProject(name, downloadFile = false) {
@@ -606,14 +559,12 @@ class VesselV3App {
         }
         this.updateProjectName();
         this.updateUnsavedIndicator();
-        this.setStatus('Project saved');
     }
 
     async exportSTL() {
         const validation = validateVesselV3Profile(vesselV3State.getState());
         if (!validation.valid) {
             const message = validation.errors.join('\n');
-            this.setStatus('Export blocked');
             alert(`Export blocked:\n${message}`);
             return;
         }
@@ -626,10 +577,8 @@ class VesselV3App {
             await VesselSTLExporter.exportBinary(exportGroup, `${projectName}.stl`, {
                 trackOrientationConflicts: false
             });
-            this.setStatus('STL exported');
         } catch (error) {
             console.error('Vessel V3 STL export failed:', error);
-            this.setStatus('Export blocked');
             alert(`Export blocked by mesh validation: ${error.message}`);
         } finally {
             this.viewport?.disposeObject(exportGroup, { disposeMaterial: false });
@@ -644,21 +593,16 @@ class VesselV3App {
      */
     async exportLidSTL() {
         const state = vesselV3State.getState();
-        if (!state.lid?.enabled) {
-            this.setStatus('Lid is not enabled');
-            return;
-        }
+        if (!state.lid?.enabled) return;
 
         const neckContext = deriveVesselNeckContext(state);
         if (!neckContext) {
-            this.setStatus('Export blocked');
             alert('Export blocked: fix the vessel profile before exporting the lid.');
             return;
         }
 
         const exportGroup = buildLidGeometry(neckContext, state.lid);
         if (!exportGroup) {
-            this.setStatus('Export blocked');
             alert('Export blocked: could not build lid geometry from the current settings.');
             return;
         }
@@ -670,10 +614,8 @@ class VesselV3App {
             await VesselSTLExporter.exportBinary(exportGroup, `${projectName} - Lid.stl`, {
                 trackOrientationConflicts: false
             });
-            this.setStatus('Lid STL exported');
         } catch (error) {
             console.error('Vessel V3 lid STL export failed:', error);
-            this.setStatus('Export blocked');
             alert(`Export blocked by mesh validation: ${error.message}`);
         } finally {
             this.viewport?.disposeObject(exportGroup, { disposeMaterial: false });
@@ -684,19 +626,13 @@ class VesselV3App {
         const modal = document.getElementById('confirmModal');
         document.getElementById('confirmTitle').textContent = title;
         document.getElementById('confirmMessage').textContent = message;
-        const okButton = document.getElementById('btnConfirmOk');
-        const nextOkButton = okButton.cloneNode(true);
-        okButton.parentNode.replaceChild(nextOkButton, okButton);
-        nextOkButton.addEventListener('click', () => {
-            modal.style.display = 'none';
-            onConfirm();
-        });
-        modal.style.display = 'flex';
+        this.confirmCallback = onConfirm;
+        openDialog(modal, { initialFocus: '#btnConfirmOk' });
     }
 
     updateProjectName() {
         const nameEl = document.getElementById('projectName');
-        if (nameEl) {
+        if (nameEl && document.activeElement !== nameEl) {
             nameEl.textContent = vesselV3State.getState('project.name') || 'Untitled Vessel V3';
         }
     }
@@ -704,14 +640,7 @@ class VesselV3App {
     updateUnsavedIndicator() {
         const indicator = document.getElementById('unsavedIndicator');
         if (indicator) {
-            indicator.style.display = vesselV3State.getState('project.isDirty') ? 'inline' : 'none';
-        }
-    }
-
-    setStatus(message) {
-        const statusEl = document.getElementById('statusInfo');
-        if (statusEl) {
-            statusEl.textContent = message;
+            indicator.hidden = !vesselV3State.getState('project.isDirty');
         }
     }
 
@@ -719,9 +648,6 @@ class VesselV3App {
         clearInterval(this.autosaveInterval);
         clearTimeout(this.pendingViewportUpdate);
         this.profileEditor?.dispose();
-        this.motifInspector?.dispose();
-        this.spoutInspector?.dispose();
-        this.lidInspector?.dispose();
         this.viewport?.dispose();
     }
 }
