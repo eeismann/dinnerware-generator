@@ -1,0 +1,387 @@
+/* ================================================
+   DialKit chrome: Vessel Designer V2
+   Page-specific pieces on top of dialkit-chrome.css: the layout, the
+   freeform profile editor card, the segment motif preview card and the
+   export dialog contents. Parameters are DialKit panels in #parameterPanel.
+   ================================================ */
+
+body {
+    background: var(--dk-page-bg);
+}
+
+body::after {
+    display: none;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* vessel-generator.css shows every .modal as flex; [hidden] must win */
+.modal[hidden] {
+    display: none;
+}
+
+/* ---------- Layout: profile card | viewport, dials card floats right ---------- */
+
+.main-content {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(340px, 38vw) minmax(0, 1fr);
+    min-height: 0;
+    background: var(--dk-page-bg);
+    transition: grid-template-columns 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.main-content.configurator-collapsed {
+    grid-template-columns: 70px minmax(0, 1fr);
+}
+
+.viewport-shell {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+}
+
+.viewport-shell .viewport {
+    width: 100%;
+    height: 100%;
+}
+
+/* ---------- Profile editor card ---------- */
+
+.dk-profile-card {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    min-width: 0;
+    min-height: 0;
+    margin: 12px 0 12px 12px;
+    overflow: hidden;
+    background: var(--dk-glass-bg);
+    border: 1px solid var(--dk-border);
+    border-radius: 14px;
+    box-shadow: var(--dk-shadow);
+    color: var(--dk-text-label);
+    font-family: var(--dk-font);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+}
+
+.dk-profile-card .profile-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px;
+}
+
+.dk-profile-card .dk-icon-btn.active {
+    background: var(--dk-surface-active);
+    color: var(--dk-text-root);
+    box-shadow: inset 0 0 0 1px var(--dk-border-hover);
+}
+
+.dk-icon-btn.dk-icon-btn-danger:hover:not(:disabled) {
+    background: var(--dk-danger-surface);
+    color: var(--dk-danger);
+}
+
+.dk-profile-card .zoom-value {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 46px;
+    height: 32px;
+    color: var(--dk-text-label);
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+}
+
+.dk-profile-card .profile-workspace-toggle svg {
+    transition: transform 0.3s ease;
+}
+
+.dk-profile-card .profile-canvas-wrap {
+    min-height: 0;
+    margin: 0 8px;
+    overflow: hidden;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+}
+
+.dk-profile-card .profile-svg {
+    min-height: 320px;
+    background: transparent;
+}
+
+.dk-profile-card .profile-stats {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px 4px;
+    color: var(--dk-text-tertiary);
+    font-size: 12px;
+}
+
+.dk-profile-card .profile-stats strong {
+    margin-left: 4px;
+    color: var(--dk-text-root);
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 500;
+}
+
+.dk-profile-card .profile-warnings {
+    min-height: 32px;
+    padding: 4px 14px 10px;
+    color: #f5a623;
+    font-size: 12px;
+}
+
+.dk-profile-card .profile-warning {
+    padding: 3px 0;
+}
+
+.dk-profile-card .profile-warning.muted {
+    color: var(--dk-text-tertiary);
+}
+
+/* Collapsed: only the expand button stays */
+.configurator-collapsed .dk-profile-card > :not(.profile-toolbar),
+.configurator-collapsed .dk-profile-card .profile-toolbar > .dk-group:not(:last-child),
+.configurator-collapsed .dk-profile-card #btnDeletePoint {
+    display: none;
+}
+
+.configurator-collapsed .dk-profile-card {
+    align-self: start;
+}
+
+.configurator-collapsed .dk-profile-card .profile-workspace-toggle svg {
+    transform: rotate(180deg);
+}
+
+/* Canvas drawing in DialKit ink (monochrome; motif badges keep their colours) */
+.dk-profile-card .profile-grid-line {
+    stroke: var(--dk-text-root);
+    opacity: 0.07;
+}
+
+.dk-profile-card .profile-grid-line.major {
+    opacity: 0.14;
+}
+
+.dk-profile-card .profile-centerline {
+    stroke: var(--dk-text-tertiary);
+}
+
+.dk-profile-card .profile-baseline {
+    stroke: var(--dk-text-tertiary);
+}
+
+.dk-profile-card .profile-path {
+    stroke: var(--dk-text-root);
+}
+
+.dk-profile-card .profile-sampled-path {
+    stroke: var(--dk-text-label);
+    opacity: 0.4;
+}
+
+.dk-profile-card .profile-segment-selected {
+    stroke: var(--dk-text-root);
+    opacity: 0.35;
+    stroke-width: 7;
+}
+
+.dk-profile-card .profile-motif-badge {
+    stroke: var(--dk-glass-bg);
+}
+
+.dk-profile-card .profile-anchor {
+    fill: var(--dk-glass-bg);
+    stroke: var(--dk-text-root);
+}
+
+.dk-profile-card .profile-anchor.selected {
+    fill: var(--dk-text-root);
+    stroke: var(--dk-glass-bg);
+}
+
+.dk-profile-card .profile-anchor.locked {
+    fill: var(--dk-text-tertiary);
+}
+
+.dk-profile-card .profile-handle-line {
+    stroke: var(--dk-text-label);
+    opacity: 0.6;
+}
+
+.dk-profile-card .profile-handle {
+    fill: var(--dk-glass-bg);
+    stroke: var(--dk-text-label);
+}
+
+/* ---------- Segment motif preview card (top-left of the viewport) ---------- */
+
+.motif-inspector {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 296px;
+    box-sizing: border-box;
+    padding: 6px;
+    background: var(--dk-glass-bg);
+    border: 1px solid var(--dk-border);
+    border-radius: 14px;
+    box-shadow: var(--dk-shadow);
+    color: var(--dk-text-label);
+    font-family: var(--dk-font);
+    font-size: 13px;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.motif-inspector.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px) scale(0.98);
+}
+
+.mi-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0 0 8px;
+}
+
+.mi-title {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dk-text-root);
+}
+
+.mi-title small {
+    margin-left: 6px;
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--dk-text-tertiary);
+}
+
+.mi-close.dk-icon-btn {
+    width: 28px;
+    height: 28px;
+    background: transparent;
+}
+
+.mi-close.dk-icon-btn:hover {
+    background: var(--dk-surface-hover);
+}
+
+.mi-preview {
+    overflow: hidden;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+}
+
+.mi-preview-cap {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 10px;
+    font-size: 11px;
+    color: var(--dk-text-tertiary);
+}
+
+#motifPreview {
+    display: block;
+    width: 100%;
+    height: 72px;
+}
+
+.mi-warn {
+    display: none;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: var(--dk-radius);
+    background: rgba(245, 166, 35, 0.14);
+    color: #f5a623;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+[data-mode="light"] .mi-warn,
+[data-mode="light"] .dk-profile-card .profile-warnings {
+    color: #b56d00;
+}
+
+.mi-warn.show {
+    display: flex;
+}
+
+.mi-warn svg {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    margin-top: 1px;
+}
+
+/* ---------- Export dialog ---------- */
+
+.dk-info-row .dk-row-label {
+    cursor: default;
+}
+
+.dk-info-row .dk-row-value {
+    color: var(--dk-text-root);
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+}
+
+.dk-modal .export-error {
+    margin: 0;
+    padding: 9px 12px;
+    border-radius: var(--dk-radius);
+    background: var(--dk-danger-surface);
+    color: var(--dk-danger);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+/* ---------- Narrow screens: profile card above the viewport ---------- */
+
+@media (max-width: 980px) {
+    .main-content,
+    .main-content.configurator-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(420px, 52vh) minmax(360px, 1fr);
+        overflow-y: auto;
+    }
+
+    .dk-profile-card {
+        margin: 12px 12px 0;
+    }
+
+    .dk-profile-card .profile-svg {
+        min-height: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .main-content,
+    .motif-inspector,
+    .dk-profile-card .profile-workspace-toggle svg {
+        transition: none;
+    }
+}
