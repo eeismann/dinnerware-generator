@@ -218,16 +218,22 @@ export class MotifInspector {
         const fam = FAMILY_COLOR[motif.type] || '#8a90a0';
         const rgb = [parseInt(fam.slice(1, 3), 16), parseInt(fam.slice(3, 5), 16), parseInt(fam.slice(5, 7), 16)];
         const sign = motif.relief === 'recessed' ? -1 : 1;
+        // Light mode: ridges tint a pale ground instead of glowing on a dark one
+        const light = document.documentElement.dataset.mode === 'light';
+        const ground = light ? 236 : 26;
+        const strength = light ? (sign > 0 ? 0.85 : 0.5) : 0;
 
         for (let y = 0; y < H; y++) {
             for (let x = 0; x < W; x++) {
                 const a = motif.type === 'none' ? 0 : this.amplitude(x / W, 1 - y / H, motif);
-                const base = 26;
                 const lift = sign * a * 100;
                 const idx = (y * W + x) * 4;
-                img.data[idx] = Math.max(0, Math.min(255, base + (rgb[0] / 255) * lift + a * rgb[0] * 0.35));
-                img.data[idx + 1] = Math.max(0, Math.min(255, base + (rgb[1] / 255) * lift + a * rgb[1] * 0.35));
-                img.data[idx + 2] = Math.max(0, Math.min(255, base + (rgb[2] / 255) * lift + a * rgb[2] * 0.35));
+                for (let c = 0; c < 3; c++) {
+                    const value = light
+                        ? ground + (rgb[c] - ground) * a * strength
+                        : ground + (rgb[c] / 255) * lift + a * rgb[c] * 0.35;
+                    img.data[idx + c] = Math.max(0, Math.min(255, value));
+                }
                 img.data[idx + 3] = 255;
             }
         }
