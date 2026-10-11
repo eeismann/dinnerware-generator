@@ -115,6 +115,7 @@ export class CastFormApp {
         // Parameter card: source/material/warning readouts around the dials
         initPanelReadouts();
         await this.initDials();
+        await this.initViewDock();
 
         // Setup event listeners
         this.setupEventListeners();
@@ -234,13 +235,6 @@ export class CastFormApp {
                 castFormState.setState(path, path === 'params.mold.wallCount' ? Math.round(value) : value);
             },
             setView: (path, value) => castFormState.setState(path, value),
-            setCamera: (preset) => viewport?.setCameraPreset(preset),
-            isDebugMode: () => Boolean(viewport?.debugMode),
-            setDebugMode: (enabled) => {
-                if (viewport && viewport.debugMode !== enabled) viewport.toggleDebugMode();
-            },
-            isPartVisible: (name) => viewport?.isPartVisible(name) ?? true,
-            setPartVisible: (name, visible) => viewport?.setPartVisible(name, visible),
             // Mold generation is expensive: a drag previews nothing and
             // regenerates once when the pointer is released.
             onGestureStart: () => {
@@ -254,7 +248,7 @@ export class CastFormApp {
                 }
             }
         });
-        if (viewport) viewport.onDebugModeChange = () => this.dials.sync();
+        if (viewport) viewport.onDebugModeChange = () => this.viewDock?.sync();
 
         // Readouts sit below the dials
         const panel = document.getElementById('parameterPanel');
@@ -262,7 +256,92 @@ export class CastFormApp {
             ...['materialVolumeCard', 'warningsSection'].map(id => document.getElementById(id)).filter(Boolean)
         );
 
-        castFormState.subscribe('*', () => this.dials.sync());
+        castFormState.subscribe('*', () => {
+            this.dials.sync();
+            this.viewDock?.sync();
+        });
+    }
+
+    /** Orientation cube and view controls in the lower left of the viewport. */
+    async initViewDock() {
+        // Loaded on demand like the dials (Node gates import this module)
+        const { createViewDock } = await import('../ui/dialkit/viewDock.js');
+        const viewport = this.viewport;
+        const view = (path) => ({
+            get: () => castFormState.getState(path),
+            set: (value) => castFormState.setState(path, value)
+        });
+        const mode = () => castFormState.getState('view.mode') || 'exploded';
+        // One row per generated wall (or the planned count before generation)
+        const wallCount = () => {
+            const generated = (castFormState.getState('output.wallShells') || []).filter(Boolean).length;
+            if (generated > 0) return generated;
+            return Math.max(1, Math.min(4, Math.round(castFormState.getState('params.mold.wallCount') || 2)));
+        };
+        const part = (label, name) => ({
+            type: 'toggle',
+            label,
+            get: () => viewport?.isPartVisible(name) ?? true,
+            set: (visible) => viewport?.setPartVisible(name, visible)
+        });
+        this.viewDock = createViewDock({
+            container: document.querySelector('.viewport-container'),
+            rig: viewport?.getCameraRig(),
+            onReset: () => viewport?.setCameraPreset('threeQuarter'),
+            storageKey: 'castform_view_dock_open',
+            sections: [{
+                title: 'View',
+                controls: [
+                    {
+                        type: 'select',
+                        label: 'View Mode',
+                        options: [
+                            { value: 'exploded', label: 'Exploded' },
+                            { value: 'assembly', label: 'Assembly' },
+                            { value: 'crossSection', label: 'Cross Section' }
+                        ],
+                        ...view('view.mode')
+                    },
+                    {
+                        type: 'slider',
+                        label: 'Explosion Distance',
+                        min: 0,
+                        max: 150,
+                        step: 5,
+                        visible: () => mode() === 'exploded',
+                        ...view('view.explosionDistance')
+                    },
+                    {
+                        type: 'slider',
+                        label: 'Section Angle',
+                        min: 0,
+                        max: 360,
+                        step: 5,
+                        format: (value) => `${value}°`,
+                        visible: () => mode() === 'crossSection',
+                        ...view('view.crossSectionAngle')
+                    },
+                    { type: 'toggle', label: 'Show Grid', ...view('view.showGrid') },
+                    {
+                        type: 'toggle',
+                        label: 'Debug Shell Caps',
+                        get: () => Boolean(viewport?.debugMode),
+                        set: (enabled) => {
+                            if (viewport && viewport.debugMode !== enabled) viewport.toggleDebugMode();
+                        }
+                    },
+                    {
+                        type: 'group',
+                        label: 'Parts',
+                        controls: () => [
+                            part('Foot', 'foot'),
+                            ...Array.from({ length: wallCount() }, (_, index) => part(`Wall ${index + 1}`, `wall${index + 1}`)),
+                            part('Input Vessel', 'inputPreview')
+                        ]
+                    }
+                ]
+            }]
+        });
     }
 
     initHeaderChrome() {

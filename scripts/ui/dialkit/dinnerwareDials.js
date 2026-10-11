@@ -2,7 +2,8 @@
  * DialKit controls for the Dinnerware Designer
  *
  * Panel definitions for the shared DialKit host (dialHost.js): set style,
- * surface pattern, item proportions, per-item overrides and view. Project
+ * surface pattern, item proportions and per-item overrides (view controls
+ * live in the view dock, see main.js initViewDock()). Project
  * state stays the source of truth; dial edits go through `api` (see
  * scripts/main.js initDials()) and `sync()` pushes state back after undo or
  * load.
@@ -72,20 +73,6 @@ const ITEM_KEYS = {
     serving_bowl: 'servingBowl'
 };
 
-const CAMERA_ACTIONS = {
-    top: { label: 'Top', preset: 'top' },
-    side: { label: 'Side', preset: 'side' },
-    threeQuarter: { label: '3/4', preset: 'three-quarter' },
-    bottom: { label: 'Bottom', preset: 'bottom' }
-};
-
-const LAYOUT_OPTIONS = [
-    { value: 'row', label: 'Row' },
-    { value: 'grid', label: 'Grid' },
-    { value: 'stack', label: 'Stacked' },
-    { value: 'table', label: 'Table Setting' }
-];
-
 function formatValue(param, value) {
     const constraints = PARAMETER_CONSTRAINTS[param] || {};
     if (constraints.type === 'boolean') return value ? 'On' : 'Off';
@@ -99,11 +86,6 @@ function formatValue(param, value) {
  * @returns {{ sync: Function, setOverrideItem: Function, revealOverrides: Function, element: HTMLElement }}
  */
 export function initDinnerwareDials(api) {
-    const view = {
-        crossSection: false,
-        showGrid: true,
-        lightBackground: true
-    };
     let overrideItem = ITEM_TYPES[0];
 
     function readGlobal({ param }) {
@@ -121,12 +103,6 @@ export function initDinnerwareDials(api) {
             ? parameterResolver.getAllParameters(item).footringBaseWidth
             : parameterResolver.getEffectiveParameter(item, param);
         return typeof value === 'number' ? Number(value.toFixed(2)) : value;
-    }
-
-    function readView({ param, item }) {
-        if (param === 'layout') return stateManager.getState('ui.layoutMode') || 'row';
-        if (param === 'visible') return stateManager.getState('ui.visibleItems').includes(item);
-        return view[param];
     }
 
     function buildStyleConfig(b) {
@@ -260,52 +236,6 @@ export function initDinnerwareDials(api) {
         return config;
     }
 
-    function buildViewConfig(b) {
-        b.bindings.set('layout', { param: 'layout' });
-        b.bindings.set('crossSection', { param: 'crossSection' });
-        b.bindings.set('showGrid', { param: 'showGrid' });
-        b.bindings.set('lightBackground', { param: 'lightBackground' });
-        const items = {};
-        ITEM_TYPES.forEach(item => {
-            const key = ITEM_KEYS[item];
-            items[key] = true;
-            b.bindings.set(`items.${key}`, { param: 'visible', item });
-        });
-        const camera = {};
-        Object.entries(CAMERA_ACTIONS).forEach(([key, { label }]) => {
-            camera[key] = { type: 'action', label };
-        });
-        camera.resetView = { type: 'action', label: 'Reset View' };
-        return {
-            camera: b.folder('camera', camera),
-            layout: { type: 'select', options: LAYOUT_OPTIONS, default: 'row' },
-            crossSection: false,
-            showGrid: true,
-            lightBackground: true,
-            items: b.folder('items', {
-                ...items,
-                showAll: { type: 'action', label: 'Show All' },
-                hideAll: { type: 'action', label: 'Hide All' }
-            })
-        };
-    }
-
-    function applyViewChange(param, item, value) {
-        if (param === 'layout') {
-            api.setLayout(value);
-        } else if (param === 'visible') {
-            const visible = new Set(stateManager.getState('ui.visibleItems'));
-            if (value) visible.add(item);
-            else visible.delete(item);
-            api.setVisibleItems(ITEM_TYPES.filter(type => visible.has(type)));
-        } else if (param in view) {
-            view[param] = value;
-            if (param === 'crossSection') api.setCrossSection(value);
-            if (param === 'showGrid') api.setGrid(value);
-            if (param === 'lightBackground') api.setLightBackground(value);
-        }
-    }
-
     const host = createDialHost({
         container: api.container,
         constraints: PARAMETER_CONSTRAINTS,
@@ -356,20 +286,6 @@ export function initDinnerwareDials(api) {
                 action: (name) => {
                     if (name === 'clearAll') api.clearAllOverrides(overrideItem);
                     else if (name.startsWith('reset_')) api.clearOverride(overrideItem, name.slice('reset_'.length));
-                }
-            },
-            {
-                id: 'dinnerware-view',
-                name: 'View',
-                collapsed: true,
-                build: buildViewConfig,
-                read: readView,
-                change: ({ param, item }, value) => applyViewChange(param, item, value),
-                action: (name) => {
-                    if (CAMERA_ACTIONS[name]) api.setCamera(CAMERA_ACTIONS[name].preset);
-                    else if (name === 'resetView') api.resetView();
-                    else if (name === 'showAll') api.setVisibleItems([...ITEM_TYPES]);
-                    else if (name === 'hideAll') api.setVisibleItems([]);
                 }
             }
         ]

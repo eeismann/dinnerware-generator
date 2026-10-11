@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { createServer } from 'vite';
+import { viewDock } from './viewDockHelpers.mjs';
 
 const server = await createServer({ configFile: false, logLevel: 'error',
     server: { host: '127.0.0.1', port: 0, open: false } });
@@ -28,7 +29,7 @@ try {
         dialog.dismiss();
     });
     const appReady = () => page.waitForFunction(() => window.vesselV2App?.viewport?.vesselGroup?.children.length > 0
-        && document.querySelectorAll('.vessel-v2-dials .dialkit-folder-section').length === 3);
+        && document.querySelectorAll('.vessel-v2-dials .dialkit-folder-section').length === 2);
     await page.goto(`${base}/vessel-v2-generator/index.html`);
     await appReady();
 
@@ -70,9 +71,24 @@ try {
     assert.equal(await page.locator('footer.footer').count(), 0, 'footer removed');
     assert.equal(await page.locator('.ln-root, .st-root').count(), 0, 'no Studio/Line shell');
     assert.deepEqual(await dials.locator('.dialkit-folder-section > .dialkit-folder-header .dialkit-folder-title')
-        .evaluateAll(nodes => nodes.map(node => node.textContent)).then(titles => titles.slice(0, 3)),
-    ['Vessel', 'Surface Motif', 'View']);
-    pass('Page loads with the DialKit header and Vessel / Surface Motif / View panels');
+        .evaluateAll(nodes => nodes.map(node => node.textContent)),
+    ['Vessel', 'Surface Motif']);
+    pass('Page loads with the DialKit header and Vessel / Surface Motif panels');
+
+    // --- View dock: cube snaps the camera; expanded panel drives the viewport
+    const dock = viewDock(page);
+    await dock.face('Top');
+    await page.waitForFunction(() => {
+        const { camera, controls } = window.vesselV2App.viewport;
+        return camera.position.clone().sub(controls.target).normalize().y > 0.99;
+    });
+    await dock.dock.locator('.dk-view-reset').click();
+    await dock.open();
+    await dock.setToggle('Cross Section', true);
+    assert.equal(await page.evaluate(() => window.vesselV2App.viewport.showCrossSection), true);
+    await dock.setToggle('Cross Section', false);
+    await dock.close();
+    pass('View dock: cube snaps to Top, reset, Cross Section toggle');
 
     // --- Arrow keys and typed values update state and regenerate the mesh
     const vessel = await openSection('Vessel');

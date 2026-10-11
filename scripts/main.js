@@ -23,6 +23,7 @@ import {
     initDinnerwareDials, PATTERN_PARAM_SUFFIXES, patternParamName
 } from './ui/dialkit/dinnerwareDials.js';
 import { initDkMenu, initPanelToggle } from './ui/dialkit/dkChrome.js';
+import { createViewDock } from './ui/dialkit/viewDock.js';
 
 let stlExporterPromise = null;
 
@@ -82,6 +83,7 @@ function init() {
     initModals();
     initHistory();
     initDials();
+    initViewDock();
     initSelection();
     initKeyboardShortcuts();
     initHeaderChrome();
@@ -794,6 +796,7 @@ function updateUIFromState() {
 
     // Update every dial from the state
     dials.sync();
+    viewDock?.sync();
 
     // Update status
 }
@@ -929,16 +932,6 @@ function initDials() {
             ITEM_TYPES.forEach(itemType => scheduleItemUpdate(itemType));
         },
         onSelectItem: (itemType) => selectItem(itemType, { fromOverrides: true }),
-        setCamera: (preset) => viewport.setCameraPreset(preset),
-        resetView: () => viewport.resetView(),
-        setLayout: (mode) => viewport.setLayoutMode(mode),
-        setCrossSection: (enabled) => viewport.toggleCrossSection(enabled),
-        setGrid: (visible) => viewport.toggleGrid(visible),
-        setLightBackground: (isLight) => {
-            viewport.setBackgroundColor(isLight ? 0xf0f0f0 : 0x1a1a1a);
-            viewport.setGridColors(isLight);
-        },
-        setVisibleItems,
         // A drag is one undo step and previews at interactive resolution;
         // the release rebuilds every item at full resolution.
         onGestureStart: () => history.hold(),
@@ -948,6 +941,84 @@ function initDials() {
             ITEM_TYPES.forEach(itemType => scheduleItemUpdate(itemType));
             if (selectedItem) selectItem(selectedItem);
         }
+    });
+}
+
+// === View dock (lower left) ===
+
+let viewDock = null;
+const viewDisplay = { crossSection: false, showGrid: true, lightBackground: true };
+
+const LAYOUT_OPTIONS = [
+    { value: 'row', label: 'Row' },
+    { value: 'grid', label: 'Grid' },
+    { value: 'stack', label: 'Stacked' },
+    { value: 'table', label: 'Table Setting' }
+];
+
+function initViewDock() {
+    const isVisible = (item) => stateManager.getState('ui.visibleItems').includes(item);
+    const setItemVisible = (item, visible) => {
+        const shown = new Set(stateManager.getState('ui.visibleItems'));
+        if (visible) shown.add(item);
+        else shown.delete(item);
+        setVisibleItems(ITEM_TYPES.filter(type => shown.has(type)));
+    };
+    const itemControls = [
+        ...ITEM_TYPES.map(item => ({
+            type: 'toggle',
+            label: ITEM_NAMES[item],
+            get: () => isVisible(item),
+            set: (on) => setItemVisible(item, on)
+        })),
+        {
+            type: 'actions',
+            items: [
+                { label: 'Show All', run: () => setVisibleItems([...ITEM_TYPES]) },
+                { label: 'Hide All', run: () => setVisibleItems([]) }
+            ]
+        }
+    ];
+    viewDock = createViewDock({
+        container: document.querySelector('.viewport-container'),
+        rig: viewport.getCameraRig(),
+        onReset: () => viewport.resetView(),
+        storageKey: 'dinnerware_view_dock_open',
+        sections: [{
+            title: 'View',
+            controls: [
+                {
+                    type: 'select',
+                    label: 'Layout',
+                    options: LAYOUT_OPTIONS,
+                    get: () => stateManager.getState('ui.layoutMode') || 'row',
+                    set: (mode) => viewport.setLayoutMode(mode)
+                },
+                {
+                    type: 'toggle',
+                    label: 'Cross Section',
+                    get: () => viewDisplay.crossSection,
+                    set: (on) => { viewDisplay.crossSection = on; viewport.toggleCrossSection(on); }
+                },
+                {
+                    type: 'toggle',
+                    label: 'Show Grid',
+                    get: () => viewDisplay.showGrid,
+                    set: (on) => { viewDisplay.showGrid = on; viewport.toggleGrid(on); }
+                },
+                {
+                    type: 'toggle',
+                    label: 'Light Background',
+                    get: () => viewDisplay.lightBackground,
+                    set: (on) => {
+                        viewDisplay.lightBackground = on;
+                        viewport.setBackgroundColor(on ? 0xf0f0f0 : 0x1a1a1a);
+                        viewport.setGridColors(on);
+                    }
+                },
+                { type: 'group', label: 'Items', controls: itemControls }
+            ]
+        }]
     });
 }
 

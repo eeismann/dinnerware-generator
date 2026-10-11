@@ -3,7 +3,8 @@
  *
  * Panel definitions for the shared DialKit host (dialHost.js): handle shape,
  * cross-section, attachment points and corner radii; the mold kit
- * visualization; and view options. Handle state stays the source of truth;
+ * visualization (view options live in the view dock). Handle state stays the
+ * source of truth;
  * dial edits go through `api` (see scripts/handle/handleMain.js initDials())
  * and `sync()` pushes state back after loads, new projects and source imports.
  */
@@ -21,19 +22,13 @@ const CROSS_SECTION_OPTIONS = [
     { value: 'rectangular', label: 'Rectangular' }
 ];
 
-const MUG_DISPLAY_OPTIONS = [
+// Also offered by the view dock (handleMain.js initViewDock())
+export const MUG_DISPLAY_OPTIONS = [
     { value: 'transparent', label: 'Semi-Transparent' },
     { value: 'wireframe', label: 'Wireframe' },
     { value: 'solid', label: 'Solid' },
     { value: 'hidden', label: 'Hidden' }
 ];
-
-const CAMERA_ACTIONS = {
-    side: { label: 'Side', view: 'side' },
-    threeQuarter: { label: '3/4', view: 'threeQuarter' },
-    top: { label: 'Top', view: 'top' },
-    bottom: { label: 'Bottom', view: 'bottom' }
-};
 
 // Mold explode/opacity are stored as 0-1 fractions and dialled in percent
 const MOLD_PERCENT_SETTINGS = ['moldExplode', 'moldOpacity'];
@@ -60,12 +55,7 @@ const CONSTRAINTS = {
     moldShowProof: toggle(true),
     moldShowHandleMold: toggle(true),
     moldShowWalls: toggle(true),
-    moldShowBottom: toggle(true),
-    mugDisplayMode: { options: MUG_DISPLAY_OPTIONS, default: 'transparent' },
-    showCrossSection: toggle(false),
-    showDimensions: toggle(true),
-    showAttachmentOutlines: toggle(true),
-    showGrid: toggle(true)
+    moldShowBottom: toggle(true)
 };
 
 /**
@@ -130,22 +120,6 @@ export function initHandleDials(api) {
         };
     }
 
-    function buildViewConfig(b) {
-        const camera = {};
-        Object.entries(CAMERA_ACTIONS).forEach(([key, { label }]) => {
-            camera[key] = { type: 'action', label };
-        });
-        camera.resetView = { type: 'action', label: 'Reset View' };
-        return {
-            camera: b.folder('camera', camera),
-            mugDisplay: b.control('mugDisplay', 'mugDisplayMode'),
-            crossSectionView: b.control('crossSectionView', 'showCrossSection'),
-            dimensions: b.control('dimensions', 'showDimensions'),
-            attachmentOutlines: b.control('attachmentOutlines', 'showAttachmentOutlines'),
-            showGrid: b.control('showGrid', 'showGrid')
-        };
-    }
-
     function readHandle({ param }) {
         const value = handleStateManager.getState().handleParams[param];
         return typeof value === 'number' ? Number(value.toFixed(2)) : value;
@@ -184,18 +158,6 @@ export function initHandleDials(api) {
                 change: ({ param }, value) => {
                     if (param === 'showMoldPreview') api.setMoldPreview(value);
                     else api.setMoldSetting(param, MOLD_PERCENT_SETTINGS.includes(param) ? value / 100 : value);
-                }
-            },
-            {
-                id: 'handle-view',
-                name: 'View',
-                collapsed: true,
-                build: buildViewConfig,
-                read: readView,
-                change: ({ param }, value) => api.setViewSetting(param, value),
-                action: (name) => {
-                    if (CAMERA_ACTIONS[name]) api.setCameraView(CAMERA_ACTIONS[name].view);
-                    else if (name === 'resetView') api.resetView();
                 }
             }
         ]

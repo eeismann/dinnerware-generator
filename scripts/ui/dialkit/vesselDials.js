@@ -3,7 +3,7 @@
  *
  * Panel definitions for the shared DialKit host (dialHost.js): wall
  * thickness, one panel per anatomical section (lip, neck, shoulder, body,
- * waist, foot) and view. Vessel state stays the source of truth; dial edits
+ * waist, foot); view controls live in the view dock. Vessel state stays the source of truth; dial edits
  * go through `api` (see scripts/vessel/vesselMain.js initDials()) and
  * `sync()` pushes state back after loads, resets and linked-diameter updates.
  */
@@ -86,23 +86,11 @@ const SECTIONS = [
     { id: 'foot', name: 'Foot', optional: true }
 ];
 
-const CAMERA_ACTIONS = {
-    top: { label: 'Top', preset: 'top' },
-    side: { label: 'Side', preset: 'side' },
-    threeQuarter: { label: '3/4', preset: 'threeQuarter' },
-    bottom: { label: 'Bottom', preset: 'bottom' }
-};
-
 /**
  * @param {Object} api - App hooks; see scripts/vessel/vesselMain.js initDials()
  * @returns {{ sync: Function, element: HTMLElement }}
  */
 export function initVesselDials(api) {
-    const view = {
-        crossSection: false,
-        showGrid: true
-    };
-
     function readState({ param }) {
         const value = vesselState.getState(param);
         const constraints = CONSTRAINTS[param];
@@ -161,26 +149,6 @@ export function initVesselDials(api) {
         return config;
     }
 
-    function buildViewConfig(b) {
-        b.bindings.set('crossSection', { param: 'crossSection' });
-        b.bindings.set('showGrid', { param: 'showGrid' });
-        const camera = {};
-        Object.entries(CAMERA_ACTIONS).forEach(([key, { label }]) => {
-            camera[key] = { type: 'action', label };
-        });
-        return {
-            camera: b.folder('camera', camera),
-            crossSection: false,
-            showGrid: true
-        };
-    }
-
-    function applyViewChange(param, value) {
-        view[param] = value;
-        if (param === 'crossSection') api.setCrossSection(value);
-        if (param === 'showGrid') api.setGrid(value);
-    }
-
     const host = createDialHost({
         container: api.container,
         constraints: CONSTRAINTS,
@@ -204,18 +172,7 @@ export function initVesselDials(api) {
                     if (link) api.setLinked(section.id, value);
                     else api.setParam(param, value);
                 }
-            })),
-            {
-                id: 'vessel-view',
-                name: 'View',
-                collapsed: true,
-                build: buildViewConfig,
-                read: ({ param }) => view[param],
-                change: ({ param }, value) => applyViewChange(param, value),
-                action: (name) => {
-                    if (CAMERA_ACTIONS[name]) api.setCamera(CAMERA_ACTIONS[name].preset);
-                }
-            }
+            }))
         ]
     });
 

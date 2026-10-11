@@ -35,10 +35,10 @@ body::after {
 
 .hd-readouts-top {
     top: 12px;
-}
-
-.hd-readouts-bottom {
-    bottom: 12px;
+    /* Leave the lower-left corner to the view dock */
+    max-height: calc(100% - 140px);
+    overflow-y: auto;
+    scrollbar-width: none;
 }
 
 .hd-card {

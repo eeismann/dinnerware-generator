@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { createServer } from 'vite';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { viewDock } from './viewDockHelpers.mjs';
 
 const server = await createServer({ configFile: false, logLevel: 'error',
     server: { host: '127.0.0.1', port: 0, open: false } });
@@ -95,9 +96,10 @@ try {
     // --- Chrome: DialKit header and panels, no footer, no Studio/Line shells
     assert.equal(await page.locator('footer').count(), 0, 'footer removed');
     assert.equal(await page.locator('.ln-root, .studio-shell, #settingsMenu').count(), 0, 'no alternate shells or classic settings');
-    for (const name of ['Handle', 'Mold Kit', 'View']) {
+    for (const name of ['Handle', 'Mold Kit']) {
         assert.equal(await section(name).count(), 1, `${name} panel`);
     }
+    assert.equal(await section('View').count(), 0, 'view controls moved to the view dock');
     for (const id of ['btnNewProject', 'btnLoadProject', 'btnSaveProject', 'btnChangeMug', 'btnExportSTL', 'btnExportMoldKit']) {
         assert.equal(await page.locator(`#fileMenuList #${id}[role="menuitem"]`).count(), 1, `${id} in the File menu`);
     }
@@ -106,7 +108,7 @@ try {
     assert.equal(unlabelled, 0, 'every slider has an accessible name');
     const panelBox = await page.locator('#parameterPanel').boundingBox();
     assert.ok(panelBox.x > 1440 / 2, 'parameters sit on the right');
-    pass('DialKit header, File menu and Handle / Mold Kit / View panels; footer and shells removed');
+    pass('DialKit header, File menu and Handle / Mold Kit panels; footer and shells removed');
 
     // --- Keyboard and typed slider edits update state, geometry and readouts
     const handle = await openSection('Handle');
@@ -163,15 +165,24 @@ try {
     await page.locator('#moldKitSummary').waitFor({ state: 'hidden' });
     pass('Mold kit visualization shows explode/opacity/parts dials and the summary card');
 
-    // --- View panel drives the viewport
-    const view = await openSection('View');
-    await setToggle(view, 'Show Grid', false);
+    // --- View dock drives the viewport
+    const dock = viewDock(page);
+    // Handle's default view looks end-on at the Front face; snap squarely onto it
+    await dock.face('Front');
+    await page.waitForFunction(async () => {
+        const { camera, controls } = (await import('/scripts/handle/ui/handleViewport.js')).getHandleViewport();
+        return camera.position.clone().sub(controls.target).normalize().z > 0.9;
+    });
+    await dock.dock.locator('.dk-view-reset').click();
+    await dock.open();
+    await dock.setToggle('Show Grid', false);
     assert.equal(await page.evaluate(async () =>
         (await import('/scripts/handle/ui/handleViewport.js')).getHandleViewport().showGrid), false);
-    await setToggle(view, 'Show Grid', true);
-    await choose(view, 'Mug Display', 'Wireframe');
+    await dock.setToggle('Show Grid', true);
+    await dock.choose('Mug Display', 'wireframe');
     assert.equal((await state()).viewSettings.mugDisplayMode, 'wireframe');
-    pass('View panel toggles the grid and mug display');
+    await dock.close();
+    pass('View dock: cube snaps to Front; grid and mug display apply');
 
     // --- Change Source opens the DialKit source picker; dials follow the import
     await page.evaluate(() => localStorage.setItem('playground_ceramics_projects', JSON.stringify([{
@@ -255,6 +266,10 @@ try {
     await page.waitForFunction(async () =>
         Boolean((await import('/scripts/handle/ui/handleViewport.js')).getHandleViewport()?.handleMesh));
     assert.equal(await page.locator('#parameterPanel').isVisible(), false, 'hidden state is remembered');
+    // A default handle mesh exists before the saved project finishes loading
+    await page.waitForFunction(async () =>
+        (await import('/scripts/handle/state/handleState.js')).handleStateManager.getState().project.name === 'Dial Handle',
+    null, { timeout: 15000 }).catch(() => {});
     assert.equal((await state()).project.name, 'Dial Handle', 'saved project reopens');
     await panelToggle.click();
     await page.locator('#parameterPanel').waitFor({ state: 'visible' });

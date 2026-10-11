@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 import { createServer } from 'vite';
+import { viewDock } from './viewDockHelpers.mjs';
 
 const server = await createServer({ configFile: false, logLevel: 'error',
     server: { host: '127.0.0.1', port: 0, open: false } });
@@ -67,9 +68,11 @@ try {
     assert.equal(await page.locator('#emptyState').isVisible(), true, 'start card on an empty project');
     assert.equal(await page.locator('#partLegend .legend-item').count(), 0, 'no part legend before a source');
     assert.match(await page.locator('#inputStatus').textContent(), /No model loaded/);
-    for (const name of ['Mold', 'Polymer Case Box', 'View']) {
+    for (const name of ['Mold', 'Polymer Case Box']) {
         assert.equal(await section(name).count(), 1, `${name} panel`);
     }
+    assert.equal(await section('View').count(), 0, 'view controls moved to the view dock');
+    assert.equal(await page.locator('.dk-view-dock .st-viewcube').count(), 1, 'view dock cube');
     for (const label of ['Plaster Wall Thickness', 'Spare Height', 'Wall Sections']) {
         assert.equal(await section('Mold').getByRole('slider', { name: label, exact: true }).count(), 1, label);
     }
@@ -78,7 +81,7 @@ try {
     const unlabelled = await page.evaluate(() => [...document.querySelectorAll('.cast-form-dials [role="slider"]')]
         .filter(el => !el.getAttribute('aria-label')).length);
     assert.equal(unlabelled, 0, 'every slider has an accessible name');
-    pass('Empty project: start card, Mold / Polymer Case Box / View panels, no footer or alternate shells');
+    pass('Empty project: start card, Mold / Polymer Case Box panels, view dock, no footer or alternate shells');
 
     // --- Source import through the start card's file picker
     const [chooser] = await Promise.all([
@@ -110,11 +113,13 @@ try {
     assert.equal(await state('params.mold.wallCount'), 2);
     await generatedWith('wallCount', 2);
     assert.equal(await page.locator('#partLegend .legend-item').count(), 3, 'legend follows the new wall count');
-    const view = await openSection('View');
-    await view.locator(':scope .dialkit-folder-header', { hasText: 'Parts' }).click();
-    await settle();
-    assert.equal(await toggle(view, 'Wall 3').count(), 0, 'parts list follows the wall count');
-    assert.equal(await toggle(view, 'Wall 2').count(), 1);
+    const dock = viewDock(page);
+    await dock.open();
+    const parts = await dock.openGroup('Parts');
+    const partRow = (label) => parts.locator('.dk-view-row')
+        .filter({ has: page.locator('.dk-row-label', { hasText: new RegExp(`^${label}$`) }) });
+    assert.equal(await partRow('Wall 3').count(), 0, 'parts list follows the wall count');
+    assert.equal(await partRow('Wall 2').count(), 1);
     pass('Enter-to-type sets Wall Sections exactly; mold, legend and Parts rebuild');
 
     // --- A drag previews nothing and regenerates once on release
@@ -134,7 +139,7 @@ try {
     pass('Slider drag edits live and regenerates the mold once on release');
 
     // --- Part visibility survives regeneration
-    await toggle(view, 'Foot').getByRole('radio', { name: 'Off' }).click();
+    await dock.setToggle('Foot', false);
     assert.equal(await page.evaluate(() => window.castFormApp.viewport.moldGroup.children.find(m => m.name === 'foot').visible), false);
     pass('Parts toggles hide a mold part');
 
@@ -157,13 +162,20 @@ try {
     pass('Preview Case Box reveals the box rows; box edits are live without regenerating');
 
     // --- View mode swaps the explosion slider for the section angle
-    assert.equal(await view.getByRole('slider', { name: 'Explosion Distance', exact: true }).count(), 1);
-    await view.locator('.dialkit-select-trigger').filter({ hasText: /^View Mode/ }).click();
-    await page.locator('.dialkit-select-option').filter({ hasText: /^Cross Section/ }).click();
-    await view.getByRole('slider', { name: 'Section Angle', exact: true }).waitFor();
+    assert.equal(await dock.row('Explosion Distance').isVisible(), true);
+    await dock.setSlider('Explosion Distance', 80);
+    assert.equal(await state('view.explosionDistance'), 80, 'dock slider writes view state');
+    await dock.choose('View Mode', 'crossSection');
     assert.equal(await state('view.mode'), 'crossSection');
-    assert.equal(await view.getByRole('slider', { name: 'Explosion Distance', exact: true }).count(), 0);
-    pass('View Mode select swaps Explosion Distance for Section Angle');
+    await dock.row('Section Angle').waitFor();
+    assert.equal(await dock.row('Explosion Distance').isVisible(), false);
+    await dock.close();
+    await dock.face('Top');
+    await page.waitForFunction(() => {
+        const { camera, controls } = window.castFormApp.viewport;
+        return camera.position.clone().sub(controls.target).normalize().y > 0.99;
+    });
+    pass('View dock: View Mode swaps Explosion Distance for Section Angle; cube snaps to Top');
 
     // --- File menu: Save stores the project, Export downloads STLs
     await page.locator('#btnFileMenu').click();

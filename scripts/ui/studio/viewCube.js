@@ -176,15 +176,20 @@ export function createViewCube({ rig, presets = {}, onReset }) {
         stopSnap();
         rig.cancelTween && rig.cancelTween();
         drag = { x0: e.clientX, y0: e.clientY, s: currentSpherical(), moved: false };
-        scene.setPointerCapture(e.pointerId);
-        scene.classList.add('is-dragging');
         e.preventDefault();
     });
     scene.addEventListener('pointermove', (e) => {
         if (!drag) return;
         const dx = e.clientX - drag.x0;
         const dy = e.clientY - drag.y0;
-        if (Math.abs(dx) + Math.abs(dy) > 4) { drag.moved = true; dragging = true; }
+        // Capture only once a drag starts: capturing on pointerdown retargets
+        // the click to the scene and face clicks never fire
+        if (!drag.moved && Math.abs(dx) + Math.abs(dy) > 4) {
+            drag.moved = true;
+            dragging = true;
+            scene.setPointerCapture(e.pointerId);
+            scene.classList.add('is-dragging');
+        }
         if (!drag.moved) return;
         const s = {
             radius: drag.s.radius,

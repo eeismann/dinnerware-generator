@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { createServer } from 'vite';
+import { viewDock } from './viewDockHelpers.mjs';
 
 const server = await createServer({ configFile: false, logLevel: 'error',
     server: { host: '127.0.0.1', port: 0, open: false } });
@@ -73,7 +74,7 @@ try {
 
     // --- Panels render; no classic panel, footer or alternate shells
     const names = await dials.locator('.dialkit-folder-section > .dialkit-folder-header .dialkit-folder-title').allTextContents();
-    assert.deepEqual(names, ['Global', 'Lip', 'Neck', 'Shoulder', 'Body', 'Waist', 'Foot', 'View']);
+    assert.deepEqual(names, ['Global', 'Lip', 'Neck', 'Shoulder', 'Body', 'Waist', 'Foot']);
     assert.equal(await page.locator('footer.footer, .panel-section, .ln-root, [data-studio-root]').count(), 0);
     assert.equal(await page.evaluate(() => document.documentElement.dataset.ui), undefined, 'no data-ui shell switch');
     const unlabelled = await page.evaluate(() => [...document.querySelectorAll('.vessel-dials [role="slider"]')]
@@ -144,16 +145,20 @@ try {
     await closeSection('Lip');
     pass('Lip style select writes state');
 
-    // --- View panel drives the viewport
-    const view = await openSection('View');
-    await setToggle(view, 'Cross Section', true);
+    // --- View dock drives the viewport
+    const dock = viewDock(page);
+    await dock.open();
+    await dock.setToggle('Cross Section', true);
     assert.equal(await page.evaluate(() => window.vesselApp.viewport.showCrossSection), true);
-    await setToggle(section('View'), 'Show Grid', false);
+    await dock.setToggle('Show Grid', false);
     assert.equal(await page.evaluate(() => window.vesselApp.viewport.gridHelper.visible), false);
-    await section('View').getByText('Top', { exact: true }).click();
-    assert.equal(await page.evaluate(() => window.vesselApp.viewport.currentView), 'top');
-    await closeSection('View');
-    pass('View panel: cross-section, grid and camera presets');
+    await dock.close();
+    await dock.face('Top');
+    await page.waitForFunction(() => {
+        const { camera, controls } = window.vesselApp.viewport;
+        return camera.position.clone().sub(controls.target).normalize().y > 0.99;
+    });
+    pass('View dock: cross-section, grid and the cube snaps to Top');
 
     // --- File menu: Save dialog, Export download, confirm dialog
     const fileItem = async (label) => {

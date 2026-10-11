@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { createServer } from 'vite';
+import { viewDock } from './viewDockHelpers.mjs';
 
 const server = await createServer({ configFile: false, logLevel: 'error',
     server: { host: '127.0.0.1', port: 0, open: false } });
@@ -71,6 +72,8 @@ try {
         await scope.locator('.dialkit-select-trigger').filter({ hasText: new RegExp(`^${label}`) }).first().click();
         await page.locator('.dialkit-select-option').filter({ hasText: new RegExp(`^${option}`) }).first().click();
         await afterUpdate();
+        // A choice can change which rows exist; let DialKit's rebuild land
+        await settle();
     };
     const selectText = (scope, label) => scope.locator('.dialkit-select-trigger')
         .filter({ hasText: new RegExp(`^${label}`) }).first().textContent();
@@ -97,13 +100,27 @@ try {
 
     // --- Load: panels render, no footer or legacy inspectors
     const sectionTitles = await dials.locator('.dialkit-folder-section > .dialkit-folder-header .dialkit-folder-title').allTextContents();
-    assert.deepEqual(sectionTitles.filter(title => ['Profile', 'Surface Motif', 'Spout', 'Lid', 'View'].includes(title)),
-        ['Profile', 'Surface Motif', 'Spout', 'Lid', 'View']);
+    assert.deepEqual(sectionTitles, ['Profile', 'Surface Motif', 'Spout', 'Lid']);
     assert.equal(await page.locator('footer, #motifInspector, #spoutInspector, #lidInspector, .ln-root, .studio-shell').count(), 0);
     const unlabelled = await page.evaluate(() => [...document.querySelectorAll('.vessel-v3-dials [role="slider"]')]
         .filter(el => !el.getAttribute('aria-label')).length);
     assert.equal(unlabelled, 0, 'every slider has an accessible name');
-    pass('Loads with Profile, Surface Motif, Spout, Lid and View panels, no footer or legacy inspectors');
+    pass('Loads with Profile, Surface Motif, Spout and Lid panels, no footer or legacy inspectors');
+
+    // --- View dock: cube snaps the camera; expanded panel drives the viewport
+    const dock = viewDock(page);
+    await dock.face('Top');
+    await page.waitForFunction(() => {
+        const { camera, controls } = window.vesselV3App.viewport;
+        return camera.position.clone().sub(controls.target).normalize().y > 0.99;
+    });
+    await dock.dock.locator('.dk-view-reset').click();
+    await dock.open();
+    await dock.setToggle('Show Grid', false);
+    assert.equal(await page.evaluate(() => window.vesselV3App.viewport.gridHelper.visible), false);
+    await dock.setToggle('Show Grid', true);
+    await dock.close();
+    pass('View dock: cube snaps to Top, reset, Show Grid toggle');
 
     // --- Slider: Enter-to-type and arrow keys update state and geometry
     const profile = section('Profile');

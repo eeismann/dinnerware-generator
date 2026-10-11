@@ -2,8 +2,8 @@
  * DialKit controls for Vessel Designer V3
  *
  * Panel definitions for the shared DialKit host (dialHost.js): profile and
- * canvas settings, the per-segment surface motif, the spout, the lid and the
- * view. vesselV3State stays the source of truth; dial edits go through `api`
+ * canvas settings, the per-segment surface motif, the spout and the lid (view
+ * controls live in the view dock). vesselV3State stays the source of truth; dial edits go through `api`
  * (see scripts/vesselV3/vesselV3Main.js initDials()) and `sync()` pushes
  * state back after loads, undo and profile-editor edits.
  */
@@ -84,13 +84,6 @@ const MOTIF_FIELDS = [
     ['direction', 'direction', 'motifDirection', 'Direction']
 ];
 
-const CAMERA_ACTIONS = {
-    top: { label: 'Top', preset: 'top' },
-    side: { label: 'Side', preset: 'side' },
-    threeQuarter: { label: '3/4', preset: 'threeQuarter' },
-    bottom: { label: 'Bottom', preset: 'bottom' }
-};
-
 /**
  * Wall (non-flat) segments in profile order. Each point owns the segment
  * beneath it; p0 owns none.
@@ -114,7 +107,6 @@ const segmentOptions = (segments) => segments.map(segment => ({
  * @returns {{ sync: Function, activeSegmentId: Function, element: HTMLElement }}
  */
 export function initVesselV3Dials(api) {
-    const view = { crossSection: false, showGrid: true };
     // The motif panel edits this segment; it follows the canvas selection
     // but stays put when the selection is cleared (like Dinnerware's item picker).
     let motifSegmentId = null;
@@ -310,23 +302,6 @@ export function initVesselV3Dials(api) {
         else api.setLid({ [field]: value });
     }
 
-    // --- View ------------------------------------------------------------------------
-
-    function buildViewConfig(b) {
-        b.bind('crossSection', 'crossSection');
-        b.bind('showGrid', 'showGrid');
-        const camera = {};
-        Object.entries(CAMERA_ACTIONS).forEach(([key, { label }]) => {
-            camera[key] = { type: 'action', label };
-        });
-        camera.resetView = { type: 'action', label: 'Reset View' };
-        return {
-            camera: b.folder('camera', camera),
-            crossSection: false,
-            showGrid: true
-        };
-    }
-
     const host = createDialHost({
         container: api.container,
         constraints: VESSEL_V3_CONSTRAINTS,
@@ -370,22 +345,6 @@ export function initVesselV3Dials(api) {
                 build: buildLidConfig,
                 read: readLid,
                 change: changeLid
-            },
-            {
-                id: 'vessel-v3-view',
-                name: 'View',
-                collapsed: true,
-                build: buildViewConfig,
-                read: ({ param }) => view[param],
-                change: ({ param }, value) => {
-                    view[param] = value;
-                    if (param === 'crossSection') api.setCrossSection(value);
-                    if (param === 'showGrid') api.setGrid(value);
-                },
-                action: (name) => {
-                    if (CAMERA_ACTIONS[name]) api.setCamera(CAMERA_ACTIONS[name].preset);
-                    else if (name === 'resetView') api.resetView();
-                }
             }
         ]
     });

@@ -50,6 +50,7 @@ class VesselV3App {
         this.initViewport();
         this.initProfileEditor();
         await this.initDials();
+        await this.initViewDock();
         this.motifPreview = new MotifPreview(document.getElementById('motifStrip'),
             () => this.dials.activeSegmentId());
         this.bindHeaderButtons();
@@ -128,16 +129,42 @@ class VesselV3App {
             setSpout: (patch) => vesselV3State.setSpout(patch, { history: false }),
             setLid: (patch) => vesselV3State.setLid(patch, { history: false }),
             setLidPreviewMode: (mode) => vesselV3State.setState('ui.lidPreviewMode', mode, { history: false }),
-            setCamera: (preset) => this.viewport?.setCameraPreset(preset),
-            resetView: () => this.viewport?.resetCamera(),
-            setCrossSection: (enabled) => this.viewport?.toggleCrossSection(enabled),
-            setGrid: (visible) => this.viewport?.toggleGrid(visible),
             onGestureStart: () => {},
             onGestureEnd: (changed) => {
                 if (!changed) return;
                 vesselV3State.commitHistory();
                 this.updateHistoryButtons();
             }
+        });
+    }
+
+    /** Orientation cube and view controls in the lower left of the viewport. */
+    async initViewDock() {
+        // Loaded on demand like the dials (Node gates import this module)
+        const { createViewDock } = await import('../ui/dialkit/viewDock.js');
+        const display = { crossSection: false, showGrid: true };
+        this.viewDock = createViewDock({
+            container: document.querySelector('.viewport-shell'),
+            rig: this.viewport.getCameraRig(),
+            onReset: () => this.viewport.resetCamera(),
+            storageKey: 'vessel_v3_view_dock_open',
+            sections: [{
+                title: 'View',
+                controls: [
+                    {
+                        type: 'toggle',
+                        label: 'Cross Section',
+                        get: () => display.crossSection,
+                        set: (on) => { display.crossSection = on; this.viewport.toggleCrossSection(on); }
+                    },
+                    {
+                        type: 'toggle',
+                        label: 'Show Grid',
+                        get: () => display.showGrid,
+                        set: (on) => { display.showGrid = on; this.viewport.toggleGrid(on); }
+                    }
+                ]
+            }]
         });
     }
 

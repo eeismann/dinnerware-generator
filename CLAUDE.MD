@@ -66,6 +66,10 @@
   applies the stored toggle state in an inline `<head>` script) and `styles/dialkit-chrome.css`
   (tokens, header, card, menus, `.dk-modal` dialogs, rows). Page CSS: `styles/<app>-dials.css`,
   `styles/dashboard-dialkit.css`. No footers; Studio/Line shells are not loaded on these pages.
+- View controls live in the shared **view dock** (`scripts/ui/dialkit/viewDock.js`): a floating card in
+  the lower left of each viewport with the Studio shell's X/Y/Z orientation cube (click a face to snap,
+  drag to orbit, reset button) and an expand icon revealing the app's view controls plus global
+  Appearance (light/dark). Apps pass sections of toggle/select/slider/actions/group controls.
 - Apps whose main module is imported by Node gates (Handle, V3, Cast Form) load their dials module on
   demand, because DialKit imports CSS.
 - Browser suites: `scripts/tests/<app>DialsBrowser.mjs`, all run by `npm run test:browser`.

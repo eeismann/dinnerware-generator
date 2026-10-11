@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { createServer } from 'vite';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { viewDock } from './viewDockHelpers.mjs';
 
 const server = await createServer({ configFile: false, logLevel: 'error',
     server: { host: '127.0.0.1', port: 0, open: false } });
@@ -109,25 +110,44 @@ try {
     pass('Restoring earlier parameters reuses the cached mesh');
     await closeSection('Surface Pattern');
 
+    // --- View dock: the cube snaps the camera; the expanded panel holds view
+    // and item controls plus the global light/dark toggle
+    const dock = viewDock(page);
+    assert.equal(await page.locator('.dk-dials .dialkit-folder-section', { hasText: /^View/ }).count(), 0, 'no View panel in the dials');
+    await dock.face('Top');
+    await page.waitForFunction(async () => {
+        const vp = (await import('/scripts/ui/viewport.js')).getViewport();
+        const offset = vp.camera.position.clone().sub(vp.controls.target).normalize();
+        return offset.y > 0.99;
+    });
+    // From the top the Front face is edge-on; the reset button restores the default view first
+    await dock.dock.locator('.dk-view-reset').click();
+    await dock.face('Front');
+    await page.waitForFunction(async () => {
+        const vp = (await import('/scripts/ui/viewport.js')).getViewport();
+        const offset = vp.camera.position.clone().sub(vp.controls.target).normalize();
+        return offset.z > 0.9;
+    });
+    await dock.open();
+    await dock.setToggle('Light Mode', true);
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.mode), 'light');
+    await dock.setToggle('Light Mode', false);
+    pass('View dock: cube faces snap the camera, reset restores it; Light Mode toggles the theme');
+
     // --- Hidden items are rebuilt only when shown
-    const view = await openSection('View');
-    const itemToggle = (label) => view.locator('.dialkit-labeled-control')
-        .filter({ has: page.locator('.dialkit-labeled-control-label', { hasText: new RegExp(`^${label}$`) }) });
-    await itemToggle('Mug').getByText('Off', { exact: true }).click();
+    await dock.openGroup('Items');
+    await dock.setToggle('Mug', false);
     await nextFrames();
     const hiddenBefore = await meshInfo('mug');
-    await closeSection('View');
     const style = await openSection('Set Style');
     await typeValue(style, 'Wall Thickness', 3.5);
     assert.equal((await meshInfo('mug')).uuid, hiddenBefore.uuid, 'hidden mug not rebuilt');
     assert.notEqual((await meshInfo('plate')).uuid, full.uuid, 'visible plate rebuilt');
-    await openSection('View');
-    await itemToggle('Mug').getByText('On', { exact: true }).click();
+    await dock.setToggle('Mug', true);
     await nextFrames();
     const shown = await meshInfo('mug');
     assert.notEqual(shown.uuid, hiddenBefore.uuid, 'mug rebuilt when shown');
     assert.equal(shown.visible, true);
-    await closeSection('View');
     pass('Hidden items defer rebuilding until shown');
 
     // File menu in the header holds New / Load / Save / Export
@@ -268,7 +288,7 @@ try {
 
     // --- Stacked layout rests the mug on the saucer
     await closeSection('Set Style');
-    await choose(await openSection('View'), 'Layout', 'Stacked');
+    await dock.choose('Layout', 'stack');
     const stack = await page.evaluate(async () => {
         const { getViewport } = await import('/scripts/ui/viewport.js');
         const vp = getViewport();
@@ -357,10 +377,13 @@ try {
             assert.equal(await app.locator(`.dk-menu ${selector}`).count(), 1, `${dir}: ${selector} in the File menu`);
         }
         assert.equal(await app.locator('.dk-panel-toggle').count(), 1, `${dir}: parameters toggle`);
+        // The cube's own box can be edge-on (zero area) in an end-on view; wait for its card
+        await app.locator('.dk-view-dock .dk-view-cube-card').waitFor({ timeout: 30000 });
+        assert.equal(await app.locator('.dk-view-dock .st-viewcube').count(), 1, `${dir}: view cube`);
         assert.deepEqual(appErrors, [], `${dir}: runtime errors`);
         await app.close();
     }
-    pass('Vessel, Vessel V2, Vessel V3, Handle and Cast Form boot into the DialKit frame without errors');
+    pass('Vessel, Vessel V2, Vessel V3, Handle and Cast Form boot into the DialKit frame with the view dock, without errors');
     await context.close();
 } finally {
     await browser?.close();

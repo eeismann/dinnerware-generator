@@ -74,6 +74,7 @@ async function init() {
     initThemeSync();
     initReadouts();
     await initDials();
+    await initViewDock();
     initHeaderChrome();
 
     // Subscribe to state changes
@@ -147,12 +148,6 @@ async function initDials() {
             updateMoldConstructionViewport();
         },
         getMoldSettings: () => getMoldConstructionSettingsFromState(),
-        setViewSetting,
-        setCameraView: (view) => {
-            handleStateManager.setViewSetting('cameraView', view);
-            getHandleViewport()?.setCameraView(view);
-        },
-        resetView: () => getHandleViewport()?.resetView(),
         // Drags preview at interactive resolution; the release rebuilds at full resolution
         onGestureStart: () => {},
         onGestureEnd: (changed) => {
@@ -161,6 +156,40 @@ async function initDials() {
             finalHandleUpdateTimer = null;
             regenerateHandle({ preview: false });
         }
+    });
+}
+
+// === View dock (lower left) ===
+
+let viewDock = null;
+
+async function initViewDock() {
+    const viewport = getHandleViewport();
+    const rig = viewport?.webglAvailable ? viewport.getCameraRig() : null;
+    // Loaded on demand like the dials (headless gates import this module)
+    const [{ createViewDock }, { MUG_DISPLAY_OPTIONS }] = await Promise.all([
+        import('../ui/dialkit/viewDock.js'),
+        import('../ui/dialkit/handleDials.js')
+    ]);
+    const setting = (key) => ({
+        get: () => handleStateManager.getState().viewSettings[key],
+        set: (value) => setViewSetting(key, value)
+    });
+    viewDock = createViewDock({
+        container: document.querySelector('.viewport-container'),
+        rig,
+        onReset: () => getHandleViewport()?.resetView(),
+        storageKey: 'handle_view_dock_open',
+        sections: [{
+            title: 'View',
+            controls: [
+                { type: 'select', label: 'Mug Display', options: MUG_DISPLAY_OPTIONS, ...setting('mugDisplayMode') },
+                { type: 'toggle', label: 'Cross Section View', ...setting('showCrossSection') },
+                { type: 'toggle', label: 'Dimensions', ...setting('showDimensions') },
+                { type: 'toggle', label: 'Attachment Outlines', ...setting('showAttachmentOutlines') },
+                { type: 'toggle', label: 'Show Grid', ...setting('showGrid') }
+            ]
+        }]
     });
 }
 
@@ -674,6 +703,7 @@ function updateUI() {
 
     // Update every dial from the state
     dials?.sync();
+    viewDock?.sync();
 
     updateMoldKitSummary();
 }

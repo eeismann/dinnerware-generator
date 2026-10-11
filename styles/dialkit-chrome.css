@@ -760,3 +760,354 @@
         animation: none;
     }
 }
+
+/* ---------- View dock (lower left) ----------
+   Orientation cube + expandable view controls (scripts/ui/dialkit/viewDock.js).
+   The cube markup is the Studio shell's; its faces are restyled here. */
+
+.dk-view-dock {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    z-index: 45;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    font-family: var(--dk-font);
+    pointer-events: none;
+}
+
+.dk-view-dock > * {
+    pointer-events: auto;
+}
+
+.dk-view-cube-card,
+.dk-view-panel {
+    background: var(--dk-glass-bg);
+    border: 1px solid var(--dk-border);
+    border-radius: 14px;
+    box-shadow: var(--dk-shadow-dropdown);
+}
+
+.dk-view-cube-card {
+    position: relative;
+    width: 112px;
+    height: 104px;
+}
+
+.dk-view-cube-slot .st-vc-wrap {
+    position: absolute;
+    left: 4px;
+    top: 6px;
+    width: 103.2px;
+    height: 92.4px;
+}
+
+.dk-view-cube-slot .st-vc-scene {
+    position: absolute;
+    left: 28.2px;
+    top: 23.4px;
+    width: 45px;
+    height: 45px;
+    perspective: 384px;
+    cursor: grab;
+    touch-action: none;
+    z-index: 2;
+}
+
+.dk-view-cube-slot .st-vc-scene.is-dragging {
+    cursor: grabbing;
+}
+
+.dk-view-cube-slot .st-viewcube {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+}
+
+.dk-view-cube-slot .st-vc-face {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 1px solid var(--dk-border-hover);
+    border-radius: 5px;
+    background: #2c2c2c;
+    color: var(--dk-text-label);
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 7px;
+    font-weight: 700;
+    cursor: pointer;
+    backface-visibility: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+[data-mode="light"] .dk-view-cube-slot .st-vc-face {
+    background: #ffffff;
+}
+
+.dk-view-cube-slot .st-vc-back,
+.dk-view-cube-slot .st-vc-bottom {
+    color: var(--dk-text-tertiary);
+}
+
+.dk-view-cube-slot .st-vc-face:hover,
+.dk-view-cube-slot .st-vc-face.is-selected {
+    background: var(--dk-text-root);
+    border-color: var(--dk-text-root);
+    color: var(--dk-glass-bg);
+}
+
+.dk-view-cube-slot .st-vc-front { transform: translateZ(22.5px); }
+.dk-view-cube-slot .st-vc-back { transform: rotateY(180deg) translateZ(22.5px); }
+.dk-view-cube-slot .st-vc-right { transform: rotateY(90deg) translateZ(22.5px); }
+.dk-view-cube-slot .st-vc-left { transform: rotateY(-90deg) translateZ(22.5px); }
+.dk-view-cube-slot .st-vc-top { transform: rotateX(90deg) translateZ(22.5px); }
+.dk-view-cube-slot .st-vc-bottom { transform: rotateX(-90deg) translateZ(22.5px); }
+
+.dk-view-cube-slot .st-vc-axes {
+    position: absolute;
+    inset: 0;
+    width: 103.2px;
+    height: 92.4px;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.dk-view-cube-slot .st-vc-axes line {
+    stroke-linecap: round;
+}
+
+.dk-view-cube-slot .st-vc-axis-shadow {
+    stroke: var(--dk-glass-bg);
+    stroke-width: 2.8;
+}
+
+.dk-view-cube-slot .st-vc-axis-line {
+    stroke-width: 1.4;
+}
+
+.dk-view-cube-slot .st-vc-axis-dot {
+    stroke: var(--dk-glass-bg);
+    stroke-width: 0.7;
+}
+
+.dk-view-cube-slot .st-vc-axis-label {
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 7.2px;
+    font-weight: 700;
+    text-anchor: middle;
+    paint-order: stroke;
+    stroke: var(--dk-glass-bg);
+    stroke-width: 1.8px;
+    stroke-linejoin: round;
+}
+
+/* The dock has its own reset button */
+.dk-view-cube-slot .st-vc-reset {
+    display: none;
+}
+
+.dk-view-btn {
+    position: absolute;
+    top: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--dk-text-tertiary);
+    cursor: pointer;
+    z-index: 4;
+    transition: background 0.15s, color 0.15s;
+}
+
+.dk-view-reset {
+    left: 5px;
+}
+
+.dk-view-expand {
+    right: 5px;
+}
+
+.dk-view-btn:hover,
+.dk-view-dock.is-expanded .dk-view-expand {
+    background: var(--dk-surface-hover);
+    color: var(--dk-text-root);
+}
+
+.dk-view-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--dk-focus-ring);
+}
+
+/* Expanded controls stack above the cube */
+.dk-view-panel {
+    width: 264px;
+    max-height: calc(100vh - 220px);
+    box-sizing: border-box;
+    padding: 6px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    transform-origin: bottom left;
+    animation: dk-menu-in 0.16s ease-out;
+}
+
+.dk-view-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dk-view-section + .dk-view-section {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--dk-border);
+}
+
+.dk-view-section > .dk-section-title {
+    margin: 0;
+    padding: 2px 6px 2px;
+    font-size: 12px;
+}
+
+.dk-view-row {
+    min-height: 34px;
+    padding: 0 4px 0 10px;
+}
+
+.dk-view-row.dk-select-row {
+    padding-right: 10px;
+}
+
+.dk-view-row .dk-row-label {
+    flex: 1 0 auto;
+    white-space: nowrap;
+}
+
+.dk-view-row select {
+    min-width: 0;
+    text-overflow: ellipsis;
+}
+
+.dk-view-row .dk-switch {
+    flex: none;
+}
+
+/* Slider row */
+.dk-view-slider {
+    padding-right: 10px;
+}
+
+.dk-view-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--dk-surface-hover);
+    pointer-events: none;
+}
+
+.dk-view-slider .dk-row-label,
+.dk-view-value {
+    position: relative;
+    pointer-events: none;
+}
+
+.dk-view-value {
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--dk-text-root);
+}
+
+.dk-view-slider input[type="range"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: ew-resize;
+}
+
+.dk-view-slider:has(input:focus-visible) {
+    box-shadow: 0 0 0 2px var(--dk-focus-ring);
+}
+
+.dk-view-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 2px 2px;
+}
+
+.dk-view-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dk-view-group > summary {
+    padding: 6px 6px 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--dk-text-label);
+    cursor: pointer;
+    list-style: none;
+}
+
+.dk-view-group > summary::-webkit-details-marker {
+    display: none;
+}
+
+.dk-view-group > summary::after {
+    content: '▾';
+    float: right;
+    opacity: 0.5;
+    transition: transform 0.2s;
+}
+
+.dk-view-group:not([open]) > summary::after {
+    transform: rotate(-90deg);
+}
+
+.dk-view-group > .dk-row,
+.dk-view-group > .dk-view-actions {
+    margin-top: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dk-view-panel {
+        animation: none;
+    }
+}
+
+/* Dev-only review comments (scripts/ui/pageComments): park the pill bottom
+   right, clear of the view dock (lower left) and the parameter card (right) */
+html:has(.dk-header) .pc-pill {
+    left: auto;
+    right: 344px;
+    bottom: 12px;
+    transform: none;
+}
+
+html:has(.dk-header) .pc-list {
+    left: auto;
+    right: 344px;
+    bottom: 60px;
+    transform: none;
+}
+
+html.params-hidden:has(.dk-header) .pc-pill,
+html.params-hidden:has(.dk-header) .pc-list {
+    right: 12px;
+}

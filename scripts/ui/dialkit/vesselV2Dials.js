@@ -3,7 +3,8 @@
  *
  * Panel definitions for the shared DialKit host (dialHost.js): vessel
  * (profile mode, corner radius of the selected point, wall, segments,
- * snapping), per-segment surface motif and view. The freeform profile canvas
+ * snapping) and per-segment surface motif; view controls live in the view
+ * dock. The freeform profile canvas
  * stays its own editor; vesselV2State stays the source of truth. Dial edits go
  * through `api` (see scripts/vesselV2/vesselV2Main.js initDials()) and
  * `sync()` pushes state back after profile edits, selection, undo or load.
@@ -35,9 +36,7 @@ const CONSTRAINTS = {
     radialSegments: { min: 32, max: 160, step: 8, default: 96 },
     allowFooterOverlap: { type: 'boolean', default: false },
     snapEnabled: { type: 'boolean', default: true },
-    snapSize: { min: 1, max: 50, step: 1, default: 5 },
-    crossSection: { type: 'boolean', default: false },
-    showGrid: { type: 'boolean', default: true }
+    snapSize: { min: 1, max: 50, step: 1, default: 5 }
 };
 
 const NO_SEGMENT = 'none';
@@ -54,13 +53,6 @@ const MOTIF_FIELDS = [
     { suffix: 'Direction', field: 'direction', key: 'direction', options: MOTIF_DIRECTION_OPTIONS }
 ];
 
-const CAMERA_ACTIONS = {
-    top: { label: 'Top', preset: 'top' },
-    side: { label: 'Side', preset: 'side' },
-    threeQuarter: { label: '3/4', preset: 'threeQuarter' },
-    bottom: { label: 'Bottom', preset: 'bottom' }
-};
-
 function selectedPoint(state) {
     return state.profile.points.find((point) => point.id === state.ui.selectedPointId) || null;
 }
@@ -76,11 +68,6 @@ function cornerEditable(state) {
  * @returns {{ sync: Function, revealMotif: Function, element: HTMLElement }}
  */
 export function initVesselV2Dials(api) {
-    const view = {
-        crossSection: false,
-        showGrid: true
-    };
-
     function buildVesselConfig(b) {
         const state = vesselV2State.getState();
         return {
@@ -165,19 +152,6 @@ export function initVesselV2Dials(api) {
         api.motif.writeMotif({ [param]: param === 'count' ? Math.round(value) : value }, !interactive);
     }
 
-    function buildViewConfig(b) {
-        const camera = {};
-        Object.entries(CAMERA_ACTIONS).forEach(([key, { label }]) => {
-            camera[key] = { type: 'action', label };
-        });
-        camera.resetView = { type: 'action', label: 'Reset View' };
-        return {
-            camera: b.folder('camera', camera),
-            crossSection: b.control('crossSection', 'crossSection'),
-            showGrid: b.control('showGrid', 'showGrid')
-        };
-    }
-
     const host = createDialHost({
         container: api.container,
         constraints: CONSTRAINTS,
@@ -202,22 +176,6 @@ export function initVesselV2Dials(api) {
                     if (name === 'smooth') api.motif.smooth();
                     else if (name === 'copyToAdjacent') api.motif.copyToAdjacent();
                     else if (name === 'applyToAll') api.motif.applyToAll();
-                }
-            },
-            {
-                id: 'vessel-v2-view',
-                name: 'View',
-                collapsed: true,
-                build: buildViewConfig,
-                read: ({ param }) => view[param],
-                change: ({ param }, value) => {
-                    view[param] = value;
-                    if (param === 'crossSection') api.setCrossSection(value);
-                    if (param === 'showGrid') api.setGrid(value);
-                },
-                action: (name) => {
-                    if (CAMERA_ACTIONS[name]) api.setCamera(CAMERA_ACTIONS[name].preset);
-                    else if (name === 'resetView') api.resetView();
                 }
             }
         ]
