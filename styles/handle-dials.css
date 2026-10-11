@@ -76,44 +76,6 @@ body::after {
     box-shadow: 0 0 0 2px var(--dk-focus-ring);
 }
 
-/* Source */
-.mug-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 8px 10px;
-    border-radius: var(--dk-radius);
-    background: var(--dk-surface);
-}
-
-.mug-info-name {
-    overflow: hidden;
-    font-weight: 500;
-    color: var(--dk-text-root);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.mug-info-dims {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin: 2px 0 0;
-}
-
-.mug-info-dims dt {
-    font-size: 11px;
-    color: var(--dk-text-tertiary);
-}
-
-.mug-info-dims dd {
-    margin: 0;
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px;
-    color: var(--dk-text-root);
-    white-space: nowrap;
-}
-
 /* Warnings: each row reveals its control in the dials */
 .warnings-list {
     display: flex;

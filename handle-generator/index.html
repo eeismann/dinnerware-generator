@@ -91,7 +91,17 @@
         <!-- Main Content -->
         <main class="main-content">
             <!-- Parameter controls: DialKit panels mounted by scripts/ui/dialkit/handleDials.js -->
-            <aside class="dk-dials-card" id="parameterPanel" aria-label="Parameters"></aside>
+            <aside class="dk-dials-card" id="parameterPanel" aria-label="Parameters">
+                <!-- Source: the mug or vessel the handle attaches to (DialKit mounts below) -->
+                <section class="dk-source-card" id="sourceCard" aria-live="polite">
+                    <span class="dk-source-dot" aria-hidden="true"></span>
+                    <div class="dk-source-text" id="mugInfo">
+                        <span class="dk-source-name">No source chosen</span>
+                        <span class="dk-source-meta"></span>
+                    </div>
+                    <button class="dk-btn dk-source-btn" id="btnChangeSource" type="button">Choose…</button>
+                </section>
+            </aside>
 
             <!-- 3D Viewport -->
             <div class="viewport-container">
@@ -102,6 +112,23 @@
                     <!-- Populated by JavaScript -->
                 </div>
 
+                <!-- Start: a new project begins by choosing what the handle attaches to -->
+                <div class="dk-start-card dk-modal" id="emptyState" hidden>
+                    <div class="modal-content modal-small">
+                        <div class="modal-header">
+                            <h2>Start a Handle</h2>
+                        </div>
+                        <div class="modal-body">
+                            <p>Choose the mug or vessel the handle attaches to: a Dinnerware mug, a Vessel V2 or V3 project, or a mug file.</p>
+                            <p class="dk-start-hint">No projects yet? Start from the default mug, or design one in the <strong>Dinnerware Generator</strong>.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="dk-btn" id="emptyDefaultMugBtn" type="button">Use Default Mug</button>
+                            <button class="dk-btn dk-btn-primary" id="emptyChooseSourceBtn" type="button">Choose Source…</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="viewport-overlay" id="viewportOverlay">
                     <div class="loading-spinner" id="loadingSpinner" hidden>
                         <div class="spinner"></div>
@@ -110,18 +137,9 @@
                 </div>
             </div>
 
-            <!-- Readouts (left column): source, warnings, mold kit and cross-section;
+            <!-- Readouts (left column): warnings, mold kit and cross-section;
                  the view dock owns the lower-left corner -->
             <div class="hd-readouts hd-readouts-top">
-                <section class="hd-card hd-source" aria-label="Source">
-                    <div class="hd-card-header">
-                        <span class="hd-card-title">Source</span>
-                        <button class="dk-chip" id="btnChangeSource" type="button" aria-label="Change Source">Change</button>
-                    </div>
-                    <div class="mug-info" id="mugInfo">
-                        <div class="mug-info-name">No mug loaded</div>
-                    </div>
-                </section>
                 <section class="hd-card hd-warnings" id="warningsCard" aria-label="Warnings" hidden>
                     <div class="hd-card-header">
                         <span class="hd-card-title" id="warningCount">0 warnings</span>

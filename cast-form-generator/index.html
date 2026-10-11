@@ -93,13 +93,13 @@
         <!-- Parameter controls: source card, DialKit panels (scripts/ui/dialkit/castFormDials.js),
              then material and warning readouts -->
         <aside class="dk-dials-card" id="parameterPanel" aria-label="Parameters">
-            <section class="cf-card cf-source" id="inputStatus" aria-live="polite">
-                <span class="cf-source-dot" aria-hidden="true"></span>
-                <div class="cf-source-text">
-                    <span class="cf-source-name status-text">No model loaded</span>
-                    <span class="cf-source-meta" id="inputMeta"></span>
+            <section class="dk-source-card" id="inputStatus" aria-live="polite">
+                <span class="dk-source-dot" aria-hidden="true"></span>
+                <div class="dk-source-text">
+                    <span class="dk-source-name status-text">No model loaded</span>
+                    <span class="dk-source-meta" id="inputMeta"></span>
                 </div>
-                <button class="dk-btn cf-source-btn" id="sourceImportBtn" type="button">Import…</button>
+                <button class="dk-btn dk-source-btn" id="sourceImportBtn" type="button">Import…</button>
             </section>
             <input type="file" id="fileInput" accept=".stl,.obj" hidden>
             <!-- Readouts: castFormDials.js moves these below the DialKit panels -->
@@ -137,14 +137,14 @@
             <div class="casebox-readout hidden" id="caseBoxReadout"></div>
 
             <!-- Start state: no model yet -->
-            <div class="cf-empty dk-modal" id="emptyState" hidden>
+            <div class="dk-start-card dk-modal" id="emptyState" hidden>
                 <div class="modal-content modal-small">
                     <div class="modal-header">
                         <h2>Start a Cast Form</h2>
                     </div>
                     <div class="modal-body">
                         <p>Import a vessel to generate a slip-casting mold: one foot and up to four wall sections, with registration keys and polymer case boxes.</p>
-                        <p class="cf-empty-hint">From the Dashboard, choose <strong>Open in Cast Form</strong> on a Dinnerware project to bring in its exact pattern data.</p>
+                        <p class="dk-start-hint">From the Dashboard, choose <strong>Open in Cast Form</strong> on a Dinnerware project to bring in its exact pattern data.</p>
                     </div>
                     <div class="modal-footer">
                         <button class="dk-btn" id="emptyOpenSavedBtn" type="button">Open Saved…</button>

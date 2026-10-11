@@ -28,7 +28,7 @@ export function initPanelReadouts() {
 function updateInputStatus() {
     const input = castFormState.getState('input');
     const card = document.getElementById('inputStatus');
-    const name = card?.querySelector('.cf-source-name');
+    const name = card?.querySelector('.dk-source-name');
     const meta = document.getElementById('inputMeta');
     const button = document.getElementById('sourceImportBtn');
     if (!card || !name || !meta) return;

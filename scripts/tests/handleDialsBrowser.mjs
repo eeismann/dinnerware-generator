@@ -80,18 +80,30 @@ try {
         return Buffer.concat(chunks);
     };
 
-    // --- First open with no projects: a DialKit dialog offers the default mug
+    // --- First open: a start card (as in Cast Form) asks for a source before
+    // anything is generated; the source card sits at the top of the parameters
     await page.goto(`${base}/handle-generator/index.html`);
-    const defaultMug = page.getByRole('button', { name: 'Use Default Mug' });
-    await defaultMug.waitFor({ timeout: 30000 });
-    assert.equal(await page.locator('#confirmModal.dk-modal .modal-content').getAttribute('role'), 'dialog');
-    await defaultMug.click();
-    await page.locator('#confirmModal').waitFor({ state: 'hidden' });
+    const startCard = page.locator('#emptyState');
+    await startCard.waitFor({ timeout: 30000 });
+    assert.equal(await page.locator('#parameterPanel #sourceCard').count(), 1, 'source card in the parameters panel');
+    assert.match(await page.locator('#sourceCard .dk-source-name').textContent(), /No source chosen/);
+    assert.equal(await page.locator('.hd-readouts').isVisible(), false, 'readouts wait for a source');
+    assert.equal(await page.evaluate(async () =>
+        Boolean((await import('/scripts/handle/ui/handleViewport.js')).getHandleViewport()?.handleMesh)), false,
+    'nothing generated before a source is chosen');
+    await startCard.getByRole('button', { name: 'Choose Source…' }).click();
+    await page.locator('#mugImportModal').waitFor();
+    await page.keyboard.press('Escape');
+    await page.locator('#mugImportModal').waitFor({ state: 'hidden' });
+    assert.equal(await startCard.isVisible(), true, 'cancelling the picker keeps the start card');
+    await startCard.getByRole('button', { name: 'Use Default Mug' }).click();
+    await startCard.waitFor({ state: 'hidden' });
     assert.equal((await state()).mugData.projectName, 'Default mug (no project)');
     await page.waitForFunction(async () =>
         Boolean((await import('/scripts/handle/ui/handleViewport.js')).getHandleViewport()?.handleMesh));
-    assert.match(await page.locator('#mugInfo').textContent(), /Default mug/);
-    pass('First open asks for a source in a DialKit dialog; Use Default Mug loads the default');
+    assert.match(await page.locator('#sourceCard .dk-source-name').textContent(), /Default mug/);
+    assert.equal(await page.locator('#btnChangeSource').textContent(), 'Change…');
+    pass('First open: start card, source card in the parameters, Choose Source… picker, Use Default Mug generates');
 
     // --- Chrome: DialKit header and panels, no footer, no Studio/Line shells
     assert.equal(await page.locator('footer').count(), 0, 'footer removed');
@@ -197,7 +209,7 @@ try {
     await page.locator('#mugImportModal').waitFor({ state: 'hidden' });
     const imported = await state();
     assert.equal(imported.mugData.projectName, 'Studio Mugs');
-    assert.match(await page.locator('#mugInfo').textContent(), /Studio Mugs/);
+    assert.match(await page.locator('#sourceCard .dk-source-name').textContent(), /Studio Mugs/);
     await nextFrames();
     assert.equal(await slider(handle, 'Protrusion').getAttribute('aria-valuenow'),
         String(imported.handleParams.handleProtrusion), 'dials follow the imported source defaults');

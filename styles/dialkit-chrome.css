@@ -761,6 +761,114 @@
     }
 }
 
+/* ---------- Source card ----------
+   What the generator works from (Cast Form's vessel, Handle's mug): shown at
+   the top of the parameter card with a change/import button. */
+.dk-source-card {
+    margin: 8px 12px;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    color: var(--dk-text-label);
+    font-family: var(--dk-font);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 8px 8px 12px;
+}
+
+.dk-source-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1.5px solid var(--dk-text-tertiary);
+}
+
+.dk-source-card.loaded .dk-source-dot {
+    border-color: #2fbf71;
+    background: #2fbf71;
+}
+
+.dk-source-card.error .dk-source-dot {
+    border-color: var(--dk-danger);
+    background: var(--dk-danger);
+}
+
+.dk-source-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.dk-source-name {
+    overflow: hidden;
+    font-weight: 500;
+    color: var(--dk-text-root);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dk-source-card.error .dk-source-name {
+    color: var(--dk-danger);
+}
+
+.dk-source-meta {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-source-btn {
+    flex: none;
+    height: 28px;
+    padding: 0 10px;
+    background: var(--dk-surface);
+}
+
+/* ---------- Start card ----------
+   Centered over the empty viewport until the generator has a source. */
+
+.dk-start-card {
+    position: absolute;
+    inset: 0;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-right: 332px;
+    pointer-events: none;
+}
+
+.params-hidden .dk-start-card {
+    padding-right: 0;
+}
+
+.dk-start-card[hidden] {
+    display: none;
+}
+
+.dk-start-card .modal-content {
+    pointer-events: auto;
+    animation: none;
+}
+
+.dk-start-card .modal-header {
+    padding: 8px 8px 6px;
+}
+
+.dk-modal .modal-body > p.dk-start-hint {
+    color: var(--dk-text-tertiary);
+    font-size: 12px;
+}
+
+.dk-start-hint strong {
+    font-weight: 500;
+    color: var(--dk-text-label);
+}
+
 /* ---------- View dock (lower left) ----------
    Orientation cube + expandable view controls (scripts/ui/dialkit/viewDock.js).
    The cube markup is the Studio shell's; its faces are restyled here. */
@@ -1093,6 +1201,12 @@
 
 /* Dev-only review comments (scripts/ui/pageComments): park the pill bottom
    right, clear of the view dock (lower left) and the parameter card (right) */
+@media (max-width: 900px) {
+    .dk-start-card {
+        padding-right: 0;
+    }
+}
+
 html:has(.dk-header) .pc-pill {
     left: auto;
     right: 344px;

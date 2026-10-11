@@ -8,9 +8,8 @@ import { handleStateManager } from './state/handleState.js';
 import { initHandleViewport, getHandleViewport } from './ui/handleViewport.js';
 import { initCrossSectionPreview, getCrossSectionPreview } from './ui/crossSectionPreview.js';
 import { initDimensionOverlays, getDimensionOverlays } from './ui/dimensionOverlays.js';
-import { showMugImportModal, getDinnerwareProjects, getVesselV2Projects, getVesselV3Projects } from './ui/mugImporter.js';
+import { showMugImportModal } from './ui/mugImporter.js';
 import { ProjectFileFormat } from '../storage/fileFormat.js';
-import { resolveAppUrl } from '../utils/navigation.js';
 import {
     DEFAULT_MOLD_CONSTRUCTION_VIEW,
     mergeMoldConstructionViewSettings
@@ -73,6 +72,7 @@ async function init() {
     initDialogs();
     initThemeSync();
     initReadouts();
+    initStartCard();
     await initDials();
     await initViewDock();
     initHeaderChrome();
@@ -80,55 +80,61 @@ async function init() {
     // Subscribe to state changes
     handleStateManager.subscribe(onStateChange);
 
-    // Check if we should show mug import modal on startup
+    // An existing project opens directly; a new one starts by choosing a source
     const urlParams = new URLSearchParams(window.location.search);
     const projectId = urlParams.get('project');
 
     if (projectId) {
-        // Load existing handle project
         loadProjectById(projectId);
         updateUI();
         regenerateHandle();
-    } else if (hasImportSource()) {
-        // New project - choose a mug or vessel; dismissing uses the default mug
-        showMugImportModal({ cancelLabel: 'Use Default Mug' }).then(mugData => {
-            if (!mugData) {
-                handleStateManager.setMugData({
-                    ...DEFAULT_MUG,
-                    loaded: false,
-                    projectName: 'No mug selected',
-                });
-            }
-            updateUI();
-            regenerateHandle();
-        });
     } else {
-        // No dinnerware or vessel projects - show prompt to create one
-        showConfirmModal(
-            'No Mug or Vessel Projects Found',
-            'To create a handle, you first need a mug (Dinnerware Generator) or a vessel (Vessel V2/V3) to attach it to.',
-            () => {
-                window.location.href = resolveAppUrl('index.html');
-            },
-            'Go to Dinnerware Generator',
-            'Use Default Mug'
-        );
-
-        // Use default mug data for now
-        handleStateManager.setMugData({
-            ...DEFAULT_MUG,
-            loaded: false,
-            projectName: 'Default mug (no project)',
-        });
-        updateUI();
-        regenerateHandle();
+        showStartCard();
     }
 }
 
-function hasImportSource() {
-    return getDinnerwareProjects().length > 0
-        || getVesselV2Projects().length > 0
-        || getVesselV3Projects().length > 0;
+// === Source: start card and picker (same flow as the Cast Form Generator) ===
+
+/** Empty stage with the start card until a source is chosen. */
+function showStartCard() {
+    getHandleViewport()?.clearModels();
+    getDimensionOverlays()?.setVisible(false);
+    document.getElementById('emptyState').hidden = false;
+    // Like Cast Form's legend, readouts wait for a source
+    document.querySelector('.hd-readouts').hidden = true;
+    updateMugInfo();
+}
+
+function hideStartCard() {
+    document.getElementById('emptyState').hidden = true;
+    document.querySelector('.hd-readouts').hidden = false;
+    const { viewSettings } = handleStateManager.getState();
+    getDimensionOverlays()?.setVisible(viewSettings.showDimensions && !viewSettings.showMoldPreview);
+}
+
+function useDefaultMug() {
+    handleStateManager.setMugData({
+        ...DEFAULT_MUG,
+        loaded: false,
+        projectName: 'Default mug (no project)',
+    });
+    hideStartCard();
+    updateUI();
+    regenerateHandle();
+}
+
+/** Pick a Dinnerware mug, Vessel V2/V3 project or mug file. */
+async function chooseSource() {
+    const mugData = await showMugImportModal();
+    if (!mugData) return;
+    hideStartCard();
+    updateUI();
+    regenerateHandle();
+}
+
+function initStartCard() {
+    document.getElementById('emptyDefaultMugBtn').addEventListener('click', useDefaultMug);
+    document.getElementById('emptyChooseSourceBtn').addEventListener('click', chooseSource);
 }
 
 // === DialKit controls ===
@@ -272,8 +278,10 @@ function handleParameterChange(param, value, options = {}) {
 function regenerateHandle(options = {}) {
     const state = handleStateManager.getState();
     const viewport = getHandleViewport();
+    // Like Cast Form, nothing is generated until a source is chosen
+    const choosing = !document.getElementById('emptyState')?.hidden;
 
-    if (viewport) {
+    if (viewport && !choosing) {
         viewport.updateHandle(state.handleParams, state.mugData, { preview: options.preview === true });
         viewport.updateMug(state.mugData);
     }
@@ -311,7 +319,8 @@ function updateDimensionOverlays() {
     const viewport = getHandleViewport();
     const state = handleStateManager.getState();
 
-    if (overlays && viewport && state.viewSettings.showDimensions) {
+    const choosing = !document.getElementById('emptyState')?.hidden;
+    if (overlays && viewport && state.viewSettings.showDimensions && !choosing) {
         overlays.update(state.handleParams, viewport.camera, state.mugData);
     }
 }
@@ -320,43 +329,21 @@ function updateDimensionOverlays() {
  * Initialize header buttons (File menu items)
  */
 function initHeaderButtons() {
-    // New Project - requires mug selection
+    // New Project: back to the start card to choose a source
     document.getElementById('btnNewProject').addEventListener('click', () => {
-        const createNewWithMug = async () => {
-            // First check if there are any dinnerware or vessel projects
-            if (!hasImportSource()) {
-                showConfirmModal(
-                    'No Mug or Vessel Projects Found',
-                    'You need a mug (Dinnerware Generator) or a vessel (Vessel V2/V3) first. Would you like to go there now?',
-                    () => {
-                        window.location.href = resolveAppUrl('index.html');
-                    },
-                    'Go to Dinnerware Generator',
-                    'Cancel'
-                );
-                return;
-            }
-
-            // Show mug import modal - required for new project
-            const mugData = await showMugImportModal();
-            if (mugData) {
-                handleStateManager.resetToNew();
-                handleStateManager.setMugData(mugData);
-                applyViewSettings();
-                updateUI();
-                regenerateHandle();
-            }
-            // If cancelled, don't create new project
+        const startNew = () => {
+            handleStateManager.resetToNew();
+            applyViewSettings();
+            showStartCard();
         };
-
         if (handleStateManager.getState().ui.hasUnsavedChanges) {
             showConfirmModal(
                 'Unsaved Changes',
                 'You have unsaved changes. Are you sure you want to create a new project?',
-                createNewWithMug
+                startNew
             );
         } else {
-            createNewWithMug();
+            startNew();
         }
     });
 
@@ -377,6 +364,11 @@ function initHeaderButtons() {
 }
 
 function changeSource() {
+    // Before a source is chosen this is the start card's Choose Source…
+    if (!document.getElementById('emptyState').hidden) {
+        chooseSource();
+        return;
+    }
     const pickSource = () => {
         showMugImportModal().then(mugData => {
             if (mugData) {
@@ -664,21 +656,19 @@ function formatMm(value) {
  * Update mug info display
  */
 function updateMugInfo() {
-    const state = handleStateManager.getState();
-    const mugInfo = document.getElementById('mugInfo');
-    const { mugData } = state;
-
-    const name = mugData.loaded
-        ? (mugData.projectName || 'Imported Mug')
-        : (mugData.projectName || 'No mug loaded');
-    mugInfo.innerHTML = `
-        <div class="mug-info-name">${escapeHtml(name)}</div>
-        <dl class="mug-info-dims">
-            <div><dt>Height</dt><dd>${formatMm(mugData.height)}</dd></div>
-            <div><dt>Ø Top</dt><dd>${formatMm(mugData.topDiameter)}</dd></div>
-            <div><dt>Ø Base</dt><dd>${formatMm(mugData.bottomDiameter)}</dd></div>
-        </dl>
-    `;
+    const card = document.getElementById('sourceCard');
+    if (!card) return;
+    const choosing = !document.getElementById('emptyState').hidden;
+    const { mugData } = handleStateManager.getState();
+    const name = choosing
+        ? 'No source chosen'
+        : mugData.loaded ? (mugData.projectName || 'Imported Mug') : (mugData.projectName || 'Default mug');
+    card.classList.toggle('loaded', !choosing);
+    card.querySelector('.dk-source-name').textContent = name;
+    card.querySelector('.dk-source-meta').textContent = choosing
+        ? 'Mug or vessel project'
+        : `${formatMm(mugData.height)} tall · Ø ${formatMm(mugData.topDiameter)} / ${formatMm(mugData.bottomDiameter)}`;
+    document.getElementById('btnChangeSource').textContent = choosing ? 'Choose…' : 'Change…';
 }
 
 /**

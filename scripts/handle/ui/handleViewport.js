@@ -389,6 +389,26 @@ export class HandleViewport {
         this.requestRender();
     }
 
+    /** Remove the handle, mug, mold and attachment outlines (empty start state). */
+    clearModels() {
+        ['handleMesh', 'mugMesh'].forEach(key => {
+            if (!this[key]) return;
+            this.scene.remove(this[key]);
+            this[key].geometry.dispose();
+            this[key] = null;
+        });
+        ['moldGroup', 'attachmentZones'].forEach(key => {
+            if (!this[key]) return;
+            this.scene.remove(this[key]);
+            this.disposeObject(this[key], { disposeMaterial: key === 'attachmentZones' });
+            this[key] = null;
+        });
+        this.lastMugKey = null;
+        this.lastMoldKey = null;
+        this.moldSummary = null;
+        this.requestRender();
+    }
+
     updateMoldPreview(handleParams, mugData) {
         if (!this.webglAvailable) {
             this.requestRender();

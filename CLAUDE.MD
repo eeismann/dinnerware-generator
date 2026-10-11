@@ -70,6 +70,9 @@
   the lower left of each viewport with the Studio shell's X/Y/Z orientation cube (click a face to snap,
   drag to orbit, reset button) and an expand icon revealing the app's view controls plus global
   Appearance (light/dark). Apps pass sections of toggle/select/slider/actions/group controls.
+- Generators that need an input (Cast Form's vessel, Handle's mug/vessel) share one source flow: a
+  `.dk-start-card` over the empty viewport until a source is chosen (nothing is generated before), and a
+  `.dk-source-card` at the top of the parameter card with a Choose…/Change… button.
 - Apps whose main module is imported by Node gates (Handle, V3, Cast Form) load their dials module on
   demand, because DialKit imports CSS.
 - Browser suites: `scripts/tests/<app>DialsBrowser.mjs`, all run by `npm run test:browser`.

@@ -63,64 +63,6 @@ body {
     display: none;
 }
 
-/* Source: what the mold is cast from */
-.cf-source {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 8px 8px 12px;
-}
-
-.cf-source-dot {
-    flex: none;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    border: 1.5px solid var(--dk-text-tertiary);
-}
-
-.cf-source.loaded .cf-source-dot {
-    border-color: #2fbf71;
-    background: #2fbf71;
-}
-
-.cf-source.error .cf-source-dot {
-    border-color: var(--dk-danger);
-    background: var(--dk-danger);
-}
-
-.cf-source-text {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.cf-source-name {
-    overflow: hidden;
-    font-weight: 500;
-    color: var(--dk-text-root);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.cf-source.error .cf-source-name {
-    color: var(--dk-danger);
-}
-
-.cf-source-meta {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px;
-    color: var(--dk-text-tertiary);
-}
-
-.cf-source-btn {
-    flex: none;
-    height: 28px;
-    padding: 0 10px;
-    background: var(--dk-surface);
-}
-
 /* Polymer volume */
 .cf-material-total {
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -352,44 +294,6 @@ body {
 }
 
 /* Start card: the dialog frame, inline over the empty canvas */
-.cf-empty {
-    position: absolute;
-    inset: 0;
-    z-index: 15;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding-right: 332px;
-    pointer-events: none;
-}
-
-.params-hidden .cf-empty {
-    padding-right: 0;
-}
-
-.cf-empty[hidden] {
-    display: none;
-}
-
-.cf-empty .modal-content {
-    pointer-events: auto;
-    animation: none;
-}
-
-.cf-empty .modal-header {
-    padding: 8px 8px 6px;
-}
-
-.dk-modal .modal-body > p.cf-empty-hint {
-    color: var(--dk-text-tertiary);
-    font-size: 12px;
-}
-
-.cf-empty-hint strong {
-    font-weight: 500;
-    color: var(--dk-text-label);
-}
-
 /* Debug legend (written inline by castFormViewport.js): clear of the card */
 #debug-legend {
     top: auto !important;
@@ -524,10 +428,6 @@ body {
 }
 
 @media (max-width: 900px) {
-    .cf-empty {
-        padding-right: 0;
-    }
-
     .cf-status {
         max-width: calc(100% - 148px);
     }

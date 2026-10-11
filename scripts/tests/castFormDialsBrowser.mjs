@@ -91,7 +91,7 @@ try {
     await chooser.setFiles(FIXTURE);
     await moldReady();
     assert.equal(await page.locator('#emptyState').isVisible(), false, 'start card leaves once loaded');
-    assert.match(await page.locator('#inputStatus .cf-source-name').textContent(), /Angle_mug\.stl/);
+    assert.match(await page.locator('#inputStatus .dk-source-name').textContent(), /Angle_mug\.stl/);
     assert.equal(await page.locator('#partLegend .legend-item').count(), 4, 'foot + 3 walls in the legend');
     assert.match(await page.locator('#materialVolumeTotal').textContent(), /mL$/);
     pass('STL import from the start card generates the mold (legend, source card, polymer volume)');
