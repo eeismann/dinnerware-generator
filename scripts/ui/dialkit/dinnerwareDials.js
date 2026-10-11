@@ -4,7 +4,7 @@
  * Replaces the classic parameter panel with DialKit panels mounted inline in
  * the left column. The project state stays the single source of truth: dial
  * edits are forwarded to the app through `api`, and `sync()` pushes state back
- * into the dials after anything else changes it (undo, presets, load, the
+ * into the dials after anything else changes it (undo, load, the
  * profile panel).
  *
  * DialKit re-renders every panel whenever any panel's control list changes,
@@ -22,7 +22,6 @@ import {
     ITEM_NAMES,
     PARAMETER_CONSTRAINTS
 } from '../../state/projectState.js';
-import { BUILT_IN_PRESETS, matchingPreset, loadUserPresets } from '../../state/presets.js';
 
 export const PATTERN_PREFIXES = ['wall', 'footring'];
 export const PATTERN_PARAM_SUFFIXES = [
@@ -194,26 +193,10 @@ export function initDinnerwareDials(api) {
 
     function buildStyleConfig(b) {
         const globals = stateManager.getState('globalParameters');
-        const userPresets = loadUserPresets();
-        const presets = [...BUILT_IN_PRESETS, ...userPresets];
-        const match = matchingPreset(globals, presets);
-        const presetOptions = [
-            ...(match ? [] : [{ value: 'custom', label: 'Custom' }]),
-            ...BUILT_IN_PRESETS.map(p => ({ value: p.id, label: p.name })),
-            ...userPresets.map(p => ({ value: p.id, label: `${p.name} (saved)` }))
-        ];
-        b.bindings.set('preset', { param: '__preset', value: match?.id ?? 'custom' });
-
         const insetEnabled = Boolean(globals.wallInsetEnabled);
         const proportional = Boolean(globals.footringWidthProportional);
 
         return {
-            preset: { type: 'select', options: presetOptions, default: match?.id ?? 'custom' },
-            presets: b.folder('presets', {
-                newPresetName: { type: 'text', placeholder: 'Name this style', default: '' },
-                savePreset: { type: 'action', label: 'Save Style as Preset' },
-                ...(match?.user ? { deletePreset: { type: 'action', label: `Delete “${match.name}”` } } : {})
-            }, { collapsed: true }),
             scale: b.folder('scale', {
                 heightScale: b.control('scale.heightScale', 'globalHeightScale'),
                 widthScale: b.control('scale.widthScale', 'globalWidthScale')
@@ -402,11 +385,7 @@ export function initDinnerwareDials(api) {
         changed.forEach(([, binding, value]) => {
             const { param, item, axis } = binding;
             if (panel.id === 'dinnerware-style' || panel.id === 'dinnerware-pattern') {
-                if (param === '__preset') {
-                    if (value !== 'custom') api.applyPreset(value);
-                } else {
-                    api.setGlobal(param, value, { interactive });
-                }
+                api.setGlobal(param, value, { interactive });
             } else if (panel.id === 'dinnerware-proportions') {
                 api.setMultiplier(item, axis, value, { interactive });
             } else if (panel.id === 'dinnerware-overrides') {
@@ -441,20 +420,7 @@ export function initDinnerwareDials(api) {
 
     function handleAction(panel, path) {
         const action = path.split('.').pop();
-        if (panel.id === 'dinnerware-style') {
-            if (action === 'savePreset') {
-                const name = String(DialStore.getValue(panel.id, 'presets.newPresetName') || '').trim();
-                if (!name) {
-                    revealLabel('New Preset Name');
-                    return;
-                }
-                api.savePreset(name);
-                panel.kit.setValue('presets.newPresetName', '');
-            } else if (action === 'deletePreset') {
-                const match = matchingPreset(stateManager.getState('globalParameters'), loadUserPresets());
-                if (match) api.deletePreset(match.id);
-            }
-        } else if (panel.id === 'dinnerware-pattern' && action === 'copyWallToFootring') {
+        if (panel.id === 'dinnerware-pattern' && action === 'copyWallToFootring') {
             api.copyWallPatternToFootring();
         } else if (panel.id === 'dinnerware-overrides') {
             if (action === 'clearAll') {
@@ -507,12 +473,10 @@ export function initDinnerwareDials(api) {
                         rebuilt = true;
                     }
                 }
-                // Bindings carry live context (the matched preset) even when
-                // the control structure is unchanged
                 if (panel.signature === signature) panel.bindings = builder.bindings;
                 const updates = {};
                 panel.bindings.forEach((binding, path) => {
-                    const value = binding.value !== undefined ? binding.value : panel.read(binding);
+                    const value = panel.read(binding);
                     if (value !== undefined && DialStore.getValue(panel.id, path) !== value) {
                         updates[path] = value;
                     }

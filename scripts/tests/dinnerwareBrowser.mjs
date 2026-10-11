@@ -266,20 +266,6 @@ try {
     await closeSection('Per-Item Overrides');
     pass('Overrides mark their control, fall back to the global value on revert');
 
-    // --- Presets
-    await openSection('Set Style');
-    await choose(style, 'Preset', 'Soft Bowl');
-    assert.equal(await state('globalParameters.rimStyle'), 'rounded');
-    await style.locator(':scope .dialkit-folder-header', { hasText: 'Presets' }).click();
-    await style.getByRole('textbox', { name: 'New Preset Name' }).fill('My Bowl');
-    await style.getByText('Save Style as Preset', { exact: true }).click();
-    await nextFrames();
-    assert.match(await style.locator('.dialkit-select-trigger').filter({ hasText: /^Preset/ }).textContent(), /Soft Bowl/);
-    await typeValue(style, 'Wall Angle', 30);
-    assert.match(await style.locator('.dialkit-select-trigger').filter({ hasText: /^Preset/ }).textContent(), /Custom/,
-        'edited style reads as Custom');
-    pass('Presets apply, save and show Custom after edits');
-
     // --- Stacked layout rests the mug on the saucer
     await closeSection('Set Style');
     await choose(await openSection('View'), 'Layout', 'Stacked');

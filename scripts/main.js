@@ -18,9 +18,6 @@ import { ProjectFileFormat } from './storage/fileFormat.js';
 import { resolveAppUrl } from './utils/navigation.js';
 import { selectDinnerwareState, startDinnerwareProject, newDinnerwareDraftId } from './storage/dinnerwareDrafts.js';
 import { DesignHistory } from './state/history.js';
-import {
-    BUILT_IN_PRESETS, applyPreset, loadUserPresets, saveUserPreset, deleteUserPreset
-} from './state/presets.js';
 import { openDialog, closeDialog } from './ui/accessibility.js';
 import {
     initDinnerwareDials, PATTERN_PARAM_SUFFIXES, patternParamName
@@ -880,7 +877,7 @@ function updateHistoryButtons() {
 
 /**
  * Refresh every control and mesh after the design changed outside the
- * controls (undo/redo, presets).
+ * controls (undo/redo, load).
  */
 function applyExternalDesignChange() {
     updateUIFromState();
@@ -913,10 +910,6 @@ function initKeyboardShortcuts() {
 
 let dials = null;
 
-function allPresets() {
-    return [...BUILT_IN_PRESETS, ...loadUserPresets()];
-}
-
 function initDials() {
     dials = initDinnerwareDials({
         container: document.getElementById('parameterPanel'),
@@ -926,20 +919,6 @@ function initDials() {
         clearAllOverrides: (itemType) => clearOverrides(itemType,
             Object.keys(stateManager.getState(`itemOverrides.${itemType}`) || {})),
         setMultiplier: setItemMultiplier,
-        applyPreset: (id) => {
-            const preset = allPresets().find(p => p.id === id);
-            if (!preset) return;
-            applyPreset(stateManager, preset);
-            applyExternalDesignChange();
-        },
-        savePreset: (name) => {
-            try {
-                saveUserPreset(name, stateManager.getState('globalParameters'));
-            } catch (error) {
-                alert(`Could not save the preset: ${error.message}`);
-            }
-        },
-        deletePreset: (id) => deleteUserPreset(id),
         copyWallPatternToFootring: () => {
             const updates = {};
             PATTERN_PARAM_SUFFIXES.forEach(suffix => {
