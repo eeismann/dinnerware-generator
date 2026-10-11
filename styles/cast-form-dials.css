@@ -450,42 +450,6 @@ body {
     white-space: nowrap;
 }
 
-.dk-check {
-    appearance: none;
-    -webkit-appearance: none;
-    flex: none;
-    width: 16px;
-    height: 16px;
-    margin: 0;
-    border: 1.5px solid var(--dk-text-tertiary);
-    border-radius: 4px;
-    background: transparent;
-    cursor: pointer;
-    display: grid;
-    place-content: center;
-    transition: background 0.15s, border-color 0.15s;
-}
-
-.dk-check::after {
-    content: '';
-    width: 8px;
-    height: 4px;
-    margin-top: -2px;
-    border-left: 2px solid var(--dk-glass-bg);
-    border-bottom: 2px solid var(--dk-glass-bg);
-    transform: rotate(-45deg) scale(0);
-    transition: transform 0.15s;
-}
-
-.dk-check:checked {
-    background: var(--dk-text-root);
-    border-color: var(--dk-text-root);
-}
-
-.dk-check:checked::after {
-    transform: rotate(-45deg) scale(1);
-}
-
 /* Saved projects */
 .dk-modal .project-list {
     display: flex;

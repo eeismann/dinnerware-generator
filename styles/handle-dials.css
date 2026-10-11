@@ -5,10 +5,6 @@
    dimension labels and the source / export dialog contents.
    ================================================ */
 
-[hidden] {
-    display: none !important;
-}
-
 body {
     background: var(--dk-page-bg);
 }

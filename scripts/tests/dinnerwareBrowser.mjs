@@ -333,38 +333,34 @@ try {
     await dash.close();
     pass('Dashboard: DialKit toolbar, settings menu (theme, thumbnails), card actions, new-project dialog, search');
 
-    // --- Every other generator mounts the same Line frame
-    const LINE_APPS = [
-        ['vessel-generator', 'Vessel', ['#btnExportSTL'], true],
-        ['vessel-v2-generator', 'Vessel V2', ['#btnExportSTL'], false],
-        ['vessel-v3-generator', 'Vessel V3', ['#btnExportSTL', '#btnExportLidSTL'], true],
-        ['handle-generator', 'Handle', ['#btnExportSTL', '#btnExportMoldKit'], true],
-        ['cast-form-generator', 'Cast Form', ['#exportBtn'], true]
+    // --- Every other generator boots into the same DialKit frame, even when
+    // an old ?ui=line link is followed (details live in each app's own suite)
+    const DIALKIT_APPS = [
+        ['vessel-generator', ['#btnExportSTL']],
+        ['vessel-v2-generator', ['#btnExportSTL']],
+        ['vessel-v3-generator', ['#btnExportSTL', '#btnExportLidSTL']],
+        ['handle-generator', ['#btnExportSTL', '#btnExportMoldKit']],
+        ['cast-form-generator', ['#exportBtn']]
     ];
-    for (const [dir, title, exports, hasPanel] of LINE_APPS) {
+    for (const [dir, exports] of DIALKIT_APPS) {
         const app = await context.newPage();
         const appErrors = [];
         app.on('pageerror', error => appErrors.push(error.message));
         await app.goto(`${base}/${dir}/index.html?ui=line`);
-        await app.waitForSelector('.ln-root.ln-ready', { timeout: 30000 });
         // Handle asks for a mug on first open; take the default one
         const defaultMug = app.getByRole('button', { name: 'Use Default Mug' });
-        if (await defaultMug.isVisible().catch(() => false)) await defaultMug.click();
-        assert.match(await app.locator('.ln-mark').textContent(), new RegExp(`${title}$`));
+        if (await defaultMug.first().isVisible({ timeout: 3000 }).catch(() => false)) await defaultMug.first().click();
+        await app.locator('.dk-dials .dialkit-folder-section').first().waitFor({ timeout: 30000 });
+        assert.equal(await app.locator('.dk-header').count(), 1, `${dir}: DialKit header`);
+        assert.equal(await app.locator('.ln-root, footer').count(), 0, `${dir}: no Line frame or footer`);
         for (const selector of exports) {
-            assert.equal(await app.locator(`.ln-actions ${selector}`).count(), 1, `${dir}: ${selector} in the bar`);
+            assert.equal(await app.locator(`.dk-menu ${selector}`).count(), 1, `${dir}: ${selector} in the File menu`);
         }
-        assert.ok(await app.locator('.ln-stage .ln-crop').count() >= 4, `${dir}: framed stage`);
-        assert.equal(await app.locator('.ln-root > header:not(.ln-bar)').isVisible().catch(() => false), false, `${dir}: classic header hidden`);
-        assert.equal(await app.locator('.ln-panel').count() > 0, hasPanel, `${dir}: parameter column`);
-        assert.equal(await app.locator('#btnSaveProject, #saveBtn').count(), 1);
-        await app.locator('[data-action="theme"]').click();
-        assert.equal(await app.evaluate(() => document.documentElement.dataset.lnTheme), 'negative');
-        await app.locator('[data-action="theme"]').click();
+        assert.equal(await app.locator('.dk-panel-toggle').count(), 1, `${dir}: parameters toggle`);
         assert.deepEqual(appErrors, [], `${dir}: runtime errors`);
         await app.close();
     }
-    pass('Vessel, Vessel V2, Vessel V3, Handle and Cast Form mount the Line frame without errors');
+    pass('Vessel, Vessel V2, Vessel V3, Handle and Cast Form boot into the DialKit frame without errors');
     await context.close();
 } finally {
     await browser?.close();

@@ -15,10 +15,6 @@ body::after {
     display: none;
 }
 
-[hidden] {
-    display: none !important;
-}
-
 /* The dials card is positioned inside the main area, over the viewport */
 .main-content {
     position: relative;
@@ -58,11 +54,6 @@ body::after {
     background: var(--dk-surface-active);
     color: var(--dk-text-root);
     box-shadow: inset 0 0 0 1px var(--dk-border-hover);
-}
-
-.dk-icon-btn.dk-icon-btn-danger:hover:not(:disabled) {
-    background: var(--dk-danger-surface);
-    color: var(--dk-danger);
 }
 
 .zoom-value {
@@ -244,18 +235,6 @@ body::after {
 
 .dk-header .unsaved-indicator {
     color: var(--dk-text-label);
-}
-
-/* ---------- Dialogs ---------- */
-
-.dk-modal .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.dk-modal .modal-footer {
-    display: flex;
 }
 
 @media (max-width: 980px) {

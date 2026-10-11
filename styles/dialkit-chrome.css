@@ -6,6 +6,11 @@
    every generator and the dashboard.
    ================================================ */
 
+/* The hidden attribute always wins over component display rules */
+[hidden] {
+    display: none !important;
+}
+
 :root {
     --dk-page-bg: #171717;
     --dk-glass-bg: #212121;
@@ -91,6 +96,11 @@
 .dk-icon-btn:active:not(:disabled),
 .dk-btn:active {
     background: var(--dk-surface-active);
+}
+
+.dk-icon-btn.dk-icon-btn-danger:hover:not(:disabled) {
+    background: var(--dk-danger-surface);
+    color: var(--dk-danger);
 }
 
 .dk-icon-btn:disabled {
@@ -257,6 +267,9 @@
 }
 
 .dk-modal .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 6px 4px 10px 8px;
     border-bottom: none;
 }
@@ -293,6 +306,7 @@
 }
 
 .dk-modal .modal-footer {
+    display: flex;
     gap: 6px;
     padding: 12px 2px 2px;
     border-top: none;
@@ -380,6 +394,43 @@
 .dk-chip:hover {
     background: var(--dk-surface-hover);
     color: var(--dk-text-root);
+}
+
+/* Checkbox: a DialKit-style check mark */
+.dk-check {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    border: 1.5px solid var(--dk-text-tertiary);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    display: grid;
+    place-content: center;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.dk-check::after {
+    content: '';
+    width: 8px;
+    height: 4px;
+    margin-top: -2px;
+    border-left: 2px solid var(--dk-glass-bg);
+    border-bottom: 2px solid var(--dk-glass-bg);
+    transform: rotate(-45deg) scale(0);
+    transition: transform 0.15s;
+}
+
+.dk-check:checked {
+    background: var(--dk-text-root);
+    border-color: var(--dk-text-root);
+}
+
+.dk-check:checked::after {
+    transform: rotate(-45deg) scale(1);
 }
 
 /* Rows: one DialKit control row (36px surface, 8px radius) */

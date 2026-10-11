@@ -11,15 +11,8 @@
 - Creates complete dinnerware sets with 7 item types
 - Global style parameters with per-item overrides
 - Items: Plate, Soup Bowl, Pasta Bowl, Mug, Tumbler, Saucer, Serving Bowl
-- **`dialkit-dinnerware` branch**: parameter, override, proportion and view controls are
-  [DialKit](https://www.dialkit.dev) panels (`dialkit/vanilla`) mounted inline in `#parameterPanel`
-  by `scripts/ui/dialkit/dinnerwareDials.js`. State stays the source of truth: dial edits go through
-  the `api` hooks in `main.js` `initDials()`, and `dials.sync()` pushes state back after undo
-  or load. Style presets are not offered on this branch. The Studio/Line shells are not loaded on this page. No footer:
-  the DialKit-styled header holds undo/redo, a File menu (New/Load/Save/Export) and a toggle that
-  hides the right-hand parameter card (`styles/dinnerware-dials.css`). The dashboard uses the same
-  DialKit look (`styles/dashboard-dialkit.css`, settings folded into a header menu, no footer); shared
-  tokens and controls live in `styles/dialkit-chrome.css`.
+- **`dialkit-dinnerware` branch**: every generator and the dashboard use [DialKit](https://www.dialkit.dev)
+  (`dialkit/vanilla`). See "DialKit interface" below.
 
 ### 2. Vessel Generator (`vessel-generator/`)
 - Entry point: `scripts/vessel/vesselMain.js`
@@ -60,6 +53,22 @@
   now imports Vessel V2/V3 projects as a source (alongside Dinnerware mugs), reusing
   its existing radius-at-height attachment geometry
 - Own localStorage key (`playground_ceramics_vessel_v3_projects`), separate from V2
+
+## DialKit interface (`dialkit-dinnerware` branch)
+
+- Each generator's parameters are DialKit panels mounted in a right-hand `.dk-dials-card`
+  (`#parameterPanel`), defined per app in `scripts/ui/dialkit/<app>Dials.js` on the shared host
+  `scripts/ui/dialkit/dialHost.js`. The app's state stays the source of truth: panels `read`/`change`
+  through the app's existing setters, and the app calls `dials.sync()` after anything else changes state
+  (undo, load, canvas editors). The host defers DialKit's full re-renders until a drag ends, remembers
+  folders, restores focus and follows `<html data-mode>`.
+- Shared chrome: `scripts/ui/dialkit/dkChrome.js` (File menu, parameters show/hide toggle; each page
+  applies the stored toggle state in an inline `<head>` script) and `styles/dialkit-chrome.css`
+  (tokens, header, card, menus, `.dk-modal` dialogs, rows). Page CSS: `styles/<app>-dials.css`,
+  `styles/dashboard-dialkit.css`. No footers; Studio/Line shells are not loaded on these pages.
+- Apps whose main module is imported by Node gates (Handle, V3, Cast Form) load their dials module on
+  demand, because DialKit imports CSS.
+- Browser suites: `scripts/tests/<app>DialsBrowser.mjs`, all run by `npm run test:browser`.
 
 ## Technical Stack
 

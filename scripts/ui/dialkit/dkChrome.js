@@ -15,7 +15,8 @@ export function initDkMenu(menu) {
     const button = menu?.querySelector('[aria-haspopup]');
     const list = menu?.querySelector('.dk-menu-list');
     if (!button || !list) return null;
-    const items = () => [...list.querySelectorAll('[role="menuitem"]')];
+    const items = () => [...list.querySelectorAll('[role="menuitem"]')]
+        .filter(item => !item.hidden && !item.disabled);
 
     const setOpen = (open, { focus = false } = {}) => {
         list.hidden = !open;

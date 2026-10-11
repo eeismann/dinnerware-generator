@@ -6,11 +6,6 @@
    hidden-attribute modals and the status toast.
    ================================================ */
 
-/* The hidden attribute always wins over component display rules */
-[hidden] {
-    display: none !important;
-}
-
 body {
     background: var(--dk-page-bg);
     font-family: var(--dk-font);
@@ -54,16 +49,6 @@ body::after {
 /* Classic modal frame values that dialkit-chrome.css does not reset */
 .dk-modal .modal-content {
     position: relative;
-}
-
-.dk-modal .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.dk-modal .modal-footer {
-    display: flex;
 }
 
 .dk-modal .btn-close {
