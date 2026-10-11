@@ -12,6 +12,14 @@ import { RenderScheduler } from '../../ui/renderScheduler.js';
 import { createWorldAxes } from '../../ui/studio/worldAxes.js';
 import { createOrbitPanMode } from '../../ui/orbitPanMode.js';
 
+// Same palette as the Vessel and Handle viewports
+function sceneColors() {
+    const dark = document.documentElement.dataset.mode !== 'light';
+    return dark
+        ? { background: 0x1e1e1e, grid: 0x444444, gridCenter: 0x333333 }
+        : { background: 0xf5f5f5, grid: 0xcccccc, gridCenter: 0xdddddd };
+}
+
 export class CastFormViewport {
     constructor(container) {
         this.container = container;
@@ -82,8 +90,8 @@ export class CastFormViewport {
     init() {
         // Scene
         this.scene = new THREE.Scene();
-        // Match the light gray studio canvas used by the other generators.
-        this.scene.background = new THREE.Color(0xe9e9e6);
+        // Follows the app theme like the other generators' viewports
+        this.scene.background = new THREE.Color(sceneColors().background);
         
         // Camera
         const aspect = this.container.clientWidth / this.container.clientHeight;
@@ -194,9 +202,24 @@ export class CastFormViewport {
     }
 
     setupGrid() {
-        this.gridHelper = new THREE.GridHelper(400, 40, 0xbfc0bd, 0xd8d8d4);
+        const { grid, gridCenter } = sceneColors();
+        this.gridHelper = new THREE.GridHelper(400, 40, grid, gridCenter);
         this.gridHelper.position.y = 0;
         this.scene.add(this.gridHelper);
+    }
+
+    /** Re-colour the background and grid when the light/dark theme changes. */
+    applyThemeColors() {
+        this.scene.background = new THREE.Color(sceneColors().background);
+        if (this.gridHelper) {
+            const visible = this.gridHelper.visible;
+            this.scene.remove(this.gridHelper);
+            this.gridHelper.geometry.dispose();
+            this.gridHelper.material.dispose();
+            this.setupGrid();
+            this.gridHelper.visible = visible;
+        }
+        this.requestRender();
     }
 
     setupRenderScheduler() {
@@ -269,6 +292,11 @@ export class CastFormViewport {
         // Subscribe to cross-section angle changes
         this.unsubscribers.push(castFormState.subscribe('view.crossSectionAngle', () => { this.updateCrossSectionAngle(); this.requestRender(); }));
         
+        // Follow the light/dark theme
+        const themeObserver = new MutationObserver(() => this.applyThemeColors());
+        themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-mode'] });
+        this.unsubscribers.push(() => themeObserver.disconnect());
+
         // Subscribe to grid visibility
         this.unsubscribers.push(castFormState.subscribe('view.showGrid', (show) => {
             if (this.gridHelper) {

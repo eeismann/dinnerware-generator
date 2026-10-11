@@ -100,11 +100,6 @@ export class CastFormApp {
     async init() {
         // Initialize theme
         initTheme();
-        // Cast Form uses the shared light-gray studio surface by default. An
-        // explicit saved appearance preference still takes precedence.
-        if (!localStorage.getItem('playground-ceramics-mode')) {
-            document.documentElement.setAttribute('data-mode', 'light');
-        }
 
         // Initialize viewport
         const viewportContainer = document.getElementById('viewport');
