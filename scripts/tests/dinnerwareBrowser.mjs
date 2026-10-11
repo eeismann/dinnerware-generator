@@ -48,10 +48,13 @@ try {
     const dials = page.locator('.dinnerware-dials');
     const section = (name) => dials.locator('.dialkit-folder-section')
         .filter({ has: page.locator(':scope > .dialkit-folder-header', { hasText: name }) });
+    // Sections animate open/closed; let the layout settle before measuring
+    const settle = () => page.waitForTimeout(400);
     const openSection = async (name) => {
         const scope = section(name);
         if (await scope.getAttribute('data-open') !== 'true') {
             await scope.locator(':scope > .dialkit-folder-header').click();
+            await settle();
         }
         return scope;
     };
@@ -59,6 +62,7 @@ try {
         const scope = section(name);
         if (await scope.getAttribute('data-open') === 'true') {
             await scope.locator(':scope > .dialkit-folder-header').click();
+            await settle();
         }
     };
     const typeValue = async (scope, name, value) => {
@@ -84,6 +88,7 @@ try {
     await nextFrames();
     const full = await meshInfo('plate');
     const depth = pattern.getByRole('slider', { name: 'Depth', exact: true }).first();
+    await depth.scrollIntoViewIfNeeded();
     const depthBox = await depth.boundingBox();
     await page.mouse.move(depthBox.x + depthBox.width * 0.2, depthBox.y + depthBox.height / 2);
     await page.mouse.down();
@@ -125,6 +130,12 @@ try {
     await closeSection('View');
     pass('Hidden items defer rebuilding until shown');
 
+    // File menu in the header holds New / Load / Save / Export
+    const openExport = async () => {
+        await page.locator('#btnFileMenu').click();
+        await page.locator('#fileMenuList [role="menuitem"]', { hasText: 'Export STL' }).click();
+    };
+
     // --- Export runs in a worker, stays responsive, and writes Z-up STLs
     await page.evaluate(() => {
         window.__workers = [];
@@ -140,7 +151,7 @@ try {
             .observe({ type: 'longtask', buffered: false });
     });
     await page.locator('body').click({ position: { x: 5, y: 5 } });
-    await page.locator('#btnExportSTL').click();
+    await openExport();
     await page.locator('#btnExportDeselectAll').click();
     for (const item of ['plate', 'mug', 'tumbler']) {
         await page.locator(`#exportItemList input[data-item="${item}"]`).check();
@@ -176,7 +187,7 @@ try {
     await page.locator('#exportModal').waitFor({ state: 'hidden' });
 
     // --- Export dialog: measured sizes, inline errors, one-file ZIP, Escape
-    await page.locator('#btnExportSTL').click();
+    await openExport();
     assert.equal(await page.locator('#exportModal .modal-content').getAttribute('role'), 'dialog');
     await page.waitForFunction(() => [...document.querySelectorAll('.export-item-size')].every(cell => cell.dataset.bytes));
     const sizeText = await page.locator('.export-item-size[data-size="plate"]').textContent();
@@ -196,10 +207,10 @@ try {
     assert.equal(zipBytes.readUInt32LE(0), 0x04034b50, 'ZIP local header');
     assert.equal(zipBytes.readUInt16LE(zipBytes.length - 22 + 10), 2, 'two STLs in the ZIP');
     await page.locator('#exportModal').waitFor({ state: 'hidden' });
-    await page.locator('#btnExportSTL').click();
+    await openExport();
     await page.keyboard.press('Escape');
     await page.locator('#exportModal').waitFor({ state: 'hidden' });
-    assert.equal(await page.evaluate(() => document.activeElement?.id), 'btnExportSTL', 'focus returns to the opener');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'btnFileMenu', 'focus returns to the File menu');
     pass('Export dialog measures sizes, reports errors inline, zips a set and closes on Escape');
 
     // --- Typed values, arrow keys and slider drags
@@ -214,6 +225,7 @@ try {
     await nextFrames();
     assert.equal(await globalAngle(), 22, 'arrow keys apply immediately and keep focus across rebuilds');
     await page.waitForTimeout(500);
+    await angleSlider.scrollIntoViewIfNeeded();
     const angleBox = await angleSlider.boundingBox();
     await page.mouse.move(angleBox.x + angleBox.width * 0.5, angleBox.y + angleBox.height / 2);
     await page.mouse.down();
@@ -245,10 +257,8 @@ try {
     assert.equal(await overrides.getByRole('slider', { name: 'Wall Thickness ●', exact: true }).count(), 1,
         'overridden control is marked');
     assert.match(await overrides.locator('.dialkit-select-trigger').filter({ hasText: /^Item/ }).textContent(), /Tumbler \(1\)/);
-    await page.locator('#btnWarningsMenu').click();
-    assert.ok(await page.locator('.warning-item[data-item="tumbler"][data-param="wallThickness"]').count() > 0,
-        'thin override is flagged');
-    await page.locator('#statusInfo').click(); // closes the menu without selecting a piece
+    assert.ok(await page.evaluate(async () => (await import('/scripts/ui/viewport.js')).getViewport().warnedItems.has('tumbler')),
+        'thin override tints the tumbler');
     await overrides.getByText(/^↺ Wall Thickness → 3.5mm$/).click();
     await nextFrames();
     assert.deepEqual(await state('itemOverrides.tumbler'), {});
@@ -270,23 +280,7 @@ try {
         'edited style reads as Custom');
     pass('Presets apply, save and show Custom after edits');
 
-    // --- Profile panel drag edits a parameter
-    await page.locator('#btnProfileView').click();
-    await page.locator('.profile-item-select').selectOption('tumbler');
-    const handle = page.locator('.profile-handle').first();
-    const hb = await handle.boundingBox();
-    const before = await globalAngle();
-    await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(hb.x + hb.width / 2 - 30, hb.y + hb.height / 2, { steps: 5 });
-    await page.mouse.up();
-    await nextFrames();
-    assert.ok(await globalAngle() < before, 'dragging the rim inward reduces the wall angle');
-    await page.locator('.profile-mode-btn[data-mode="lineup"]').click();
-    assert.equal(await page.locator('.lineup-item').count(), 7);
-    pass('Profile handles edit parameters; lineup shows every visible item');
-
-    // --- Stacked layout rests the mug on the saucer; compare shows ghosts
+    // --- Stacked layout rests the mug on the saucer
     await closeSection('Set Style');
     await choose(await openSection('View'), 'Layout', 'Stacked');
     const stack = await page.evaluate(async () => {
@@ -296,11 +290,7 @@ try {
     });
     assert.ok(stack.mug[1] > 1 && stack.mug[0] === stack.saucer[0]);
     assert.equal(await state('ui.layoutMode'), 'stack');
-    await page.locator('#btnCompare').click();
-    assert.equal(await page.evaluate(async () => (await import('/scripts/ui/viewport.js')).getViewport().ghosts.size), 7);
-    await page.locator('#btnCompare').click();
-    assert.equal(await page.evaluate(async () => (await import('/scripts/ui/viewport.js')).getViewport().ghosts.size), 0);
-    pass('Stacked layout nests pieces; Compare adds and removes ghosts');
+    pass('Stacked layout nests pieces');
 
     // --- Every dial has an accessible name
     const unlabelled = await page.evaluate(() => [...document.querySelectorAll('.dinnerware-dials [role="slider"]')]
@@ -308,14 +298,20 @@ try {
     assert.equal(unlabelled, 0, 'every slider has an accessible name');
     pass('Every slider is labelled');
 
-    // --- Narrow screens get a parameter drawer
-    await page.setViewportSize({ width: 800, height: 900 });
-    const toggle = page.locator('#btnTogglePanel');
-    assert.equal(await toggle.isVisible(), true);
-    await toggle.click();
-    assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
-    await page.setViewportSize({ width: 1440, height: 900 });
-    pass('Narrow layouts open parameters as a drawer');
+    // --- Header: no footer; the parameters icon hides and shows the card
+    assert.equal(await page.locator('footer.footer').count(), 0, 'footer removed');
+    const panelToggle = page.locator('#btnTogglePanel');
+    const panelBox = await page.locator('#parameterPanel').boundingBox();
+    assert.ok(panelBox.x > 1440 / 2, 'parameters sit on the right');
+    await panelToggle.click();
+    assert.equal(await panelToggle.getAttribute('aria-pressed'), 'false');
+    await page.locator('#parameterPanel').waitFor({ state: 'hidden' });
+    await page.reload();
+    await page.waitForFunction(async () => (await import('/scripts/ui/viewport.js')).getViewport()?.meshes.size === 7);
+    assert.equal(await page.locator('#parameterPanel').isVisible(), false, 'hidden state is remembered');
+    await panelToggle.click();
+    await page.locator('#parameterPanel').waitFor({ state: 'visible' });
+    pass('Parameters live on the right and the header icon hides/shows them');
 
     assert.deepEqual(errors, [], 'No application runtime errors');
 

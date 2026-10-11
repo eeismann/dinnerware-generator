@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- Apply the remembered parameters visibility before first paint -->
+    <script>try{if(localStorage.getItem('dinnerware_dials_visible')==='0')document.documentElement.classList.add('params-hidden');}catch(e){}</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dinnerware Designer - Editor</title>
     <link rel="stylesheet" href="./styles/main.css">
@@ -13,13 +15,12 @@
 </head>
 <body>
     <div id="app">
-        <!-- Header -->
-        <header class="header">
+        <!-- Header (DialKit-styled toolbar) -->
+        <header class="header dk-header">
             <div class="header-left">
-                <a href="./dashboard.html" class="btn btn-icon" id="btnBackToDashboard" title="Back to Dashboard">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M19 12H5"/>
-                        <polyline points="12 19 5 12 12 5"/>
+                <a href="./dashboard.html" class="dk-icon-btn" id="btnBackToDashboard" title="Back to Dashboard" aria-label="Back to Dashboard">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/>
                     </svg>
                 </a>
                 <h1 class="app-title">Dinnerware Designer</h1>
@@ -29,56 +30,58 @@
                 <span class="unsaved-indicator" id="unsavedIndicator" hidden>•</span>
             </div>
             <div class="header-right">
-                <button class="btn btn-icon btn-panel-toggle" id="btnTogglePanel" type="button" aria-expanded="false" aria-controls="parameterPanel" title="Parameters">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>
-                    </svg>
-                    <span class="visually-hidden">Parameters</span>
-                </button>
-                <div class="history-buttons" role="group" aria-label="History">
-                    <button class="btn btn-icon" id="btnUndo" type="button" title="Undo (⌘Z / Ctrl+Z)" aria-label="Undo" disabled>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <div class="dk-group" role="group" aria-label="History">
+                    <button class="dk-icon-btn" id="btnUndo" type="button" title="Undo (⌘Z / Ctrl+Z)" aria-label="Undo" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
                         </svg>
-                        <span class="btn-label">Undo</span>
                     </button>
-                    <button class="btn btn-icon" id="btnRedo" type="button" title="Redo (⇧⌘Z / Ctrl+Y)" aria-label="Redo" disabled>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <button class="dk-icon-btn" id="btnRedo" type="button" title="Redo (⇧⌘Z / Ctrl+Y)" aria-label="Redo" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/>
                         </svg>
-                        <span class="btn-label">Redo</span>
                     </button>
                 </div>
-                <button class="btn btn-secondary" id="btnNewProject">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <line x1="12" y1="18" x2="12" y2="12"/>
-                        <line x1="9" y1="15" x2="15" y2="15"/>
+                <div class="dk-menu" id="fileMenu">
+                    <button class="dk-btn" id="btnFileMenu" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="fileMenuList">
+                        File
+                        <svg class="dk-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </button>
+                    <div class="dk-menu-list" id="fileMenuList" role="menu" aria-labelledby="btnFileMenu" hidden>
+                        <button class="dk-menu-item" id="btnNewProject" type="button" role="menuitem">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+                            </svg>
+                            <span>New</span>
+                        </button>
+                        <button class="dk-menu-item" id="btnLoadProject" type="button" role="menuitem">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            <span>Load…</span>
+                        </button>
+                        <button class="dk-menu-item" id="btnSaveProject" type="button" role="menuitem">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                            </svg>
+                            <span>Save…</span>
+                        </button>
+                        <div class="dk-menu-divider" role="separator"></div>
+                        <button class="dk-menu-item" id="btnExportSTL" type="button" role="menuitem">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            <span>Export STL…</span>
+                        </button>
+                    </div>
+                </div>
+                <button class="dk-icon-btn" id="btnTogglePanel" type="button" aria-pressed="true" aria-controls="parameterPanel" title="Hide parameters" aria-label="Parameters">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="3" y="4" width="18" height="16" rx="2.5"/><line x1="15" y1="4" x2="15" y2="20"/>
+                        <rect class="dk-panel-fill" x="15" y="4" width="6" height="16" fill="currentColor" stroke="none"/>
                     </svg>
-                    New
-                </button>
-                <button class="btn btn-secondary" id="btnLoadProject">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                    </svg>
-                    Load
-                </button>
-                <button class="btn btn-secondary" id="btnSaveProject">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                        <polyline points="17 21 17 13 7 13 7 21"/>
-                        <polyline points="7 3 7 8 15 8"/>
-                    </svg>
-                    Save
-                </button>
-                <button class="btn btn-primary" id="btnExportSTL">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Export STL
                 </button>
             </div>
         </header>
@@ -92,7 +95,6 @@
             <!-- 3D Viewport -->
             <div class="viewport-container">
                 <div class="viewport" id="viewport"></div>
-                <section class="profile-panel" id="profilePanel" aria-label="Profile editor" hidden></section>
                 <div class="selection-chip" id="selectionChip" hidden>
                     <span class="selection-name"></span>
                     <button type="button" class="selection-action" id="btnSelectionEdit">Edit overrides</button>
@@ -107,76 +109,6 @@
             </div>
         </main>
 
-        <!-- Footer -->
-        <footer class="footer">
-            <div class="footer-left">
-                <div class="settings-menu-container" id="settingsMenuContainer">
-                    <button class="btn-settings" id="btnSettings" title="Settings">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"/>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                        </svg>
-                    </button>
-                    <div class="settings-menu" id="settingsMenu" data-no-ui-toggle>
-                        <div class="settings-section">
-                            <div class="settings-section-title">Appearance</div>
-                            <button class="mode-toggle" id="btnModeToggle">
-                                <span class="mode-toggle-label">
-                                    <svg id="modeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="5"/>
-                                        <line x1="12" y1="1" x2="12" y2="3"/>
-                                        <line x1="12" y1="21" x2="12" y2="23"/>
-                                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                                        <line x1="1" y1="12" x2="3" y2="12"/>
-                                        <line x1="21" y1="12" x2="23" y2="12"/>
-                                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                                    </svg>
-                                    <span>Light Mode</span>
-                                </span>
-                                <span class="mode-toggle-switch" id="modeToggle"></span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-center">
-                <button class="btn btn-secondary btn-small" id="btnProfileView" type="button" aria-pressed="false" aria-controls="profilePanel" title="2D profile with draggable handles">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path d="M4 20h16"/><path d="M6 20c1-6 2-12 3-15h6c1 3 2 9 3 15"/>
-                    </svg>
-                    Profile
-                </button>
-                <button class="btn btn-secondary btn-small" id="btnCompare" type="button" aria-pressed="false" title="Keep a ghost of the current design to compare against while you edit">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <rect x="3" y="5" width="12" height="14" rx="2"/><rect x="9" y="5" width="12" height="14" rx="2" stroke-dasharray="3 2"/>
-                    </svg>
-                    Compare
-                </button>
-            </div>
-            <div class="footer-right">
-                <span class="status-info" id="statusInfo">7 items</span>
-                <div class="warnings-menu-container" id="warningsMenuContainer" hidden>
-                    <button class="btn btn-warning-menu" id="btnWarningsMenu">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                            <line x1="12" y1="9" x2="12" y2="13"/>
-                            <line x1="12" y1="17" x2="12.01" y2="17"/>
-                        </svg>
-                        <span id="warningCount">0 warnings</span>
-                    </button>
-                    <div class="warnings-menu" id="warningsMenu">
-                        <div class="warnings-menu-header">
-                            <span>Print checks</span>
-                        </div>
-                        <div class="warnings-menu-list" id="warningsList">
-                            <!-- Dynamically populated -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </footer>
     </div>
 
     <!-- Export Modal -->

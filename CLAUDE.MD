@@ -15,7 +15,9 @@
   [DialKit](https://www.dialkit.dev) panels (`dialkit/vanilla`) mounted inline in `#parameterPanel`
   by `scripts/ui/dialkit/dinnerwareDials.js`. State stays the source of truth: dial edits go through
   the `api` hooks in `main.js` `initDials()`, and `dials.sync()` pushes state back after undo,
-  presets, load or profile edits. The Studio/Line shells are not loaded on this page.
+  presets, load or profile edits. The Studio/Line shells are not loaded on this page. No footer:
+  the DialKit-styled header holds undo/redo, a File menu (New/Load/Save/Export) and a toggle that
+  hides the right-hand parameter card (`styles/dinnerware-dials.css`).
 
 ### 2. Vessel Generator (`vessel-generator/`)
 - Entry point: `scripts/vessel/vesselMain.js`

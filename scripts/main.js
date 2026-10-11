@@ -17,12 +17,11 @@ import { init as initTheme } from './ui/themeManager.js';
 import { ProjectFileFormat } from './storage/fileFormat.js';
 import { resolveAppUrl } from './utils/navigation.js';
 import { selectDinnerwareState, startDinnerwareProject, newDinnerwareDraftId } from './storage/dinnerwareDrafts.js';
-import { DesignHistory, DESIGN_KEYS } from './state/history.js';
+import { DesignHistory } from './state/history.js';
 import {
     BUILT_IN_PRESETS, applyPreset, loadUserPresets, saveUserPreset, deleteUserPreset
 } from './state/presets.js';
 import { openDialog, closeDialog } from './ui/accessibility.js';
-import { ProfilePanel } from './ui/profilePanel.js';
 import {
     initDinnerwareDials, PATTERN_PARAM_SUFFIXES, patternParamName
 } from './ui/dialkit/dinnerwareDials.js';
@@ -80,17 +79,15 @@ function init() {
     });
 
     // Initialize UI
-    initFooterControls();
     initHeaderButtons();
     initProjectNameEditing();
     initModals();
     initHistory();
     initDials();
     initSelection();
-    initProfilePanel();
-    initCompare();
     initKeyboardShortcuts();
-    initPanelDrawer();
+    initPanelToggle();
+    initFileMenu();
 
     // Restore the saved layout without marking the project dirty
     const savedLayout = stateManager.getState('ui.layoutMode');
@@ -121,10 +118,6 @@ function cacheElements() {
         viewport: document.getElementById('viewport'),
         projectName: document.getElementById('projectName'),
         unsavedIndicator: document.getElementById('unsavedIndicator'),
-        warningsMenuContainer: document.getElementById('warningsMenuContainer'),
-        warningsList: document.getElementById('warningsList'),
-        warningCount: document.getElementById('warningCount'),
-        statusInfo: document.getElementById('statusInfo'),
         exportModal: document.getElementById('exportModal'),
         exportItemList: document.getElementById('exportItemList'),
         exportProgress: document.getElementById('exportProgress'),
@@ -190,7 +183,6 @@ function flushPendingItemUpdates() {
     refreshWarnings();
     dials?.sync();
     updateHistoryButtons();
-    profilePanel?.update();
 }
 
 /**
@@ -260,27 +252,6 @@ function clearOverrides(itemType, paramNames) {
     if (selectedItem === itemType) selectItem(itemType);
 }
 
-/**
- * Initialize footer controls. Camera, display, layout and item visibility
- * live in the View dial panel; the footer keeps the print-check menu.
- */
-function initFooterControls() {
-    const warningsMenuContainer = document.getElementById('warningsMenuContainer');
-    const warningsMenuBtn = document.getElementById('btnWarningsMenu');
-
-    warningsMenuBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        warningsMenuContainer.classList.toggle('open');
-    });
-
-    // Close menus when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!warningsMenuContainer.contains(e.target)) {
-            warningsMenuContainer.classList.remove('open');
-        }
-    });
-}
-
 const LAYOUT_MODES = ['row', 'grid', 'stack', 'table'];
 
 /**
@@ -289,7 +260,6 @@ const LAYOUT_MODES = ['row', 'grid', 'stack', 'table'];
 function setVisibleItems(visibleItems) {
     stateManager.setState('ui.visibleItems', visibleItems);
     viewport.updateVisibility();
-    updateStatusInfo();
 }
 
 /**
@@ -420,7 +390,6 @@ function createNewProject() {
     stateManager.reset();
     stateManager.state.project.id = projectId;
     updateProjectUrl(projectId);
-    resetCompare();
     viewport.updateAllItems();
     updateUIFromState();
     history?.reset();
@@ -558,7 +527,6 @@ function loadProject() {
                 stateManager.state.project.id = projectId;
                 updateProjectUrl(projectId);
                 stateManager.autoSave();
-                resetCompare();
                 viewport.updateAllItems();
                 updateUIFromState();
                 history?.reset();
@@ -811,7 +779,6 @@ function subscribeToStateChanges() {
 
     // Update visible items
     stateManager.subscribe('ui.visibleItems', () => {
-        updateStatusInfo();
     });
 }
 
@@ -828,11 +795,9 @@ function updateUIFromState() {
     dials.sync();
 
     // Update status
-    updateStatusInfo();
 }
 
 const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 };
-const SEVERITY_LABELS = { error: 'Cannot build', warning: 'Print risk', info: 'Note' };
 
 function sortedWarnings() {
     return [...warningSystem.warnings].sort((a, b) =>
@@ -840,105 +805,12 @@ function sortedWarnings() {
 }
 
 /**
- * Footer list entries: advisory notes of the same kind collapse into one
- * entry naming every affected item.
- */
-function listedWarnings() {
-    const listed = [];
-    const notes = new Map();
-    sortedWarnings().forEach(warning => {
-        if (warning.severity !== 'info') {
-            listed.push(warning);
-            return;
-        }
-        const group = notes.get(warning.type);
-        if (group) {
-            group.items.push(warning.itemName);
-            group.itemName = group.items.length > 2
-                ? `${group.items.length} items`
-                : group.items.join(', ');
-        } else {
-            const entry = { ...warning, items: [warning.itemName] };
-            notes.set(warning.type, entry);
-            listed.push(entry);
-        }
-    });
-    return listed;
-}
-
-/**
- * Update warnings display: the footer list (most severe first), the inline
- * notes under each affected control, and the tint on affected items.
+ * Tint the pieces that have print risks; the export dialog lists details.
  */
 function updateWarningsDisplay() {
-    const warnings = listedWarnings();
-    viewport.setWarnedItems(warnings
+    viewport.setWarnedItems(warningSystem.warnings
         .filter(w => w.severity !== 'info')
         .map(w => w.itemType));
-
-    if (warnings.length === 0) {
-        elements.warningsMenuContainer.hidden = true;
-        elements.warningsList.innerHTML = '';
-    } else {
-        elements.warningsMenuContainer.hidden = false;
-        const counts = { error: 0, warning: 0, info: 0 };
-        warnings.forEach(w => { counts[w.severity in counts ? w.severity : 'warning']++; });
-        const parts = [];
-        if (counts.error) parts.push(`${counts.error} error${counts.error > 1 ? 's' : ''}`);
-        if (counts.warning) parts.push(`${counts.warning} warning${counts.warning > 1 ? 's' : ''}`);
-        if (counts.info) parts.push(`${counts.info} note${counts.info > 1 ? 's' : ''}`);
-        elements.warningCount.textContent = parts.join(' · ');
-        elements.warningsMenuContainer.dataset.severity = counts.error ? 'error' : counts.warning ? 'warning' : 'info';
-
-        elements.warningsList.innerHTML = warnings.map(warning => `
-            <div class="warning-item severity-${warning.severity}" data-item="${warning.itemType}" data-param="${warning.parameter || warning.parameters?.[0] || ''}" role="button" tabindex="0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-                <div class="warning-item-content">
-                    <div class="warning-item-title">${warning.itemName} <span class="severity-tag">${SEVERITY_LABELS[warning.severity] ?? ''}</span></div>
-                    <div class="warning-item-message">${warning.items?.length > 1 && warning.groupMessage
-                        ? warning.groupMessage
-                        : warning.message}</div>
-                </div>
-            </div>
-        `).join('');
-
-        // Add click handlers to warnings
-        elements.warningsList.querySelectorAll('.warning-item').forEach(item => {
-            const open = () => {
-                elements.warningsMenuContainer.classList.remove('open');
-                revealParameter(item.dataset.item, item.dataset.param);
-            };
-            item.addEventListener('click', open);
-            item.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    open();
-                }
-            });
-        });
-    }
-}
-
-/**
- * Show a parameter for an item: its override control when the item
- * overrides it, otherwise the global control.
- */
-function revealParameter(itemType, param) {
-    selectItem(itemType);
-    openPanelDrawer();
-    dials.reveal(itemType, param);
-}
-
-/**
- * Update status info
- */
-function updateStatusInfo() {
-    const visibleItems = stateManager.getState('ui.visibleItems');
-    elements.statusInfo.textContent = `${visibleItems.length} item${visibleItems.length !== 1 ? 's' : ''}`;
 }
 
 // === Selection ===
@@ -948,7 +820,7 @@ let selectedItem = null;
 function initSelection() {
     viewport.onSelect(itemType => selectItem(itemType));
     document.getElementById('btnSelectionEdit')?.addEventListener('click', () => {
-        openPanelDrawer();
+        setPanelVisible(true);
         dials.revealOverrides(selectedItem);
     });
     document.getElementById('btnSelectionClear')?.addEventListener('click', () => selectItem(null));
@@ -963,7 +835,6 @@ function selectItem(itemType, { fromOverrides = false } = {}) {
     viewport.setSelectedItem(selectedItem);
     if (selectedItem) {
         if (!fromOverrides) dials.setOverrideItem(selectedItem);
-        profilePanel?.setItem(selectedItem);
     }
     const chip = document.getElementById('selectionChip');
     if (chip) {
@@ -986,8 +857,7 @@ function initHistory() {
         onChange: updateHistoryButtons
     });
     // Edits commit once they settle; the dials hold commits for the length
-    // of a drag (see initDials). Hold them too while a profile handle moves.
-    document.getElementById('profilePanel')?.addEventListener('pointerdown', () => history.hold(), true);
+    // of a drag (see initDials).
     ['pointerup', 'pointercancel'].forEach(type => {
         document.addEventListener(type, () => history.release(), true);
     });
@@ -1051,10 +921,7 @@ function initDials() {
         clearOverride: (itemType, paramName) => clearOverrides(itemType, [paramName]),
         clearAllOverrides: (itemType) => clearOverrides(itemType,
             Object.keys(stateManager.getState(`itemOverrides.${itemType}`) || {})),
-        setMultiplier: (itemType, axis, value, options) => {
-            setItemMultiplier(itemType, axis, value, options);
-            updateStatusInfo();
-        },
+        setMultiplier: setItemMultiplier,
         applyPreset: (id) => {
             const preset = allPresets().find(p => p.id === id);
             if (!preset) return;
@@ -1101,87 +968,76 @@ function initDials() {
     });
 }
 
-// === Profile panel ===
+// === Parameter panel toggle ===
 
-let profilePanel = null;
+const PANEL_VISIBLE_KEY = 'dinnerware_dials_visible';
 
-function initProfilePanel() {
-    const container = document.getElementById('profilePanel');
-    const toggle = document.getElementById('btnProfileView');
-    if (!container) return;
-    profilePanel = new ProfilePanel(container, {
-        visibleItems: () => stateManager.getState('ui.visibleItems'),
-        onSelect: (itemType) => selectItem(itemType),
-        onEdit: (values, { interactive }) => {
-            const item = profilePanel.itemType;
-            Object.entries(values).forEach(([param, value]) => {
-                if (parameterResolver.hasOverride(item, param)) {
-                    setOverrideValue(item, param, value, { interactive });
-                } else {
-                    handleParameterChange(param, value, { interactive });
-                }
-            });
-            if (!interactive) {
-                updateUIFromState();
-                history.commit();
-            }
-        }
-    });
-    profilePanel.setItem(selectedItem || ITEM_TYPES[0]);
-    toggle?.addEventListener('click', () => {
-        if (profilePanel.visible) profilePanel.hide();
-        else profilePanel.show();
-        toggle.setAttribute('aria-pressed', String(profilePanel.visible));
-        toggle.classList.toggle('active', profilePanel.visible);
-    });
-    container.addEventListener('profile-hidden', () => {
-        toggle?.setAttribute('aria-pressed', 'false');
-        toggle?.classList.remove('active');
-    });
-}
-
-// === Compare (A/B) ===
-
-function initCompare() {
-    const button = document.getElementById('btnCompare');
-    if (!button) return;
-    button.addEventListener('click', () => {
-        const active = button.getAttribute('aria-pressed') === 'true';
-        if (active) {
-            viewport.setCompareSnapshot(null);
-        } else {
-            const snapshot = {};
-            DESIGN_KEYS.forEach(key => {
-                snapshot[key] = JSON.parse(JSON.stringify(stateManager.getState(key) ?? {}));
-            });
-            viewport.setCompareSnapshot(snapshot);
-        }
-        button.setAttribute('aria-pressed', String(!active));
-        button.classList.toggle('active', !active);
-        button.title = active
-            ? 'Keep a ghost of the current design to compare against while you edit'
-            : 'Stop comparing';
-    });
-}
-
-function resetCompare() {
-    const button = document.getElementById('btnCompare');
-    if (button?.getAttribute('aria-pressed') === 'true') button.click();
-}
-
-// === Responsive parameter drawer ===
-
-function openPanelDrawer() {
-    document.body.classList.add('panel-drawer-open');
-    document.getElementById('btnTogglePanel')?.setAttribute('aria-expanded', 'true');
-}
-
-function initPanelDrawer() {
+function setPanelVisible(visible) {
+    document.documentElement.classList.toggle('params-hidden', !visible);
     const button = document.getElementById('btnTogglePanel');
-    button?.addEventListener('click', () => {
-        const open = !document.body.classList.contains('panel-drawer-open');
-        document.body.classList.toggle('panel-drawer-open', open);
+    button?.setAttribute('aria-pressed', String(visible));
+    button?.setAttribute('title', visible ? 'Hide parameters' : 'Show parameters');
+    localStorage.setItem(PANEL_VISIBLE_KEY, visible ? '1' : '0');
+}
+
+function initPanelToggle() {
+    setPanelVisible(localStorage.getItem(PANEL_VISIBLE_KEY) !== '0');
+    document.getElementById('btnTogglePanel')?.addEventListener('click', () => {
+        setPanelVisible(document.documentElement.classList.contains('params-hidden'));
+    });
+}
+
+// === File menu ===
+
+function initFileMenu() {
+    const menu = document.getElementById('fileMenu');
+    const button = document.getElementById('btnFileMenu');
+    const list = document.getElementById('fileMenuList');
+    if (!menu || !button || !list) return;
+    const items = () => [...list.querySelectorAll('[role="menuitem"]')];
+
+    const setOpen = (open, { focus = false } = {}) => {
+        list.hidden = !open;
+        menu.classList.toggle('open', open);
         button.setAttribute('aria-expanded', String(open));
+        if (open && focus) items()[0]?.focus();
+    };
+
+    button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        setOpen(list.hidden);
+    });
+    button.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setOpen(true, { focus: true });
+        }
+    });
+    // Items run their own handlers (initHeaderButtons). Close first, in the
+    // capture phase, so dialogs they open return focus to the File button.
+    list.addEventListener('click', (event) => {
+        if (!event.target.closest('[role="menuitem"]')) return;
+        setOpen(false);
+        button.focus();
+    }, true);
+    list.addEventListener('keydown', (event) => {
+        const all = items();
+        const index = all.indexOf(document.activeElement);
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            const step = event.key === 'ArrowDown' ? 1 : -1;
+            all[(index + step + all.length) % all.length]?.focus();
+        } else if (event.key === 'Escape') {
+            event.stopPropagation();
+            setOpen(false);
+            button.focus();
+        }
+    });
+    document.addEventListener('click', (event) => {
+        if (!menu.contains(event.target)) setOpen(false);
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !list.hidden) setOpen(false);
     });
 }
 

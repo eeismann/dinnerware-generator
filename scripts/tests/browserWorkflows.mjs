@@ -33,7 +33,8 @@ try {
     const bufferSize = () => page.locator('#viewport canvas').evaluate(canvas => [canvas.width, canvas.height]);
     const originalSize = await bufferSize();
     const save = async (file = false) => {
-        await page.getByRole('button', { name: 'Save', exact: true }).click();
+        await page.locator('#btnFileMenu').click();
+        await page.locator('#btnSaveProject').click();
         await page.locator('#saveProjectName').fill('Browser recovery');
         await page.locator('#saveAsFile').setChecked(file);
         await page.locator('#btnConfirmSave').click();

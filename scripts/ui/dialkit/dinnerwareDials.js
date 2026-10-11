@@ -139,7 +139,7 @@ class ConfigBuilder {
 
 /**
  * @param {Object} api - App hooks; see scripts/main.js initDials()
- * @returns {{ sync: Function, setOverrideItem: Function, reveal: Function, revealOverrides: Function, element: HTMLElement }}
+ * @returns {{ sync: Function, setOverrideItem: Function, revealOverrides: Function, element: HTMLElement }}
  */
 export function initDinnerwareDials(api) {
     const { container } = api;
@@ -618,34 +618,6 @@ export function initDinnerwareDials(api) {
         row.classList.add('dial-flash');
     }
 
-    /**
-     * Show the control behind a warning: the item's override when it has
-     * one, otherwise the set-wide control.
-     */
-    function reveal(item, param) {
-        if (!param) return;
-        const overridden = item && parameterResolver.hasOverride(item, param);
-        if (overridden) setOverrideItem(item);
-        const panel = overridden
-            ? panelById('dinnerware-overrides')
-            : param.includes('Pattern') ? panelById('dinnerware-pattern') : panelById('dinnerware-style');
-        if (overridden) sync(); // bindings follow the override item's visible rows
-        const path = [...panel.bindings].find(([, binding]) => binding.param === param)?.[0];
-        const parts = path ? path.split('.') : [];
-        panel.kit.setOpen(true);
-        if (parts.length > 1) openFolder(`${panel.name}/${formatLabel(parts[0])}`);
-        if (parts.length) requestAnimationFrame(() => revealLabel(formatLabel(parts[parts.length - 1])));
-    }
-
-    /** Expand a folder through DialKit's own header toggle. */
-    function openFolder(key) {
-        const folder = [...root.element.querySelectorAll('.dialkit-folder')]
-            .find(node => folderKey(node) === key);
-        if (folder?.dataset.open === 'false') {
-            folder.querySelector(':scope > .dialkit-folder-header')?.click();
-        }
-    }
-
     /** Open the overrides panel on an item. */
     function revealOverrides(item) {
         setOverrideItem(item);
@@ -656,5 +628,5 @@ export function initDinnerwareDials(api) {
 
     sync();
 
-    return { sync: requestSync, setOverrideItem, reveal, revealOverrides, element: root.element };
+    return { sync: requestSync, setOverrideItem, revealOverrides, element: root.element };
 }
