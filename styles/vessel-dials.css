@@ -102,3 +102,10 @@ body::after {
         transition: none;
     }
 }
+
+/* Neutral text selection instead of the theme accent */
+.dk-modal input::selection,
+.dk-header .project-name::selection {
+    background: var(--dk-border-hover);
+    color: var(--dk-text-root);
+}
