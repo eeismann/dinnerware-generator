@@ -5,10 +5,13 @@
 
 import vesselState from './state/vesselState.js';
 import { VesselViewport } from './ui/vesselViewport.js';
-import { ParameterPanel } from './ui/parameterPanel.js';
 import { VesselMeshGenerator } from './geometry/vesselMeshGenerator.js';
 import { VesselStorage } from './vesselStorage.js';
 import { init as initThemeManager } from '../ui/themeManager.js';
+import { initDiameterLinks, syncLinkedDiameters } from './state/diameterLinks.js';
+import { openDialog, closeDialog } from '../ui/accessibility.js';
+import { initVesselDials } from '../ui/dialkit/vesselDials.js';
+import { initDkMenu, initPanelToggle } from '../ui/dialkit/dkChrome.js';
 
 let vesselExporterPromise = null;
 
@@ -22,7 +25,8 @@ function loadVesselExporter() {
 class VesselGeneratorApp {
     constructor() {
         this.viewport = null;
-        this.parameterPanel = null;
+        this.dials = null;
+        this.statusTimer = null;
         this.autosaveInterval = null;
         this.editingProjectId = null;
         this.pendingViewportUpdate = null;
@@ -34,8 +38,11 @@ class VesselGeneratorApp {
     async init() {
         console.log('Vessel Generator initializing...');
 
-        // Initialize theme manager for settings menu
+        // Apply the saved theme (mode and typeface)
         initThemeManager();
+
+        // Linked diameters follow every state change, however it is made
+        initDiameterLinks(vesselState);
 
         // Check URL params for project to load
         const urlParams = new URLSearchParams(window.location.search);
@@ -51,9 +58,10 @@ class VesselGeneratorApp {
 
         // Initialize components
         this.initViewport();
-        this.initParameterPanel();
+        this.initDials();
         this.initHeaderButtons();
-        this.initFooterControls();
+        this.initProjectNameEditing();
+        this.initHeaderChrome();
         this.initModals();
         this.initKeyboardShortcuts();
 
@@ -65,9 +73,6 @@ class VesselGeneratorApp {
 
         // Initial render
         this.updateAll();
-
-        // Update status
-        this.setStatus('Ready');
 
         console.log('Vessel Generator ready');
     }
@@ -106,8 +111,74 @@ class VesselGeneratorApp {
         this.viewport = new VesselViewport(container, vesselState.getState());
     }
 
-    initParameterPanel() {
-        this.parameterPanel = new ParameterPanel();
+    /**
+     * DialKit parameter panels; edits write vessel state, whose subscription
+     * regenerates the vessel (see subscribeToState).
+     */
+    initDials() {
+        this.dials = initVesselDials({
+            container: document.getElementById('parameterPanel'),
+            setParam: (path, value) => vesselState.setState(path, value),
+            setLinked: (sectionName, linked) => {
+                vesselState.setState(`sections.${sectionName}.bottomDiameterLocked`, linked);
+                // Switching a link on copies the bottom diameter downward
+                if (linked) syncLinkedDiameters(vesselState, sectionName, 'bottom');
+            },
+            setCamera: (preset) => this.viewport?.setCameraPreset(preset),
+            setCrossSection: (enabled) => this.viewport?.toggleCrossSection(enabled),
+            setGrid: (visible) => this.viewport?.toggleGrid(visible)
+        });
+    }
+
+    initHeaderChrome() {
+        this.panelToggle = initPanelToggle(document.getElementById('btnTogglePanel'), 'vessel_dials_visible');
+        initDkMenu(document.getElementById('fileMenu'));
+    }
+
+    /**
+     * Rename the project in place; the new name is saved like Save would.
+     */
+    initProjectNameEditing() {
+        const nameEl = document.getElementById('projectName');
+        if (!nameEl) return;
+        let originalName = 'Untitled';
+        let cancelEdit = false;
+
+        nameEl.addEventListener('focus', () => {
+            originalName = vesselState.getState('project.name') || nameEl.textContent.trim() || 'Untitled';
+            cancelEdit = false;
+            requestAnimationFrame(() => {
+                const selection = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(nameEl);
+                selection?.removeAllRanges();
+                selection?.addRange(range);
+            });
+        });
+
+        nameEl.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                nameEl.blur();
+            } else if (event.key === 'Escape') {
+                event.preventDefault();
+                cancelEdit = true;
+                nameEl.blur();
+            }
+        });
+
+        nameEl.addEventListener('blur', () => {
+            if (cancelEdit) {
+                cancelEdit = false;
+                nameEl.textContent = originalName;
+                return;
+            }
+            const nextName = nameEl.textContent.replace(/\s+/g, ' ').trim() || originalName;
+            nameEl.textContent = nextName;
+            if (nextName !== vesselState.getState('project.name')) {
+                this.saveProject(nextName, false);
+            }
+        });
     }
 
     initHeaderButtons() {
@@ -132,87 +203,28 @@ class VesselGeneratorApp {
         });
     }
 
-    initFooterControls() {
-        // View menu toggle
-        const viewMenuContainer = document.getElementById('viewMenuContainer');
-        const btnViewMenu = document.getElementById('btnViewMenu');
-
-        btnViewMenu?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            viewMenuContainer?.classList.toggle('open');
-        });
-
-        // Close view menu on outside click
-        document.addEventListener('click', (e) => {
-            if (!viewMenuContainer?.contains(e.target)) {
-                viewMenuContainer?.classList.remove('open');
-            }
-        });
-
-        // View preset buttons
-        document.querySelectorAll('[data-view]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const view = e.currentTarget.dataset.view;
-                this.viewport?.setCameraPreset(view);
-
-                // Update active state
-                document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
-                e.currentTarget.classList.add('active');
-            });
-        });
-
-        // Cross-section toggle
-        document.getElementById('btnToggleCrossSection')?.addEventListener('click', () => {
-            const toggle = document.getElementById('crossSectionToggle');
-            toggle?.classList.toggle('active');
-            this.viewport?.toggleCrossSection(toggle?.classList.contains('active'));
-        });
-
-        // Grid toggle
-        document.getElementById('btnToggleGrid')?.addEventListener('click', () => {
-            const toggle = document.getElementById('gridToggle');
-            toggle?.classList.toggle('active');
-            this.viewport?.toggleGrid(toggle?.classList.contains('active'));
-        });
-    }
-
     initModals() {
-        // Save modal
         const saveModal = document.getElementById('saveModal');
-
-        document.getElementById('btnCloseSaveModal')?.addEventListener('click', () => {
-            saveModal.style.display = 'none';
-        });
-
-        document.getElementById('btnCancelSave')?.addEventListener('click', () => {
-            saveModal.style.display = 'none';
-        });
-
-        document.getElementById('btnConfirmSave')?.addEventListener('click', () => {
-            const name = document.getElementById('saveProjectName')?.value || 'vessel';
-            const downloadFile = document.getElementById('saveAsFile')?.checked || false;
-            this.saveProject(name, downloadFile);
-            saveModal.style.display = 'none';
-        });
-
-        // Click backdrop to close
-        saveModal?.querySelector('.modal-backdrop')?.addEventListener('click', () => {
-            saveModal.style.display = 'none';
-        });
-
-        // Confirm modal
         const confirmModal = document.getElementById('confirmModal');
 
-        document.getElementById('btnCloseConfirmModal')?.addEventListener('click', () => {
-            confirmModal.style.display = 'none';
+        document.getElementById('btnCloseSaveModal')?.addEventListener('click', () => closeDialog(saveModal));
+        document.getElementById('btnCancelSave')?.addEventListener('click', () => closeDialog(saveModal));
+        document.getElementById('btnConfirmSave')?.addEventListener('click', () => {
+            const name = document.getElementById('saveProjectName')?.value.trim() || 'vessel';
+            const downloadFile = document.getElementById('saveAsFile')?.checked || false;
+            closeDialog(saveModal);
+            this.saveProject(name, downloadFile);
+        });
+        document.getElementById('saveProjectName')?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') document.getElementById('btnConfirmSave')?.click();
         });
 
-        document.getElementById('btnConfirmCancel')?.addEventListener('click', () => {
-            confirmModal.style.display = 'none';
-        });
+        document.getElementById('btnCloseConfirmModal')?.addEventListener('click', () => closeDialog(confirmModal));
+        document.getElementById('btnConfirmCancel')?.addEventListener('click', () => closeDialog(confirmModal));
 
-        confirmModal?.querySelector('.modal-backdrop')?.addEventListener('click', () => {
-            confirmModal.style.display = 'none';
+        // Click backdrop to close
+        [saveModal, confirmModal].forEach(modal => {
+            modal?.querySelector('.modal-backdrop')?.addEventListener('click', () => closeDialog(modal));
         });
     }
 
@@ -252,6 +264,9 @@ class VesselGeneratorApp {
 
             // Update unsaved indicator
             this.updateUnsavedIndicator();
+
+            // Dials follow loads, resets and linked-diameter updates
+            this.dials?.sync();
 
             if (changedPaths.some((path) => path === 'project.name')) {
                 this.updateProjectName();
@@ -373,9 +388,8 @@ class VesselGeneratorApp {
             nameInput.value = vesselState.getState('project.name') || 'vessel';
         }
 
-        modal.style.display = 'flex';
-        nameInput?.focus();
-        nameInput?.select();
+        openDialog(modal, { initialFocus: '#saveProjectName' });
+        requestAnimationFrame(() => nameInput?.select());
     }
 
     async exportSTL() {
@@ -425,51 +439,7 @@ class VesselGeneratorApp {
         }
 
         // Show success feedback
-        this.showSaveSuccessToast(name);
-        this.setStatus('Project saved');
-    }
-
-    /**
-     * Show a success toast message after saving
-     */
-    showSaveSuccessToast(projectName) {
-        // Create toast element if it doesn't exist
-        let toast = document.getElementById('saveToast');
-        if (!toast) {
-            toast = document.createElement('div');
-            toast.id = 'saveToast';
-            toast.style.cssText = `
-                position: fixed;
-                bottom: 80px;
-                left: 50%;
-                transform: translateX(-50%) translateY(100px);
-                background: var(--th-success, #10b981);
-                color: white;
-                padding: 12px 24px;
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 500;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                z-index: 10000;
-                transition: transform 0.3s ease, opacity 0.3s ease;
-                opacity: 0;
-            `;
-            document.body.appendChild(toast);
-        }
-
-        toast.textContent = `✓ "${projectName}" saved successfully`;
-
-        // Show toast
-        requestAnimationFrame(() => {
-            toast.style.transform = 'translateX(-50%) translateY(0)';
-            toast.style.opacity = '1';
-        });
-
-        // Hide after 3 seconds
-        setTimeout(() => {
-            toast.style.transform = 'translateX(-50%) translateY(100px)';
-            toast.style.opacity = '0';
-        }, 3000);
+        this.setStatus(`Saved “${name}”`);
     }
 
     showConfirmModal(title, message, onConfirm) {
@@ -482,11 +452,11 @@ class VesselGeneratorApp {
         okBtn.parentNode.replaceChild(newOkBtn, okBtn);
 
         newOkBtn.addEventListener('click', () => {
-            modal.style.display = 'none';
+            closeDialog(modal);
             onConfirm();
         });
 
-        modal.style.display = 'flex';
+        openDialog(modal, { initialFocus: '#btnConfirmOk' });
     }
 
     updateProjectName() {
@@ -501,15 +471,26 @@ class VesselGeneratorApp {
         const isDirty = vesselState.getState('project.isDirty');
 
         if (indicator) {
-            indicator.style.display = isDirty ? 'inline' : 'none';
+            indicator.hidden = !isDirty;
         }
     }
 
+    /**
+     * Brief feedback (save, load, export) in a toast above the viewport.
+     */
     setStatus(message) {
-        const statusEl = document.getElementById('statusInfo');
-        if (statusEl) {
-            statusEl.textContent = message;
-        }
+        const toast = document.getElementById('statusToast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.hidden = false;
+        toast.classList.remove('visible');
+        void toast.offsetWidth;
+        toast.classList.add('visible');
+        clearTimeout(this.statusTimer);
+        this.statusTimer = setTimeout(() => {
+            toast.classList.remove('visible');
+            toast.hidden = true;
+        }, 2600);
     }
 
     dispose() {
@@ -518,7 +499,6 @@ class VesselGeneratorApp {
         }
 
         this.viewport?.dispose();
-        this.parameterPanel?.dispose();
     }
 }
 

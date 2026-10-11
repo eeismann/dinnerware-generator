@@ -1,0 +1,111 @@
+/* ================================================
+   DialKit chrome: Vessel Generator
+   Page-specific pieces on top of dialkit-chrome.css. vessel-generator.css is
+   shared with Vessel V2/V3, so its classic rules stay; this file only
+   overrides what the DialKit page needs: plain page, full-height viewport,
+   hidden-attribute modals and the status toast.
+   ================================================ */
+
+/* The hidden attribute always wins over component display rules */
+[hidden] {
+    display: none !important;
+}
+
+body {
+    background: var(--dk-page-bg);
+    font-family: var(--dk-font);
+}
+
+/* No tinted gradient wash over the DialKit surfaces */
+body::after {
+    content: none;
+}
+
+/* Header + viewport fill the window; the card floats in the main area */
+.main-content {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+
+.viewport-container {
+    flex: 1;
+    min-width: 0;
+    background: var(--dk-page-bg);
+}
+
+/* Inline-editable project name */
+.dk-header .project-name {
+    max-width: 100%;
+    padding: 3px 8px;
+    border-radius: 6px;
+    outline: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: text;
+}
+
+.dk-header .unsaved-indicator {
+    color: var(--dk-text-tertiary);
+    line-height: 1;
+}
+
+/* Classic modal frame values that dialkit-chrome.css does not reset */
+.dk-modal .modal-content {
+    position: relative;
+}
+
+.dk-modal .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.dk-modal .modal-footer {
+    display: flex;
+}
+
+.dk-modal .btn-close {
+    color: var(--dk-text-label);
+}
+
+/* Save / load / export feedback */
+.dk-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    z-index: 1100;
+    max-width: min(420px, calc(100vw - 32px));
+    padding: 9px 14px;
+    border: 1px solid var(--dk-border);
+    border-radius: var(--dk-radius);
+    background: var(--dk-glass-bg);
+    box-shadow: var(--dk-shadow-dropdown);
+    color: var(--dk-text-root);
+    font-family: var(--dk-font);
+    font-size: 13px;
+    font-weight: 500;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(8px);
+    opacity: 0;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.dk-toast.visible {
+    transform: translateX(-50%);
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dk-toast {
+        transition: none;
+    }
+}
+
+/* Neutral text selection instead of the theme accent */
+.dk-modal input::selection,
+.dk-header .project-name::selection {
+    background: var(--dk-border-hover);
+    color: var(--dk-text-root);
+}
