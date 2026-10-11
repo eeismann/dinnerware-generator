@@ -8,7 +8,6 @@ import castFormState from './state/castFormState.js';
 import { PART_COLORS } from './state/castFormDefaults.js';
 import { CastFormViewport } from './ui/castFormViewport.js';
 import { initPanelReadouts } from './ui/panelReadouts.js';
-import { initCastFormDials } from '../ui/dialkit/castFormDials.js';
 import { initDkMenu, initPanelToggle } from '../ui/dialkit/dkChrome.js';
 import { ProjectFileFormat } from '../storage/fileFormat.js';
 import { MoldWorkerClient, abortMoldGeneration } from './geometry/moldWorkerClient.js';
@@ -115,7 +114,7 @@ export class CastFormApp {
 
         // Parameter card: source/material/warning readouts around the dials
         initPanelReadouts();
-        this.initDials();
+        await this.initDials();
 
         // Setup event listeners
         this.setupEventListeners();
@@ -225,7 +224,9 @@ export class CastFormApp {
      * Mount the DialKit panels. Loads, new projects, imports and generated
      * output all change state outside the dials, so every change syncs them.
      */
-    initDials() {
+    async initDials() {
+        // Loaded on demand: DialKit brings its stylesheet, which Node gates cannot import
+        const { initCastFormDials } = await import('../ui/dialkit/castFormDials.js');
         const viewport = this.viewport;
         this.dials = initCastFormDials({
             container: document.getElementById('parameterPanel'),
