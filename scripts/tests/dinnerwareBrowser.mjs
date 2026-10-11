@@ -301,29 +301,37 @@ try {
 
     assert.deepEqual(errors, [], 'No application runtime errors');
 
-    // --- Line dashboard: plates, filter index, theme shared with the editor
+    // --- Dashboard: DialKit toolbar, settings menu, cards and dialogs
     const dash = await context.newPage();
     const dashErrors = [];
     dash.on('pageerror', error => dashErrors.push(error.message));
-    await dash.goto(`${base}/dashboard.html?ui=line`);
-    await dash.waitForSelector('html.ln-dashboard-ready', { timeout: 30000 });
-    assert.equal(await dash.locator('.dashboard-header').isVisible(), false);
+    dash.on('dialog', dialog => dialog.dismiss());
+    await dash.goto(`${base}/dashboard.html`);
     const plates = dash.locator('.project-card:not(.new-project)');
-    assert.ok(await plates.count() > 0, 'saved projects appear as plates');
-    assert.match(await plates.first().locator('.ln-plate-num').textContent(), /^01$/);
-    assert.equal(await plates.first().locator('.ln-crop').count(), 4);
-    assert.deepEqual(await plates.first().locator('.card-action-btn').allTextContents(), ['Open', 'Copy', 'Cast', 'Delete']);
-    await dash.locator('.ln-tab', { hasText: 'Dinnerware' }).click();
-    assert.equal(await dash.locator('.ln-tab[aria-current="page"]').textContent().then(t => t.startsWith('Dinnerware')), true);
-    await dash.locator('[data-action="theme"]').click();
-    assert.equal(await dash.evaluate(() => document.documentElement.dataset.lnTheme), 'negative');
-    await dash.locator('[data-action="theme"]').click();
-    await dash.locator('.ln-search').fill('zzz-no-match');
+    await plates.first().waitFor();
+    assert.equal(await dash.locator('.dashboard-footer').count(), 0, 'no dashboard footer');
+    assert.equal(await dash.locator('.dk-bar #btnNewProject.dk-btn-primary').count(), 1);
+    await plates.first().hover();
+    assert.deepEqual(await plates.first().locator('.card-action-btn').evaluateAll(buttons => buttons.map(b => b.dataset.action)),
+        ['open', 'duplicate', 'castform', 'delete']);
+    await dash.locator('#btnSettings').click();
+    assert.equal(await dash.locator('#btnSettings').getAttribute('aria-expanded'), 'true');
+    await dash.locator('.zoom-option[data-zoom="large"]').click();
+    assert.equal(await dash.locator('#projectsGrid').getAttribute('data-zoom'), 'large');
+    await dash.locator('#btnModeToggle').click();
+    assert.equal(await dash.evaluate(() => document.documentElement.dataset.mode), 'light');
+    await dash.locator('#btnModeToggle').click();
+    await dash.keyboard.press('Escape');
+    assert.equal(await dash.locator('#btnSettings').getAttribute('aria-expanded'), 'false');
+    await dash.locator('#btnNewProject').click();
+    assert.equal(await dash.locator('#appSelectModal .app-select-card').count(), 6);
+    await dash.locator('#btnCloseAppSelect').click();
+    await dash.locator('.search-input').fill('zzz-no-match');
     await dash.waitForFunction(() => document.querySelectorAll('.project-card:not(.new-project)').length === 0);
-    await dash.locator('.ln-search').fill('');
-    assert.deepEqual(dashErrors, [], 'Line dashboard runtime errors');
-    await dash.goto(`${base}/dashboard.html?ui=classic`);
-    pass('Line dashboard: numbered plates with crop marks, filter index, search, shared Negative theme');
+    await dash.locator('.search-input').fill('');
+    assert.deepEqual(dashErrors, [], 'Dashboard runtime errors');
+    await dash.close();
+    pass('Dashboard: DialKit toolbar, settings menu (theme, thumbnails), card actions, new-project dialog, search');
 
     // --- Every other generator mounts the same Line frame
     const LINE_APPS = [

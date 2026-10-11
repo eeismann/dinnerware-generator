@@ -129,6 +129,22 @@ function bindEvents() {
         renderProjects();
     });
     
+    // Settings menu: themeManager toggles .open; mirror it for assistive
+    // tech and let Escape close it
+    const settings = document.getElementById('settingsMenuContainer');
+    const settingsButton = document.getElementById('btnSettings');
+    if (settings && settingsButton) {
+        const syncExpanded = () => settingsButton.setAttribute('aria-expanded', String(settings.classList.contains('open')));
+        new MutationObserver(syncExpanded).observe(settings, { attributes: true, attributeFilter: ['class'] });
+        syncExpanded();
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && settings.classList.contains('open')) {
+                settings.classList.remove('open');
+                settingsButton.focus();
+            }
+        });
+    }
+
     // Clear all
     elements.btnClearAll.addEventListener('click', (e) => {
         e.preventDefault();

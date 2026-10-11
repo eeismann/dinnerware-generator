@@ -1,50 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script>(function(){try{var p=new URLSearchParams(location.search).get('ui');var m=(p==='studio'||p==='classic'||p==='line')?p:localStorage.getItem('playground-ceramics-ui');if(p==='line'||(p==='classic'&&localStorage.getItem('playground-ceramics-ui')==='line'))localStorage.setItem('playground-ceramics-ui',p);document.documentElement.dataset.ui=(m==='studio'||m==='line')?m:'classic';}catch(e){document.documentElement.dataset.ui='classic';}})();</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Playground Ceramics</title>
     <link rel="stylesheet" href="./styles/dashboard.css">
-    <link rel="stylesheet" href="./styles/studio-shell.css">
-    <link rel="stylesheet" href="./styles/studio-home.css">
-    <link rel="stylesheet" href="./styles/line-base.css">
-    <link rel="stylesheet" href="./styles/line-dashboard.css">
+    <link rel="stylesheet" href="./styles/dialkit-chrome.css">
+    <link rel="stylesheet" href="./styles/dashboard-dialkit.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&family=Lato:wght@300;400;500;700&family=DM+Sans:wght@300;400;500;600&family=Source+Sans+3:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
-<body class="dashboard-page">
+<body class="dashboard-page dk-dashboard">
     <div class="dashboard-container">
-        <!-- Header -->
-        <header class="dashboard-header">
+        <!-- Header (DialKit-styled toolbar; styles/dashboard-dialkit.css) -->
+        <header class="dashboard-header dk-bar">
             <div class="brand">
                 <h1 class="brand-title">Playground Ceramics</h1>
                 <span class="brand-tagline">Parametric Dinnerware Studio</span>
             </div>
+            <div class="search-container">
+                <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.2" y2="16.2"/>
+                </svg>
+                <input type="text" class="search-input" id="searchInput" placeholder="Search projects" aria-label="Search projects">
+            </div>
             <div class="header-actions">
-                <div class="search-container">
-                    <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"/>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                    </svg>
-                    <input type="text" class="search-input" id="searchInput" placeholder="Search projects...">
-                </div>
-                <button class="btn-dashboard btn-dashboard-secondary" id="btnImportProject">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
+                <button class="dk-btn" id="btnImportProject" type="button">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
                     </svg>
                     Import
                 </button>
-                <button class="btn-dashboard btn-dashboard-primary" id="btnNewProject">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
+                <button class="dk-btn dk-btn-primary" id="btnNewProject" type="button">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
                     New Project
                 </button>
+                <div class="dk-menu settings-menu-container" id="settingsMenuContainer">
+                    <button class="dk-icon-btn" id="btnSettings" type="button" title="Settings" aria-label="Settings" aria-haspopup="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+                    <div class="dk-menu-list dk-settings-menu" id="settingsMenu" data-no-ui-toggle>
+                        <div class="dk-menu-row">
+                            <span class="dk-row-label">Light Mode</span>
+                            <button class="dk-switch" id="btnModeToggle" type="button" aria-label="Light mode">
+                                <span class="dk-seg dk-seg-off">Off</span>
+                                <span class="dk-seg dk-seg-on">On</span>
+                            </button>
+                        </div>
+                        <div class="dk-menu-row">
+                            <span class="dk-row-label">Thumbnails</span>
+                            <div class="dk-switch zoom-options" id="zoomOptions" role="group" aria-label="Thumbnail size">
+                                <button class="dk-seg zoom-option" data-zoom="small" type="button" title="Small">S</button>
+                                <button class="dk-seg zoom-option active" data-zoom="medium" type="button" title="Medium">M</button>
+                                <button class="dk-seg zoom-option" data-zoom="large" type="button" title="Large">L</button>
+                            </div>
+                        </div>
+                        <div class="dk-menu-divider" role="separator"></div>
+                        <button class="dk-menu-item dk-menu-item-danger" id="btnClearAll" type="button">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                            <span>Clear All Data…</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -53,7 +73,7 @@
             <!-- Projects Section -->
             <section class="projects-section">
                 <div class="section-heading">
-                    <h2 class="section-title">Your Projects</h2>
+                    <h2 class="section-title">Projects</h2>
                     <span class="section-count" id="projectCount">0 projects</span>
                 </div>
                 
@@ -74,7 +94,7 @@
                     <p class="empty-state-text">
                         Start creating your first dinnerware collection. Design plates, bowls, mugs, and more with parametric precision.
                     </p>
-                    <button class="btn-dashboard btn-dashboard-primary" id="btnEmptyNewProject">
+                    <button class="dk-btn dk-btn-primary" id="btnEmptyNewProject" type="button">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="12" y1="5" x2="12" y2="19"/>
                             <line x1="5" y1="12" x2="19" y2="12"/>
@@ -85,84 +105,6 @@
             </section>
         </main>
 
-        <!-- Footer -->
-        <footer class="dashboard-footer">
-            <div class="footer-left">
-                <div class="settings-menu-container" id="settingsMenuContainer">
-                    <button class="btn-settings" id="btnSettings" title="Settings">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"/>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                        </svg>
-                    </button>
-                    <div class="settings-menu" id="settingsMenu">
-                        <div class="settings-section">
-                            <div class="settings-section-title">Appearance</div>
-                            <button class="mode-toggle" id="btnModeToggle">
-                                <span class="mode-toggle-label">
-                                    <svg id="modeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="5"/>
-                                        <line x1="12" y1="1" x2="12" y2="3"/>
-                                        <line x1="12" y1="21" x2="12" y2="23"/>
-                                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                                        <line x1="1" y1="12" x2="3" y2="12"/>
-                                        <line x1="21" y1="12" x2="23" y2="12"/>
-                                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                                    </svg>
-                                    <span>Light Mode</span>
-                                </span>
-                                <span class="mode-toggle-switch" id="modeToggle"></span>
-                            </button>
-                        </div>
-                        <div class="settings-section">
-                            <div class="settings-section-title">Thumbnail Size</div>
-                            <div class="zoom-options" id="zoomOptions">
-                                <button class="zoom-option" data-zoom="small" title="Small">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="3" width="7" height="7"/>
-                                        <rect x="14" y="3" width="7" height="7"/>
-                                        <rect x="3" y="14" width="7" height="7"/>
-                                        <rect x="14" y="14" width="7" height="7"/>
-                                    </svg>
-                                    <span>Small</span>
-                                </button>
-                                <button class="zoom-option active" data-zoom="medium" title="Medium">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="3" width="8" height="8"/>
-                                        <rect x="13" y="3" width="8" height="8"/>
-                                        <rect x="3" y="13" width="8" height="8"/>
-                                        <rect x="13" y="13" width="8" height="8"/>
-                                    </svg>
-                                    <span>Medium</span>
-                                </button>
-                                <button class="zoom-option" data-zoom="large" title="Large">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="2" y="2" width="20" height="20" rx="2"/>
-                                    </svg>
-                                    <span>Large</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="settings-section">
-                            <div class="settings-section-title">Typeface</div>
-                            <select class="font-select" id="fontSelect">
-                                <option value="system">System (macOS)</option>
-                                <option value="inter" selected>Inter (Figma)</option>
-                                <option value="lato">Lato (Slack)</option>
-                                <option value="dm-sans">DM Sans (Arc)</option>
-                                <option value="source-sans">Source Sans (Discord)</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <span class="footer-text">Playground Ceramics v1.0</span>
-            </div>
-            <div class="footer-links">
-                <a href="#" class="footer-link" id="btnClearAll">Clear All Data</a>
-            </div>
-        </footer>
     </div>
 
     <!-- Delete Confirmation Modal -->
@@ -174,8 +116,8 @@
                 Are you sure you want to delete this project? This action cannot be undone.
             </p>
             <div class="modal-dashboard-actions">
-                <button class="btn-dashboard btn-dashboard-secondary" id="btnCancelDelete">Cancel</button>
-                <button class="btn-dashboard btn-dashboard-primary" id="btnConfirmDelete" style="background: var(--th-danger);">Delete</button>
+                <button class="dk-btn" id="btnCancelDelete" type="button">Cancel</button>
+                <button class="dk-btn dk-btn-danger" id="btnConfirmDelete" type="button">Delete</button>
             </div>
         </div>
     </div>
@@ -438,13 +380,12 @@
             
             <div class="modal-dashboard-actions">
                 <span class="app-select-footnote">Projects are saved to your browser — no account needed.</span>
-                <button class="btn-dashboard btn-dashboard-secondary" id="btnCancelAppSelect">Cancel</button>
+                <button class="dk-btn" id="btnCancelAppSelect" type="button">Cancel</button>
             </div>
         </div>
     </div>
 
     <script type="module" src="./scripts/dashboard/dashboard.js"></script>
-    <script type="module" src="./scripts/ui/line/lineDashboard.js"></script>
     <script type="module" src="./scripts/ui/pageComments/pageComments.js"></script>
 </body>
 </html>

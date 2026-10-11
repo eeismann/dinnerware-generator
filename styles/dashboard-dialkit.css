@@ -1,0 +1,678 @@
+/* ================================================
+   DialKit chrome: Dashboard
+   Page-specific layout on top of dialkit-chrome.css: toolbar header with the
+   settings menu, project cards as DialKit glass cards, and the new-project
+   and delete dialogs. Overrides styles/dashboard.css.
+   ================================================ */
+
+body.dk-dashboard {
+    background: var(--dk-page-bg);
+    color: var(--dk-text-label);
+    font-family: var(--dk-font);
+    -webkit-font-smoothing: antialiased;
+}
+
+.dk-dashboard .dashboard-container {
+    max-width: none;
+    padding: 0;
+}
+
+/* ---------- Header ---------- */
+
+.dk-dashboard .dashboard-header.dk-bar {
+    display: grid;
+    grid-template-columns: 1fr minmax(200px, 360px) 1fr;
+    align-items: center;
+    gap: 12px;
+    height: 52px;
+    padding: 0 12px 0 18px;
+    background: var(--dk-glass-bg);
+    border-bottom: 1px solid var(--dk-border);
+    z-index: 100;
+}
+
+.dk-dashboard .brand {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+}
+
+.dk-dashboard .brand-title {
+    font-family: var(--dk-font);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--dk-text-root);
+    white-space: nowrap;
+}
+
+.dk-dashboard .brand-tagline {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--dk-text-tertiary);
+    white-space: nowrap;
+}
+
+/* Search: one DialKit row with an inline field */
+.dk-dashboard .search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 32px;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    transition: background 0.15s, box-shadow 0.15s;
+}
+
+.dk-dashboard .search-container:hover {
+    background: var(--dk-surface-hover);
+}
+
+.dk-dashboard .search-container:focus-within {
+    background: var(--dk-surface-hover);
+    box-shadow: 0 0 0 1px var(--dk-border-hover);
+}
+
+.dk-dashboard .search-icon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    transform: translateY(-50%);
+    color: var(--dk-text-tertiary);
+    pointer-events: none;
+}
+
+.dk-dashboard .search-input {
+    width: 100%;
+    height: 100%;
+    padding: 0 12px 0 32px;
+    border: none;
+    border-radius: var(--dk-radius);
+    background: transparent;
+    color: var(--dk-text-root);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: none;
+}
+
+.dk-dashboard .search-input::placeholder {
+    color: var(--dk-text-tertiary);
+}
+
+.dk-dashboard .search-input:focus {
+    outline: none;
+    border: none;
+    box-shadow: none;
+}
+
+.dk-dashboard .header-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+}
+
+.dk-dashboard .header-actions .dk-btn {
+    padding: 0 12px 0 10px;
+}
+
+/* Settings menu: themeManager toggles .open on the container */
+.dk-dashboard .settings-menu-container:not(.open) .dk-menu-list {
+    display: none;
+}
+
+.dk-dashboard .settings-menu-container.open #btnSettings {
+    background: var(--dk-surface-hover);
+    color: var(--dk-text-root);
+}
+
+.dk-dashboard .dk-settings-menu {
+    min-width: 240px;
+    /* reset dashboard.css .settings-menu positioning */
+    bottom: auto;
+    left: auto;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+}
+
+/* Light mode Off/On reads the theme straight from <html data-mode> */
+.dk-dashboard #btnModeToggle .dk-seg-off,
+[data-mode="light"] .dk-dashboard #btnModeToggle .dk-seg-on {
+    background: var(--dk-surface-hover);
+    color: var(--dk-text-root);
+}
+
+[data-mode="light"] .dk-dashboard #btnModeToggle .dk-seg-off {
+    background: transparent;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-dashboard .zoom-options {
+    margin: 0;
+}
+
+.dk-dashboard .zoom-option {
+    flex: none;
+    min-width: 30px;
+    padding: 0 6px;
+}
+
+/* ---------- Projects ---------- */
+
+.dk-dashboard .dashboard-main {
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 20px 24px 40px;
+    box-sizing: border-box;
+}
+
+.dk-dashboard .section-heading {
+    align-items: baseline;
+    margin: 0 0 12px;
+    padding: 0 4px;
+}
+
+.dk-dashboard .section-title {
+    font-family: var(--dk-font);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--dk-text-root);
+}
+
+.dk-dashboard .section-count {
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-dashboard .projects-grid,
+.dk-dashboard .projects-grid[data-zoom="medium"] {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+}
+
+.dk-dashboard .projects-grid[data-zoom="small"] {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.dk-dashboard .projects-grid[data-zoom="large"] {
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 16px;
+}
+
+/* Card: a DialKit glass card with the preview as an inset surface */
+.dk-dashboard .project-card {
+    padding: 6px;
+    background: var(--dk-glass-bg);
+    border: 1px solid var(--dk-border);
+    border-radius: 14px;
+    box-shadow: none;
+    transition: border-color 0.15s, box-shadow 0.2s, transform 0.2s;
+}
+
+.dk-dashboard .project-card:hover {
+    border-color: var(--dk-border-hover);
+    box-shadow: var(--dk-shadow-dropdown);
+    transform: translateY(-1px);
+}
+
+.dk-dashboard .project-card:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--dk-focus-ring);
+}
+
+.dk-dashboard .card-preview {
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    overflow: hidden;
+}
+
+.dk-dashboard .project-card:hover .card-preview {
+    transform: none;
+}
+
+.dk-dashboard .card-preview-placeholder {
+    color: var(--dk-text-tertiary);
+}
+
+/* Actions: a small floating toolbar instead of a full-card overlay */
+.dk-dashboard .card-actions {
+    inset: 6px 6px auto auto;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--dk-border);
+    border-radius: 8px;
+    background: var(--dk-glass-bg);
+    box-shadow: var(--dk-shadow-dropdown);
+    backdrop-filter: none;
+    transform: translateY(-2px);
+}
+
+.dk-dashboard .card-action-btn,
+.dk-dashboard .projects-grid[data-zoom] .card-action-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--dk-text-label);
+}
+
+.dk-dashboard .card-action-btn svg,
+.dk-dashboard .projects-grid[data-zoom] .card-action-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.dk-dashboard .card-action-btn:hover {
+    background: var(--dk-surface-hover);
+    border: none;
+    color: var(--dk-text-root);
+    transform: none;
+}
+
+.dk-dashboard .card-action-btn.danger:hover {
+    background: var(--dk-danger-surface);
+    color: var(--dk-danger);
+}
+
+.dk-dashboard .card-info,
+.dk-dashboard .projects-grid[data-zoom] .card-info {
+    padding: 8px 6px 2px 6px;
+}
+
+.dk-dashboard .card-app {
+    gap: 8px;
+}
+
+.dk-dashboard .card-app-icon,
+.dk-dashboard .card-app-icon svg,
+.dk-dashboard .projects-grid[data-zoom] .card-app-icon,
+.dk-dashboard .projects-grid[data-zoom] .card-app-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.dk-dashboard .card-title,
+.dk-dashboard .projects-grid[data-zoom] .card-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-root);
+}
+
+.dk-dashboard .card-date {
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-dashboard .card-items {
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 6px;
+    background: var(--dk-surface);
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--dk-text-label);
+}
+
+.dk-dashboard .card-items svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* New-project tile */
+.dk-dashboard .project-card.new-project {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: transparent;
+    border: 1px dashed var(--dk-border-hover);
+}
+
+.dk-dashboard .project-card.new-project:hover {
+    background: var(--dk-surface);
+    border-color: var(--dk-border-hover);
+    box-shadow: none;
+}
+
+.dk-dashboard .new-project-icon,
+.dk-dashboard .projects-grid[data-zoom] .new-project-icon {
+    width: 36px;
+    height: 36px;
+    margin: 0;
+    border: none;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    color: var(--dk-text-label);
+}
+
+.dk-dashboard .project-card.new-project:hover .new-project-icon {
+    background: var(--dk-surface-hover);
+    color: var(--dk-text-root);
+    transform: none;
+}
+
+.dk-dashboard .new-project-icon svg,
+.dk-dashboard .projects-grid[data-zoom] .new-project-icon svg {
+    width: 16px;
+    height: 16px;
+    color: inherit;
+    transform: none;
+}
+
+.dk-dashboard .new-project-text,
+.dk-dashboard .projects-grid[data-zoom] .new-project-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-label);
+}
+
+.dk-dashboard .project-card.new-project:hover .new-project-text {
+    color: var(--dk-text-root);
+}
+
+/* Empty state */
+.dk-dashboard .empty-state {
+    gap: 10px;
+    padding: 64px 24px;
+}
+
+.dk-dashboard .empty-state-icon {
+    width: 56px;
+    height: 56px;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-dashboard .empty-state-title {
+    font-family: var(--dk-font);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dk-text-root);
+}
+
+.dk-dashboard .empty-state-text {
+    max-width: 360px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--dk-text-label);
+}
+
+/* ---------- Dialogs ---------- */
+
+.dk-dashboard .modal-dashboard-backdrop {
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.dk-dashboard .modal-dashboard-content {
+    width: calc(100% - 32px);
+    max-width: 360px;
+    padding: 14px 8px 8px;
+    box-sizing: border-box;
+    background: var(--dk-glass-bg);
+    border: 1px solid var(--dk-border);
+    border-radius: 14px;
+    box-shadow: var(--dk-shadow);
+    color: var(--dk-text-label);
+    font-family: var(--dk-font);
+    animation: dk-dialog-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dk-dashboard .modal-dashboard-content.modal-dashboard-large {
+    max-width: 640px;
+}
+
+.dk-dashboard .modal-dashboard-title {
+    margin: 0 0 4px;
+    padding: 0 6px;
+    font-family: var(--dk-font);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dk-text-root);
+}
+
+.dk-dashboard .modal-dashboard-text {
+    margin: 0;
+    padding: 0 6px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--dk-text-label);
+}
+
+.dk-dashboard .modal-dashboard-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+}
+
+.dk-dashboard .modal-dashboard-actions .dk-btn {
+    flex: 1;
+    height: 36px;
+    padding: 0 12px;
+}
+
+.dk-dashboard #appSelectModal .modal-dashboard-actions .dk-btn {
+    flex: 0 0 auto;
+    min-width: 96px;
+}
+
+.dk-dashboard .app-select-footnote {
+    display: block;
+    flex: 1;
+    padding: 0 6px;
+    font-size: 12px;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-dashboard .app-select-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.dk-dashboard .app-select-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    margin: -6px -2px 0 0;
+    padding: 0;
+    border: none;
+    border-radius: var(--dk-radius);
+    background: transparent;
+    color: var(--dk-text-label);
+    cursor: pointer;
+}
+
+.dk-dashboard .app-select-close:hover {
+    background: var(--dk-surface-hover);
+    color: var(--dk-text-root);
+}
+
+.dk-dashboard .app-select-close svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Icon style: a DialKit segmented control */
+.dk-dashboard .app-icon-style-switcher {
+    display: inline-flex;
+    gap: 2px;
+    margin: 0 0 10px 6px;
+    padding: 2px;
+    border: none;
+    border-radius: 7px;
+    background: var(--dk-surface);
+}
+
+.dk-dashboard .app-icon-style-option {
+    height: 26px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--dk-text-tertiary);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    box-shadow: none;
+}
+
+.dk-dashboard .app-icon-style-option:hover {
+    color: var(--dk-text-root);
+    background: transparent;
+}
+
+.dk-dashboard .app-icon-style-option.active {
+    background: var(--dk-surface-hover);
+    color: var(--dk-text-root);
+    box-shadow: none;
+}
+
+/* Apps: DialKit rows with an icon */
+.dk-dashboard .app-select-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.dk-dashboard .app-select-card,
+.dk-dashboard .app-select-card[data-app] {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: none;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    box-shadow: none;
+    text-align: left;
+    transition: background 0.15s;
+}
+
+.dk-dashboard .app-select-card:hover {
+    background: var(--dk-surface-hover);
+    border: none;
+    box-shadow: none;
+    transform: none;
+}
+
+.dk-dashboard .app-select-card:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--dk-focus-ring);
+}
+
+.dk-dashboard .app-select-icon {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    margin: 0;
+    border: none;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    box-shadow: none;
+}
+
+.dk-dashboard .app-select-card:hover .app-select-icon {
+    transform: none;
+    box-shadow: none;
+}
+
+.dk-dashboard .app-select-icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.dk-dashboard .app-select-info {
+    gap: 2px;
+    min-width: 0;
+}
+
+.dk-dashboard .app-select-title {
+    margin: 0;
+    font-family: var(--dk-font);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-root);
+}
+
+.dk-dashboard .app-select-description {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--dk-text-tertiary);
+}
+
+/* Import drop zone */
+.dk-dashboard .drop-zone {
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(6px);
+}
+
+.dk-dashboard .drop-zone-content {
+    padding: 32px 40px;
+    background: var(--dk-glass-bg);
+    border: 1px dashed var(--dk-border-hover);
+    border-radius: 14px;
+    box-shadow: var(--dk-shadow);
+    color: var(--dk-text-label);
+    font-family: var(--dk-font);
+}
+
+.dk-dashboard .drop-zone-content svg {
+    color: var(--dk-text-label);
+}
+
+.dk-dashboard .drop-zone-content h3 {
+    font-family: var(--dk-font);
+    font-size: 14px;
+    color: var(--dk-text-root);
+}
+
+.dk-dashboard .drop-zone-content p {
+    font-size: 13px;
+    color: var(--dk-text-label);
+}
+
+@media (max-width: 760px) {
+    .dk-dashboard .dashboard-header.dk-bar {
+        grid-template-columns: 1fr auto;
+    }
+
+    .dk-dashboard .brand-tagline,
+    .dk-dashboard .search-container {
+        display: none;
+    }
+
+    .dk-dashboard .app-select-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dk-dashboard .project-card,
+    .dk-dashboard .modal-dashboard-content {
+        animation: none;
+        transition: none;
+    }
+}

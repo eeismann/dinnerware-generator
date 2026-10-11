@@ -17,7 +17,9 @@
   the `api` hooks in `main.js` `initDials()`, and `dials.sync()` pushes state back after undo
   or load. Style presets are not offered on this branch. The Studio/Line shells are not loaded on this page. No footer:
   the DialKit-styled header holds undo/redo, a File menu (New/Load/Save/Export) and a toggle that
-  hides the right-hand parameter card (`styles/dinnerware-dials.css`).
+  hides the right-hand parameter card (`styles/dinnerware-dials.css`). The dashboard uses the same
+  DialKit look (`styles/dashboard-dialkit.css`, settings folded into a header menu, no footer); shared
+  tokens and controls live in `styles/dialkit-chrome.css`.
 
 ### 2. Vessel Generator (`vessel-generator/`)
 - Entry point: `scripts/vessel/vesselMain.js`
