@@ -22,6 +22,7 @@
     "benchmark:cleanup": "node scripts/benchmarks/castFormCleanupGate.mjs --benchmark"
   },
   "dependencies": {
+    "dialkit": "^2.0.2",
     "three": "^0.160.0",
     "three-mesh-bvh": "^0.9.10"
   },

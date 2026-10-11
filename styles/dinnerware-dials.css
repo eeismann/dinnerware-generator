@@ -1,0 +1,41 @@
+/* ================================================
+   DialKit parameter panels (Dinnerware Designer)
+   The DialKit root is mounted inline in .parameter-panel; the panel keeps
+   its floating card frame and becomes the scroll container.
+   ================================================ */
+
+.parameter-panel.dials-panel {
+    width: 320px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+
+.dinnerware-dials {
+    --dial-glass-bg: transparent;
+    font-family: var(--th-font-primary, inherit);
+}
+
+/* Warning "reveal" highlight on a control row */
+.dinnerware-dials .dial-flash {
+    animation: dial-flash 1.2s ease-out;
+    border-radius: var(--dial-radius, 8px);
+}
+
+@keyframes dial-flash {
+    0%, 30% { box-shadow: 0 0 0 2px var(--th-accent, #f5a623); }
+    100% { box-shadow: 0 0 0 2px transparent; }
+}
+
+@media (max-width: 1100px) {
+    .parameter-panel.dials-panel {
+        width: 300px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dinnerware-dials .dial-flash {
+        animation: none;
+    }
+}

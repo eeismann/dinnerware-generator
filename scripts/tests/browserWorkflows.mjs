@@ -19,11 +19,17 @@ try {
     const dialogs = [];
     page.on('pageerror', error => errors.push(error.message));
     page.on('dialog', async dialog => { dialogs.push(dialog.message()); await dialog.accept(); });
-    await page.goto(`${base}/index.html?ui=classic`);
-    await page.getByRole('heading', { name: 'Global Style', exact: true }).click();
-    const thickness = page.locator('[data-section="global-style"] [data-param="wallThickness"] .numeric-input input');
-    await thickness.fill('2.5');
-    await thickness.blur();
+    await page.goto(`${base}/index.html`);
+    // Wall Thickness dial in the DialKit "Set Style" panel; Enter opens number entry
+    const thickness = page.locator('.dinnerware-dials').getByRole('slider', { name: 'Wall Thickness', exact: true }).first();
+    const setThickness = async (value) => {
+        await thickness.focus();
+        await page.keyboard.press('Enter');
+        const input = page.locator('.dinnerware-dials').getByRole('textbox', { name: 'Wall Thickness value', exact: true }).first();
+        await input.fill(String(value));
+        await input.press('Enter');
+    };
+    await setThickness(2.5);
     const bufferSize = () => page.locator('#viewport canvas').evaluate(canvas => [canvas.width, canvas.height]);
     const originalSize = await bufferSize();
     const save = async (file = false) => {
@@ -37,13 +43,12 @@ try {
     assert.deepEqual(await bufferSize(), originalSize, 'Save preserves DPR-scaled viewport dimensions');
     const projectId = await page.evaluate(() => localStorage.getItem('dinnerware_editing_project_id'));
     assert.ok(projectId);
-    await thickness.fill('7');
-    await thickness.blur();
+    await setThickness(7);
     await page.waitForFunction(id => JSON.parse(localStorage.getItem(`dinnerware_draft:${id}`) || 'null')?.state.globalParameters.wallThickness === 7, projectId);
     // Simulate another tab selecting a different project in the shared storage.
     await page.evaluate(() => localStorage.setItem('dinnerware_editing_project_id', 'another-tab'));
     await page.reload();
-    assert.equal(await thickness.inputValue(), '7', 'Real reload restores draft over explicit save');
+    assert.equal(await thickness.getAttribute('aria-valuenow'), '7', 'Real reload restores draft over explicit save');
     assert.equal(new URL(page.url()).searchParams.get('project'), projectId, 'Reload stays with this tab\'s project identity');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('playground_ceramics_projects'))[0].state.globalParameters.wallThickness), 2.5);
     console.log('[PASS] Real save/reload keeps newer draft and preserves DPR=2 canvas size');

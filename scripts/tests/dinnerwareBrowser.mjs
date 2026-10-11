@@ -23,7 +23,7 @@ try {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     page.on('dialog', dialog => dialog.accept());
-    await page.goto(`${base}/index.html?ui=classic`);
+    await page.goto(`${base}/index.html`);
     await page.waitForFunction(async () => {
         const { getViewport } = await import('/scripts/ui/viewport.js');
         return getViewport()?.meshes.size === 7;
@@ -43,52 +43,86 @@ try {
     }), false);
     pass('Shadow map renders on demand');
 
+    // DialKit helpers: panels render as sections; sliders are role=slider
+    // with their label as the accessible name, and Enter opens number entry.
+    const dials = page.locator('.dinnerware-dials');
+    const section = (name) => dials.locator('.dialkit-folder-section')
+        .filter({ has: page.locator(':scope > .dialkit-folder-header', { hasText: name }) });
+    const openSection = async (name) => {
+        const scope = section(name);
+        if (await scope.getAttribute('data-open') !== 'true') {
+            await scope.locator(':scope > .dialkit-folder-header').click();
+        }
+        return scope;
+    };
+    const closeSection = async (name) => {
+        const scope = section(name);
+        if (await scope.getAttribute('data-open') === 'true') {
+            await scope.locator(':scope > .dialkit-folder-header').click();
+        }
+    };
+    const typeValue = async (scope, name, value) => {
+        await scope.getByRole('slider', { name, exact: true }).focus();
+        await page.keyboard.press('Enter');
+        const input = scope.getByRole('textbox', { name: `${name} value`, exact: true });
+        await input.fill(String(value));
+        await input.press('Enter');
+        await nextFrames();
+    };
+    const choose = async (scope, label, option) => {
+        await scope.locator('.dialkit-select-trigger').filter({ hasText: new RegExp(`^${label}`) }).first().click();
+        await page.locator('.dialkit-select-option').filter({ hasText: new RegExp(`^${option}`) }).first().click();
+        await nextFrames();
+    };
+    const state = (path) => page.evaluate(async (statePath) =>
+        (await import('/scripts/state/projectState.js')).stateManager.getState(statePath), path);
+
     // --- Slider drags preview a lighter mesh; release restores full detail
-    await page.getByRole('heading', { name: 'Surface Pattern', exact: true }).click();
-    await page.locator('#surfacePatternControls [data-param="wallPatternType"] select').selectOption('knurl');
+    await closeSection('Set Style');
+    const pattern = await openSection('Surface Pattern');
+    await choose(pattern, 'Pattern', 'Knurling');
     await nextFrames();
     const full = await meshInfo('plate');
-    const depth = page.locator('#surfacePatternControls [data-param="wallPatternDepth"] input[type="range"]');
-    await depth.evaluate(input => {
-        input.value = '0.8';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
+    const depth = pattern.getByRole('slider', { name: 'Depth', exact: true }).first();
+    const depthBox = await depth.boundingBox();
+    await page.mouse.move(depthBox.x + depthBox.width * 0.2, depthBox.y + depthBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(depthBox.x + depthBox.width * 0.45, depthBox.y + depthBox.height / 2, { steps: 4 });
     await nextFrames();
     const dragging = await meshInfo('plate');
     assert.ok(dragging.vertices < full.vertices * 0.75,
         `drag preview ${dragging.vertices} vs full ${full.vertices} vertices`);
-    await depth.evaluate(input => input.dispatchEvent(new Event('change', { bubbles: true })));
+    await page.mouse.up();
     await nextFrames();
     assert.equal((await meshInfo('plate')).vertices, full.vertices);
     pass(`Slider drag previews ${dragging.vertices} vertices, release rebuilds ${full.vertices}`);
 
     // --- Returning to earlier parameters reuses cached geometry
-    await depth.evaluate(input => {
-        input.value = '0.4';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    await typeValue(pattern, 'Depth', 0.4);
     await nextFrames();
     assert.equal((await meshInfo('plate')).uuid, full.uuid, 'cached geometry reused');
     pass('Restoring earlier parameters reuses the cached mesh');
+    await closeSection('Surface Pattern');
 
     // --- Hidden items are rebuilt only when shown
-    await page.locator('#btnItemsMenu').click();
-    await page.locator('.items-menu-item input[data-item="mug"]').uncheck();
-    const hiddenBefore = await meshInfo('mug');
-    const thickness = page.locator('[data-section="global-style"] [data-param="wallThickness"] .numeric-input input');
-    await page.getByRole('heading', { name: 'Global Style', exact: true }).click();
-    await thickness.fill('3.5');
-    await thickness.blur();
+    const view = await openSection('View');
+    const itemToggle = (label) => view.locator('.dialkit-labeled-control')
+        .filter({ has: page.locator('.dialkit-labeled-control-label', { hasText: new RegExp(`^${label}$`) }) });
+    await itemToggle('Mug').getByText('Off', { exact: true }).click();
     await nextFrames();
+    const hiddenBefore = await meshInfo('mug');
+    await closeSection('View');
+    const style = await openSection('Set Style');
+    await typeValue(style, 'Wall Thickness', 3.5);
     assert.equal((await meshInfo('mug')).uuid, hiddenBefore.uuid, 'hidden mug not rebuilt');
     assert.notEqual((await meshInfo('plate')).uuid, full.uuid, 'visible plate rebuilt');
-    await page.locator('#btnItemsMenu').click();
-    await page.locator('.items-menu-item input[data-item="mug"]').check();
+    await openSection('View');
+    await itemToggle('Mug').getByText('On', { exact: true }).click();
     await nextFrames();
     const shown = await meshInfo('mug');
     assert.notEqual(shown.uuid, hiddenBefore.uuid, 'mug rebuilt when shown');
     assert.equal(shown.visible, true);
+    await closeSection('View');
     pass('Hidden items defer rebuilding until shown');
 
     // --- Export runs in a worker, stays responsive, and writes Z-up STLs
@@ -168,77 +202,72 @@ try {
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'btnExportSTL', 'focus returns to the opener');
     pass('Export dialog measures sizes, reports errors inline, zips a set and closes on Escape');
 
-    // --- Typed arithmetic, arrow keys and label scrubbing
-    const angleNumber = page.locator('[data-section="global-style"] [data-param="wallAngle"] .numeric-input input');
-    await angleNumber.fill('10');
-    await angleNumber.pressSequentially('+5*2');
-    assert.equal(await angleNumber.inputValue(), '10+5*2');
-    await angleNumber.press('Enter');
-    await nextFrames();
-    const globalAngle = () => page.evaluate(async () => (await import('/scripts/state/projectState.js')).stateManager.getState('globalParameters.wallAngle'));
+    // --- Typed values, arrow keys and slider drags
+    const globalAngle = () => state('globalParameters.wallAngle');
+    await openSection('Set Style');
+    await typeValue(style, 'Wall Angle', 20);
     assert.equal(await globalAngle(), 20);
-    await angleNumber.press('ArrowUp');
-    assert.equal(await globalAngle(), 21, 'arrow key applies immediately');
-    await angleNumber.press('Shift+ArrowDown');
-    assert.equal(await globalAngle(), 11);
-    await angleNumber.blur();
-    assert.equal(await angleNumber.getAttribute('type'), 'number');
-    const angleLabel = page.locator('[data-section="global-style"] [data-param="wallAngle"] > label');
-    const box = await angleLabel.boundingBox();
-    await page.mouse.move(box.x + 10, box.y + box.height / 2);
+    const angleSlider = style.getByRole('slider', { name: 'Wall Angle', exact: true });
+    await angleSlider.focus();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await nextFrames();
+    assert.equal(await globalAngle(), 22, 'arrow keys apply immediately and keep focus across rebuilds');
+    await page.waitForTimeout(500);
+    const angleBox = await angleSlider.boundingBox();
+    await page.mouse.move(angleBox.x + angleBox.width * 0.5, angleBox.y + angleBox.height / 2);
     await page.mouse.down();
-    await page.mouse.move(box.x + 30, box.y + box.height / 2, { steps: 4 });
+    await page.mouse.move(angleBox.x + angleBox.width * 0.3, angleBox.y + angleBox.height / 2, { steps: 4 });
     await page.mouse.up();
-    assert.equal(await globalAngle(), 16, 'dragging the label 20px scrubs 5 steps');
-    pass('Number fields take arithmetic, arrow keys and label scrubbing');
+    const draggedAngle = await globalAngle();
+    assert.ok(draggedAngle < 22, `dragging left lowers the angle (${draggedAngle})`);
+    pass('Dials take typed values, arrow keys and drags');
 
     // --- Undo / redo
     await page.locator('body').click({ position: { x: 700, y: 400 } });
     await page.waitForTimeout(500);
     await page.keyboard.press('ControlOrMeta+z');
     await nextFrames();
-    assert.equal(await globalAngle(), 11, 'undo restores the value before the scrub');
+    assert.equal(await globalAngle(), 22, 'undo restores the value before the drag (one step)');
     await page.locator('#btnRedo').click();
-    assert.equal(await globalAngle(), 16);
-    assert.equal(await angleNumber.inputValue(), '16', 'controls follow undo/redo');
-    pass('Undo/redo restore values and controls');
+    await nextFrames();
+    assert.equal(await globalAngle(), draggedAngle);
+    assert.equal(await angleSlider.getAttribute('aria-valuenow'), String(draggedAngle), 'dials follow undo/redo');
+    pass('Undo/redo restore values and dials');
 
-    // --- Override visibility, inline warnings and revert
-    await page.evaluate(async () => {
-        const { stateManager } = await import('/scripts/state/projectState.js');
-        document.getElementById('overrideItemSelect').value = 'tumbler';
-        document.getElementById('overrideItemSelect').dispatchEvent(new Event('change'));
-    });
-    await page.getByRole('heading', { name: 'Per-Item Overrides', exact: true }).click();
-    const overrideThickness = page.locator('#overrideControls [data-param="wallThickness"] .numeric-input input');
-    await overrideThickness.fill('1');
-    await overrideThickness.press('Enter');
+    // --- Overrides: marked controls, inherited fallback and revert
+    await closeSection('Set Style');
+    const overrides = await openSection('Per-Item Overrides');
+    await choose(overrides, 'Item', 'Tumbler');
+    await typeValue(overrides, 'Wall Thickness', 1);
+    assert.deepEqual(await state('itemOverrides.tumbler'), { wallThickness: 1 });
+    assert.equal(await state('globalParameters.wallThickness'), 3.5, 'override leaves the global value');
+    assert.equal(await overrides.getByRole('slider', { name: 'Wall Thickness ●', exact: true }).count(), 1,
+        'overridden control is marked');
+    assert.match(await overrides.locator('.dialkit-select-trigger').filter({ hasText: /^Item/ }).textContent(), /Tumbler \(1\)/);
+    await page.locator('#btnWarningsMenu').click();
+    assert.ok(await page.locator('.warning-item[data-item="tumbler"][data-param="wallThickness"]').count() > 0,
+        'thin override is flagged');
+    await page.locator('#statusInfo').click(); // closes the menu without selecting a piece
+    await overrides.getByText(/^↺ Wall Thickness → 3.5mm$/).click();
     await nextFrames();
-    const badge = page.locator('[data-section="global-style"] [data-param="wallThickness"] .override-badge');
-    assert.equal(await badge.textContent(), 'Tumbler differs');
-    assert.equal(await page.locator('.items-menu-item input[data-item="tumbler"] ~ .override-dot').count(), 1);
-    assert.match(await page.locator('#overrideControls [data-param="wallThickness"] .inherited-hint').textContent(), /Global: 3.5mm/);
-    const overrideNote = page.locator('#overrideControls [data-param="wallThickness"] .param-warning');
-    assert.match(await overrideNote.textContent(), /Tumbler:.*Wall thickness \(1mm\) below/);
-    assert.equal(await page.locator('[data-section="global-style"] [data-param="wallThickness"] .param-warning').count(), 0,
-        'the global row only lists items that follow it');
-    await page.locator('#overrideControls [data-param="wallThickness"] .revert-chip').click();
-    await nextFrames();
-    assert.equal(await badge.count(), 0, 'badge clears once no item differs');
-    pass('Overrides show badges, dots, inherited values, inline warnings and revert');
+    assert.deepEqual(await state('itemOverrides.tumbler'), {});
+    assert.equal(await overrides.getByRole('slider', { name: 'Wall Thickness', exact: true }).getAttribute('aria-valuenow'), '3.5');
+    await closeSection('Per-Item Overrides');
+    pass('Overrides mark their control, fall back to the global value on revert');
 
     // --- Presets
-    await page.locator('#stylePresetSelect').selectOption('soft-bowl');
+    await openSection('Set Style');
+    await choose(style, 'Preset', 'Soft Bowl');
+    assert.equal(await state('globalParameters.rimStyle'), 'rounded');
+    await style.locator(':scope .dialkit-folder-header', { hasText: 'Presets' }).click();
+    await style.getByRole('textbox', { name: 'New Preset Name' }).fill('My Bowl');
+    await style.getByText('Save Style as Preset', { exact: true }).click();
     await nextFrames();
-    assert.equal(await page.evaluate(async () => (await import('/scripts/state/projectState.js')).stateManager.getState('globalParameters.rimStyle')), 'rounded');
-    await page.locator('#btnSavePreset').click();
-    await page.locator('.preset-save input').fill('My Bowl');
-    await page.locator('.preset-save button[type="submit"]').click();
-    assert.equal(await page.locator('#stylePresetSelect option:checked').textContent(), 'Soft Bowl');
-    await angleNumber.fill('30');
-    await angleNumber.press('Enter');
-    await nextFrames();
-    assert.equal(await page.locator('#stylePresetSelect').inputValue(), '', 'edited style reads as Custom');
+    assert.match(await style.locator('.dialkit-select-trigger').filter({ hasText: /^Preset/ }).textContent(), /Soft Bowl/);
+    await typeValue(style, 'Wall Angle', 30);
+    assert.match(await style.locator('.dialkit-select-trigger').filter({ hasText: /^Preset/ }).textContent(), /Custom/,
+        'edited style reads as Custom');
     pass('Presets apply, save and show Custom after edits');
 
     // --- Profile panel drag edits a parameter
@@ -258,31 +287,26 @@ try {
     pass('Profile handles edit parameters; lineup shows every visible item');
 
     // --- Stacked layout rests the mug on the saucer; compare shows ghosts
-    await page.locator('#btnViewMenu').click();
-    await page.locator('#btnLayoutStack').click();
+    await closeSection('Set Style');
+    await choose(await openSection('View'), 'Layout', 'Stacked');
     const stack = await page.evaluate(async () => {
         const { getViewport } = await import('/scripts/ui/viewport.js');
         const vp = getViewport();
         return { mug: vp.meshes.get('mug').position.toArray(), saucer: vp.meshes.get('saucer').position.toArray() };
     });
     assert.ok(stack.mug[1] > 1 && stack.mug[0] === stack.saucer[0]);
+    assert.equal(await state('ui.layoutMode'), 'stack');
     await page.locator('#btnCompare').click();
     assert.equal(await page.evaluate(async () => (await import('/scripts/ui/viewport.js')).getViewport().ghosts.size), 7);
     await page.locator('#btnCompare').click();
     assert.equal(await page.evaluate(async () => (await import('/scripts/ui/viewport.js')).getViewport().ghosts.size), 0);
     pass('Stacked layout nests pieces; Compare adds and removes ghosts');
 
-    // --- Keyboard-operable section headers and labelled controls
-    const header = page.locator('[data-section="item-proportions"] .section-header');
-    assert.equal(await header.getAttribute('role'), 'button');
-    assert.equal(await header.getAttribute('aria-expanded'), 'false');
-    await header.focus();
-    await page.keyboard.press('Enter');
-    assert.equal(await header.getAttribute('aria-expanded'), 'true');
-    const unlabelled = await page.evaluate(() => [...document.querySelectorAll('#parameterPanel .parameter-row input:not([type="checkbox"]), #parameterPanel .parameter-row select')]
-        .filter(el => !el.getAttribute('aria-labelledby') && !el.getAttribute('aria-label')).length);
-    assert.equal(unlabelled, 0, 'every parameter control has an accessible name');
-    pass('Section headers work from the keyboard; every control is labelled');
+    // --- Every dial has an accessible name
+    const unlabelled = await page.evaluate(() => [...document.querySelectorAll('.dinnerware-dials [role="slider"]')]
+        .filter(el => !el.getAttribute('aria-label')).length);
+    assert.equal(unlabelled, 0, 'every slider has an accessible name');
+    pass('Every slider is labelled');
 
     // --- Narrow screens get a parameter drawer
     await page.setViewportSize({ width: 800, height: 900 });
@@ -294,121 +318,6 @@ try {
     pass('Narrow layouts open parameters as a drawer');
 
     assert.deepEqual(errors, [], 'No application runtime errors');
-
-    // --- Studio Shell still boots on top of the classic controls
-    const studio = await context.newPage();
-    const studioErrors = [];
-    studio.on('pageerror', error => studioErrors.push(error.message));
-    await studio.goto(`${base}/index.html?ui=studio`);
-    await studio.waitForSelector('.st-isl', { timeout: 30000 });
-    await studio.waitForTimeout(1000);
-    assert.deepEqual(studioErrors, [], 'Studio mode runtime errors');
-    pass('Studio Shell boots without errors');
-
-    // --- Line draft: one-ink shell over the same live controls
-    const line = await context.newPage();
-    const lineErrors = [];
-    line.on('pageerror', error => lineErrors.push(error.message));
-    await line.goto(`${base}/index.html?ui=line`);
-    await line.waitForSelector('.ln-root.ln-ready', { timeout: 30000 });
-    const viewport = (fn) => line.evaluate(async (source) => {
-        const vp = (await import('/scripts/ui/viewport.js')).getViewport();
-        return new Function('vp', `return (${source})(vp)`)(vp);
-    }, fn.toString());
-    const openViewMenu = async () => {
-        if (!(await line.locator('.view-menu-container.open').count())) await line.locator('#btnViewMenu').click();
-    };
-
-    // Bar: the app's mark, project controls, no piece tabs or display toggles
-    assert.equal((await line.locator('.ln-mark-text').textContent()).trim(), 'Dinnerware');
-    assert.equal(await line.locator('.ln-mark .pc-app-icon').count(), 0, 'no app icon in the mark');
-    await line.locator('.ln-app-switcher .ln-mark').click();
-    assert.deepEqual(await line.locator('.ln-app-switcher .ln-menu-item').allTextContents(),
-        ['Dashboard', 'Dinnerware', 'Vessel', 'Vessel V2', 'Vessel V3', 'Handle', 'Cast Form']);
-    assert.equal(await line.locator('.ln-app-switcher [aria-current="page"]').textContent(), 'Dinnerware');
-    assert.match(await line.locator('.ln-app-switcher a', { hasText: 'Vessel V2' }).getAttribute('href'), /vessel-v2-generator\/index\.html$/);
-    await line.keyboard.press('Escape');
-    // Undo, redo and parameters are icons; project controls centred over the stage
-    for (const selector of ['#btnUndo', '#btnRedo', '[data-action="panel"]']) {
-        const button = line.locator(`.ln-bar ${selector}`);
-        assert.equal(await button.locator('svg').isVisible(), true, `${selector} shows an icon`);
-        assert.equal((await button.innerText()).trim(), '', `${selector} has no visible text`);
-    }
-    const projectBox = await line.locator('.ln-bar-project').boundingBox();
-    const stageBox = await line.locator('.ln-stage').boundingBox();
-    assert.ok(Math.abs((projectBox.x + projectBox.width / 2) - (stageBox.x + stageBox.width / 2)) < 4,
-        'project controls centred over the viewer');
-    assert.equal(await line.locator('.ln-tab').count(), 0, 'no piece tabs in the bar');
-    for (const selector of ['#projectName', '#btnNewProject', '#btnLoadProject', '#btnSaveProject']) {
-        assert.equal(await line.locator(`.ln-bar ${selector}`).count(), 1, `${selector} in the header`);
-    }
-    assert.equal(await line.locator('.ln-bar [data-action="theme"], .ln-bar [data-action="render"]').count(), 0);
-
-    // Caption: no title, hint or checks; one Layout menu button
-    assert.equal(await line.locator('.ln-caption-title').isVisible(), false);
-    assert.equal(await line.locator('.ln-caption-hint').isVisible(), false);
-    assert.equal(await line.locator('.ln-readout dt', { hasText: 'Checks' }).count(), 0);
-    assert.equal(await line.locator('.ln-readout dt', { hasText: 'Pieces' }).count(), 0);
-    assert.equal(await line.locator('.ln-caption #btnProfileView, .ln-caption #btnCompare').count(), 0);
-    await line.locator('.ln-menu-button').click();
-    await line.locator('.ln-menu-item', { hasText: 'Stacked' }).click();
-    assert.equal(await line.locator('#btnLayoutStack').evaluate(el => el.classList.contains('active')), true);
-    assert.match(await line.locator('.ln-menu-button').textContent(), /Layout · Stacked/);
-
-    // Display style lives in the View menu: shaded by default, Line render, Negative
-    assert.equal(await viewport(vp => Boolean(vp.meshes.get('plate').userData.outline?.visible)), false);
-    await openViewMenu();
-    await line.locator('#viewMenu [data-action="render"]').click();
-    assert.equal(await viewport(vp => vp.meshes.get('plate').material.type), 'MeshBasicMaterial');
-    await openViewMenu();
-    await line.locator('#viewMenu [data-action="render"]').click();
-    assert.equal(await viewport(vp => vp.meshes.get('plate').material.type), 'MeshStandardMaterial');
-    const paperBefore = await viewport(vp => vp.scene.background.getHexString());
-    await openViewMenu();
-    await line.locator('#viewMenu [data-action="theme"]').click();
-    const paperAfter = await viewport(vp => vp.scene.background.getHexString());
-    assert.deepEqual([paperBefore, paperAfter], ['f2f1ec', '101010'], 'Negative swaps ink and paper');
-    await openViewMenu();
-    await line.locator('#viewMenu [data-action="theme"]').click();
-    assert.equal(await line.locator('#btnToggleBackground').isVisible(), false, 'Negative replaces the background toggle');
-
-    // Panel: plain section names, no preset row or explainers, anchor toggle,
-    // numbers on the same line as their sliders
-    await line.locator('body').click({ position: { x: 600, y: 400 } });
-    assert.equal((await line.locator('[data-section="global-style"] .section-header h3').textContent()).trim(), 'Style');
-    await line.locator('[data-section="global-style"] .section-header').click();
-    assert.equal(await line.locator('.preset-row').isVisible(), false);
-    assert.equal(await line.locator('#parameterPanel .parameter-help:visible').count(), 0);
-    await line.locator('.ln-segmented button', { hasText: 'Rim' }).click();
-    assert.equal(await line.evaluate(async () => (await import('/scripts/state/projectState.js')).stateManager.getState('globalParameters.positiveWallAngleAnchor')), 'rim');
-    await line.locator('.ln-segmented button', { hasText: 'Base' }).click();
-    const row = line.locator('[data-section="global-style"] [data-param="wallAngle"]');
-    const sliderBox = await row.locator('input[type="range"]').boundingBox();
-    const numberBox = await row.locator('.numeric-input').boundingBox();
-    assert.ok(Math.abs((sliderBox.y + sliderBox.height / 2) - (numberBox.y + numberBox.height / 2)) < 2,
-        'the number is centred on its slider');
-    assert.equal(await row.locator('.numeric-input input').evaluate(el => getComputedStyle(el).borderBottomStyle), 'none',
-        'no underline under the number');
-
-    // No "may require supports" alerts, even for a design that overhangs
-    await line.evaluate(async () => {
-        const { stateManager } = await import('/scripts/state/projectState.js');
-        stateManager.setState('globalParameters.wallInsetEnabled', true);
-        stateManager.setState('globalParameters.bottomCornerRadius', 14);
-    });
-    await line.locator('[data-section="global-style"] [data-param="wallThickness"] .numeric-input input').press('ArrowUp');
-    await line.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
-    assert.equal(await line.locator('.param-warning', { hasText: /support/i }).count(), 0);
-    await line.evaluate(async () => {
-        const { stateManager } = await import('/scripts/state/projectState.js');
-        stateManager.setState('globalParameters.wallThickness', 0.9);
-    });
-    await line.locator('[data-section="global-style"] [data-param="wallAngle"] .numeric-input input').press('ArrowUp');
-    await line.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
-    assert.equal(await line.locator('#parameterPanel .param-warning:visible').count(), 0, 'no alerts in the parameters');
-    assert.deepEqual(lineErrors, [], 'Line mode runtime errors');
-    await line.goto(`${base}/index.html?ui=classic`);
-    pass('Line Dinnerware: app switcher, icon actions, centred project controls, Layout menu, View-menu display style, plain panel, no alerts');
 
     // --- Line dashboard: plates, filter index, theme shared with the editor
     const dash = await context.newPage();

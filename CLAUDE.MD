@@ -11,6 +11,11 @@
 - Creates complete dinnerware sets with 7 item types
 - Global style parameters with per-item overrides
 - Items: Plate, Soup Bowl, Pasta Bowl, Mug, Tumbler, Saucer, Serving Bowl
+- **`dialkit-dinnerware` branch**: parameter, override, proportion and view controls are
+  [DialKit](https://www.dialkit.dev) panels (`dialkit/vanilla`) mounted inline in `#parameterPanel`
+  by `scripts/ui/dialkit/dinnerwareDials.js`. State stays the source of truth: dial edits go through
+  the `api` hooks in `main.js` `initDials()`, and `dials.sync()` pushes state back after undo,
+  presets, load or profile edits. The Studio/Line shells are not loaded on this page.
 
 ### 2. Vessel Generator (`vessel-generator/`)
 - Entry point: `scripts/vessel/vesselMain.js`

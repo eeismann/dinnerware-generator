@@ -7,14 +7,11 @@ import {
     stateManager,
     parameterResolver,
     ITEM_TYPES,
-    ITEM_NAMES,
-    DEFAULT_PARAMETERS,
-    PARAMETER_CONSTRAINTS,
-    DEFAULT_RATIOS
+    ITEM_NAMES
 } from './state/projectState.js';
 import { initViewport, getViewport } from './ui/viewport.js';
 import { getItemDimensions } from './geometry/meshGenerator.js';
-import { warningSystem, clampValue, roundToStep } from './utils/validation.js';
+import { warningSystem, clampValue } from './utils/validation.js';
 import { saveProject as saveToStorage, getProject } from './dashboard/projectStorage.js';
 import { init as initTheme } from './ui/themeManager.js';
 import { ProjectFileFormat } from './storage/fileFormat.js';
@@ -22,11 +19,13 @@ import { resolveAppUrl } from './utils/navigation.js';
 import { selectDinnerwareState, startDinnerwareProject, newDinnerwareDraftId } from './storage/dinnerwareDrafts.js';
 import { DesignHistory, DESIGN_KEYS } from './state/history.js';
 import {
-    BUILT_IN_PRESETS, applyPreset, matchingPreset, loadUserPresets, saveUserPreset, deleteUserPreset
+    BUILT_IN_PRESETS, applyPreset, loadUserPresets, saveUserPreset, deleteUserPreset
 } from './state/presets.js';
-import { initNumericFields } from './ui/numericFields.js';
-import { initControlLabels, initSectionHeaders, openDialog, closeDialog } from './ui/accessibility.js';
+import { openDialog, closeDialog } from './ui/accessibility.js';
 import { ProfilePanel } from './ui/profilePanel.js';
+import {
+    initDinnerwareDials, PATTERN_PARAM_SUFFIXES, patternParamName
+} from './ui/dialkit/dinnerwareDials.js';
 
 let stlExporterPromise = null;
 
@@ -81,24 +80,12 @@ function init() {
     });
 
     // Initialize UI
-    buildSurfacePatternSection();
-    initParameterControls();
-    initPositiveWallAngleAnchorControl();
-    initWallInsetControls();
-    initFootringWidthControls();
-    initPatternControls();
-    initItemProportions();
-    initOverrideControls();
     initFooterControls();
     initHeaderButtons();
     initProjectNameEditing();
     initModals();
-    initSectionCollapse();
-    initSectionHeaders();
-    initControlLabels(document.getElementById('parameterPanel'));
-    initNumericFields(document.getElementById('parameterPanel'));
     initHistory();
-    initPresets();
+    initDials();
     initSelection();
     initProfilePanel();
     initCompare();
@@ -107,14 +94,12 @@ function init() {
 
     // Restore the saved layout without marking the project dirty
     const savedLayout = stateManager.getState('ui.layoutMode');
-    if ([...LAYOUT_BUTTONS.values()].includes(savedLayout)) {
+    if (LAYOUT_MODES.includes(savedLayout)) {
         viewport.layoutMode = savedLayout;
-        setActiveLayoutButton(savedLayout);
     }
 
     // Generate initial meshes
     viewport.updateAllItems();
-    updateOverrideIndicators();
 
     // Initial validation
     refreshWarnings();
@@ -140,9 +125,6 @@ function cacheElements() {
         warningsList: document.getElementById('warningsList'),
         warningCount: document.getElementById('warningCount'),
         statusInfo: document.getElementById('statusInfo'),
-        itemProportionsGrid: document.getElementById('itemProportionsGrid'),
-        overrideItemSelect: document.getElementById('overrideItemSelect'),
-        overrideControls: document.getElementById('overrideControls'),
         exportModal: document.getElementById('exportModal'),
         exportItemList: document.getElementById('exportItemList'),
         exportProgress: document.getElementById('exportProgress'),
@@ -162,158 +144,6 @@ function cacheElements() {
     };
 }
 
-/**
- * Initialize parameter controls
- */
-function initParameterControls() {
-    // Global parameters
-    document.querySelectorAll('.parameter-row[data-param]').forEach(row => {
-        const paramName = row.dataset.param;
-        const rangeInput = row.querySelector('input[type="range"]');
-        const numberInput = row.querySelector('.numeric-input input');
-        const resetBtn = row.querySelector('.btn-reset');
-
-        const selectInput = row.querySelector('select');
-        if (selectInput && !rangeInput && paramName !== 'positiveWallAngleAnchor'
-            && !row.closest('#surfacePatternControls')) {
-            const constraints = PARAMETER_CONSTRAINTS[paramName];
-            selectInput.addEventListener('change', () => handleParameterChange(paramName, selectInput.value));
-            resetBtn?.addEventListener('click', () => {
-                selectInput.value = constraints.default;
-                handleParameterChange(paramName, constraints.default);
-            });
-            return;
-        }
-
-        if (!rangeInput || !numberInput) return;
-
-        // Sync range and number inputs. Dragging previews interactively;
-        // releasing (change) rebuilds at full resolution.
-        rangeInput.addEventListener('input', () => {
-            numberInput.value = rangeInput.value;
-            handleParameterChange(paramName, parseFloat(rangeInput.value), { interactive: true });
-        });
-        rangeInput.addEventListener('change', () => {
-            handleParameterChange(paramName, parseFloat(rangeInput.value));
-        });
-
-        numberInput.addEventListener('change', () => {
-            const constraints = PARAMETER_CONSTRAINTS[paramName];
-            if (constraints) {
-                const value = clampValue(parseFloat(numberInput.value), constraints.min, constraints.max);
-                if (paramName === 'footringWidthReduction' && !Number.isFinite(value)) {
-                    syncFootringWidthControls();
-                    return;
-                }
-                numberInput.value = value;
-                rangeInput.value = value;
-                handleParameterChange(paramName, value);
-            }
-        });
-
-        // Reset button
-        if (resetBtn) {
-            resetBtn.addEventListener('click', () => {
-                const constraints = PARAMETER_CONSTRAINTS[paramName];
-                if (constraints) {
-                    rangeInput.value = constraints.default;
-                    numberInput.value = constraints.default;
-                    handleParameterChange(paramName, constraints.default);
-                }
-            });
-        }
-    });
-}
-
-/**
- * Select which edge remains dimensionally fixed as a positive wall angle
- * opens the form. Negative and zero angles retain the rim-anchored behavior.
- */
-function initPositiveWallAngleAnchorControl() {
-    const row = document.querySelector('.parameter-row[data-param="positiveWallAngleAnchor"]');
-    const select = row?.querySelector('select');
-    const resetBtn = row?.querySelector('.btn-reset');
-    const constraints = PARAMETER_CONSTRAINTS.positiveWallAngleAnchor;
-    if (!select || !constraints) return;
-
-    select.addEventListener('change', () => {
-        handleParameterChange('positiveWallAngleAnchor', select.value);
-    });
-
-    resetBtn?.addEventListener('click', () => {
-        select.value = constraints.default;
-        handleParameterChange('positiveWallAngleAnchor', constraints.default);
-    });
-}
-
-/**
- * Initialize the set-level wall inset toggle. The two numeric controls use the
- * shared parameter-row wiring above; this only owns enabled/disabled state.
- */
-function initWallInsetControls() {
-    const toggle = document.getElementById('wallInsetEnabled');
-    if (!toggle) return;
-
-    toggle.addEventListener('change', () => {
-        handleParameterChange('wallInsetEnabled', toggle.checked);
-        syncWallInsetControls();
-    });
-
-    syncWallInsetControls();
-}
-
-function syncWallInsetControls() {
-    const toggle = document.getElementById('wallInsetEnabled');
-    const controls = document.getElementById('wallInsetControls');
-    if (!toggle || !controls) return;
-
-    const enabled = Boolean(stateManager.getState('globalParameters.wallInsetEnabled'));
-    toggle.checked = enabled;
-    controls.classList.toggle('is-disabled', !enabled);
-    controls.querySelectorAll('input, button').forEach(control => {
-        control.disabled = !enabled;
-    });
-    updatePatternRowVisibility();
-}
-
-/**
- * Keep the plate width editable and offer a reduction amount when enabled.
- */
-function initFootringWidthControls() {
-    const toggle = document.getElementById('footringWidthProportional');
-    toggle?.addEventListener('change', () => {
-        handleParameterChange('footringWidthProportional', toggle.checked);
-    });
-    syncFootringWidthControls();
-}
-
-function syncFootringWidthControls() {
-    const enabled = Boolean(stateManager.getState('globalParameters.footringWidthProportional'));
-    const toggle = document.getElementById('footringWidthProportional');
-    const fixedRow = document.querySelector('[data-section="global-style"] [data-param="footringBaseWidth"]');
-    const reductionRow = document.querySelector('[data-section="global-style"] [data-param="footringWidthReduction"]');
-    const help = document.getElementById('footringWidthHelp');
-    if (toggle) toggle.checked = enabled;
-    if (fixedRow) {
-        fixedRow.hidden = false;
-        fixedRow.querySelector('label').textContent = enabled ? 'Plate Footring Width' : 'Footring Width';
-        fixedRow.querySelectorAll('input, button').forEach(control => { control.disabled = false; });
-    }
-    if (reductionRow) {
-        reductionRow.hidden = !enabled;
-        const reduction = stateManager.getState('globalParameters.footringWidthReduction');
-        reductionRow.querySelectorAll('input, button').forEach(control => { control.disabled = !enabled; });
-        reductionRow.querySelectorAll('input').forEach(input => { input.value = reduction; });
-    }
-    const plateWidth = Number(parameterResolver.getEffectiveParameter('plate', 'footringBaseWidth').toFixed(2));
-    const plateReference = parameterResolver.hasOverride('plate', 'footringBaseWidth')
-        ? `Plate override: ${plateWidth} mm maximum.`
-        : `Plate: ${plateWidth} mm maximum.`;
-    if (help) help.textContent = enabled
-        ? `${plateReference} 0% keeps every footring at the plate width; 100% applies the full reduction by baseline diameter. Item overrides stay in millimeters.`
-        : 'Uses the same width for every item. Item overrides stay in millimeters.';
-}
-
 function updatePlateFootringDependents(itemType, paramName) {
     if (itemType !== 'plate' || paramName !== 'footringBaseWidth'
         || !stateManager.getState('globalParameters.footringWidthProportional')) return;
@@ -323,243 +153,6 @@ function updatePlateFootringDependents(itemType, paramName) {
             scheduleItemUpdate(item);
         }
     });
-    syncFootringWidthControls();
-}
-
-// === Surface Pattern controls ===
-
-const PATTERN_PREFIXES = ['wall', 'footring'];
-const PATTERN_GROUP_LABELS = { wall: 'Wall', footring: 'Footring' };
-const PATTERN_PARAM_SUFFIXES = [
-    'Type', 'Depth', 'Relief', 'Count', 'Pitch', 'LineWidth', 'Profile', 'Angle', 'Direction'
-];
-const PATTERN_PARAM_LABELS = {
-    Type: 'Pattern',
-    Depth: 'Depth',
-    Relief: 'Relief',
-    Count: 'Line Count',
-    Pitch: 'Pitch',
-    LineWidth: 'Line Width',
-    Profile: 'Ridge Profile',
-    Angle: 'Angle',
-    Direction: 'Direction'
-};
-// Which variation controls each pattern type exposes
-const PATTERN_VISIBLE_SUFFIXES = {
-    none: [],
-    vertical: ['Depth', 'Relief', 'Count', 'LineWidth', 'Profile'],
-    horizontal: ['Depth', 'Relief', 'Pitch', 'LineWidth', 'Profile'],
-    diagonal: ['Depth', 'Relief', 'Count', 'LineWidth', 'Profile', 'Angle', 'Direction'],
-    crosshatch: ['Depth', 'Relief', 'Count', 'LineWidth', 'Profile', 'Angle'],
-    knurl: ['Depth', 'Relief', 'Count', 'Angle']
-};
-
-function patternParamName(prefix, suffix) {
-    return `${prefix}Pattern${suffix}`;
-}
-
-function buildSelectRowHTML(paramName, label, constraints, currentValue) {
-    const optionsHTML = constraints.options.map(opt =>
-        `<option value="${opt.value}" ${opt.value === currentValue ? 'selected' : ''}>${opt.label}</option>`
-    ).join('');
-    return `
-        <label>${label}</label>
-        <div class="control-group">
-            <select>${optionsHTML}</select>
-            <button class="btn-reset" title="Reset to default">↺</button>
-        </div>
-    `;
-}
-
-function buildSliderRowHTML(label, constraints, currentValue) {
-    return `
-        <label>${label}</label>
-        <div class="control-group">
-            <input type="range" min="${constraints.min}" max="${constraints.max}"
-                   value="${currentValue}" step="${constraints.step}">
-            <div class="numeric-input">
-                <input type="number" min="${constraints.min}" max="${constraints.max}"
-                       value="${currentValue}" step="${constraints.step}">
-                <span class="unit">${constraints.unit}</span>
-            </div>
-            <button class="btn-reset" title="Reset to default">↺</button>
-        </div>
-    `;
-}
-
-/**
- * Build the Surface Pattern section rows (wall + footring groups).
- * Must run before initParameterControls so the slider rows get wired
- * by the shared parameter-row handler.
- */
-function buildSurfacePatternSection() {
-    const container = document.getElementById('surfacePatternControls');
-    if (!container) return;
-    container.innerHTML = '';
-
-    PATTERN_PREFIXES.forEach(prefix => {
-        const title = document.createElement('div');
-        title.className = 'pattern-group-title';
-        title.textContent = PATTERN_GROUP_LABELS[prefix];
-        container.appendChild(title);
-
-        PATTERN_PARAM_SUFFIXES.forEach(suffix => {
-            const paramName = patternParamName(prefix, suffix);
-            const constraints = PARAMETER_CONSTRAINTS[paramName];
-            if (!constraints) return;
-
-            const currentValue = stateManager.getState(`globalParameters.${paramName}`)
-                ?? constraints.default;
-
-            const row = document.createElement('div');
-            row.className = 'parameter-row';
-            row.dataset.param = paramName;
-            const label = prefix === 'wall' && suffix === 'Count'
-                ? 'Reference Line Count'
-                : PATTERN_PARAM_LABELS[suffix];
-            row.innerHTML = constraints.options
-                ? buildSelectRowHTML(paramName, label, constraints, currentValue)
-                : buildSliderRowHTML(label, constraints, currentValue);
-
-            container.appendChild(row);
-        });
-
-        if (prefix === 'wall') {
-            const paramName = 'wallPatternInsetRegion';
-            const constraints = PARAMETER_CONSTRAINTS[paramName];
-            const currentValue = stateManager.getState(`globalParameters.${paramName}`)
-                ?? constraints.default;
-            const row = document.createElement('div');
-            row.className = 'parameter-row';
-            row.dataset.param = paramName;
-            row.innerHTML = buildSelectRowHTML(
-                paramName,
-                'Inset Pattern Region',
-                constraints,
-                currentValue
-            );
-            container.appendChild(row);
-
-            const help = document.createElement('p');
-            help.className = 'parameter-help wall-pattern-scale-help';
-            help.textContent = 'Count and ridge width scale with each form’s diameter.';
-            container.appendChild(help);
-        }
-    });
-}
-
-/**
- * Wire select-based pattern rows (type/relief/profile/direction) and the
- * copy button. Slider rows are wired by initParameterControls.
- */
-function initPatternControls() {
-    const container = document.getElementById('surfacePatternControls');
-    if (!container) return;
-
-    container.querySelectorAll('.parameter-row[data-param]').forEach(row => {
-        const paramName = row.dataset.param;
-        const select = row.querySelector('select');
-        if (!select) return; // slider rows handled by initParameterControls
-
-        const constraints = PARAMETER_CONSTRAINTS[paramName];
-
-        select.addEventListener('change', () => {
-            handleParameterChange(paramName, select.value);
-            updatePatternRowVisibility();
-        });
-
-        const resetBtn = row.querySelector('.btn-reset');
-        if (resetBtn) {
-            resetBtn.addEventListener('click', () => {
-                select.value = constraints.default;
-                handleParameterChange(paramName, constraints.default);
-                updatePatternRowVisibility();
-            });
-        }
-    });
-
-    const copyBtn = document.getElementById('btnCopyWallPattern');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', () => {
-            const updates = {};
-            PATTERN_PARAM_SUFFIXES.forEach(suffix => {
-                updates[`globalParameters.${patternParamName('footring', suffix)}`] =
-                    stateManager.getState(`globalParameters.${patternParamName('wall', suffix)}`);
-            });
-            stateManager.batchUpdate(updates);
-            ITEM_TYPES.forEach(itemType => scheduleItemUpdate(itemType));
-            syncPatternInputsFromState();
-        });
-    }
-
-    updatePatternRowVisibility();
-}
-
-/**
- * Show only the variation rows relevant to each surface's pattern type.
- */
-function updatePatternRowVisibility() {
-    const container = document.getElementById('surfacePatternControls');
-    if (!container) return;
-
-    PATTERN_PREFIXES.forEach(prefix => {
-        const type = stateManager.getState(`globalParameters.${patternParamName(prefix, 'Type')}`) || 'none';
-        const visible = PATTERN_VISIBLE_SUFFIXES[type] || [];
-
-        PATTERN_PARAM_SUFFIXES.forEach(suffix => {
-            if (suffix === 'Type') return;
-            const row = container.querySelector(`.parameter-row[data-param="${patternParamName(prefix, suffix)}"]`);
-            if (row) {
-                row.style.display = visible.includes(suffix) ? '' : 'none';
-            }
-        });
-    });
-
-    const insetRegionRow = container.querySelector('[data-param="wallPatternInsetRegion"]');
-    if (insetRegionRow) {
-        const wallType = stateManager.getState('globalParameters.wallPatternType') || 'none';
-        const insetEnabled = Boolean(stateManager.getState('globalParameters.wallInsetEnabled'));
-        insetRegionRow.style.display = insetEnabled && wallType !== 'none' ? '' : 'none';
-    }
-
-    const scaleHelp = container.querySelector('.wall-pattern-scale-help');
-    if (scaleHelp) {
-        const wallType = stateManager.getState('globalParameters.wallPatternType') || 'none';
-        scaleHelp.style.display = ['vertical', 'diagonal', 'crosshatch', 'knurl'].includes(wallType)
-            ? ''
-            : 'none';
-    }
-
-    // The copy button only matters when the wall has a pattern
-    const copyBtn = document.getElementById('btnCopyWallPattern');
-    if (copyBtn) {
-        const wallType = stateManager.getState('globalParameters.wallPatternType') || 'none';
-        copyBtn.style.display = wallType === 'none' ? 'none' : '';
-    }
-}
-
-/**
- * Push current global pattern values into the pattern section inputs.
- */
-function syncPatternInputsFromState() {
-    const container = document.getElementById('surfacePatternControls');
-    if (!container) return;
-
-    container.querySelectorAll('.parameter-row[data-param]').forEach(row => {
-        const value = stateManager.getState(`globalParameters.${row.dataset.param}`);
-        if (value === undefined) return;
-        const select = row.querySelector('select');
-        if (select) {
-            select.value = value;
-        } else {
-            const rangeInput = row.querySelector('input[type="range"]');
-            const numberInput = row.querySelector('.numeric-input input');
-            if (rangeInput) rangeInput.value = value;
-            if (numberInput) numberInput.value = value;
-        }
-    });
-
-    updatePatternRowVisibility();
 }
 
 // Coalesced mesh regeneration: slider "input" events fire continuously, so
@@ -595,7 +188,7 @@ function flushPendingItemUpdates() {
     pendingMeshUpdates.clear();
     if (needsLayout) viewport.arrangeItems();
     refreshWarnings();
-    syncPresetSelect();
+    dials?.sync();
     updateHistoryButtons();
     profilePanel?.update();
 }
@@ -616,17 +209,9 @@ function refreshWarnings() {
  * Handle parameter changes
  */
 function handleParameterChange(paramName, value, { interactive = false } = {}) {
-    if (paramName === 'footringWidthReduction' && !Number.isFinite(value)) {
-        syncFootringWidthControls();
-        return;
-    }
+    if (paramName === 'footringWidthReduction' && !Number.isFinite(value)) return;
     // Global parameter
     stateManager.setState(`globalParameters.${paramName}`, value);
-
-    if (['footringWidthProportional', 'footringBaseWidth', 'footringWidthReduction'].includes(paramName)) {
-        syncFootringWidthControls();
-        elements.overrideItemSelect.dispatchEvent(new Event('change'));
-    }
 
     // Update all items that use this parameter (not overridden)
     ITEM_TYPES.forEach(itemType => {
@@ -639,261 +224,12 @@ function handleParameterChange(paramName, value, { interactive = false } = {}) {
 }
 
 /**
- * Initialize item proportions section
+ * Set an item's height/width multiplier (percent of its base size).
  */
-function initItemProportions() {
-    const grid = elements.itemProportionsGrid;
-    grid.innerHTML = '';
-
-    ITEM_TYPES.forEach(itemType => {
-        const ratios = stateManager.getState(`itemRatios.${itemType}`);
-        const multipliers = stateManager.getState(`itemMultipliers.${itemType}`);
-
-        const item = document.createElement('div');
-        item.className = 'proportion-item';
-        item.innerHTML = `
-            <div class="proportion-item-header">
-                <span class="proportion-item-name">${ITEM_NAMES[itemType]}</span>
-            </div>
-            <div class="proportion-item-controls">
-                <div class="proportion-control">
-                    <label>H</label>
-                    <input type="number" data-item="${itemType}" data-type="height"
-                           value="${multipliers.height}" min="50" max="200" step="5">
-                    <span class="unit">%</span>
-                </div>
-                <div class="proportion-control">
-                    <label>W</label>
-                    <input type="number" data-item="${itemType}" data-type="width"
-                           value="${multipliers.width}" min="50" max="200" step="5">
-                    <span class="unit">%</span>
-                </div>
-            </div>
-        `;
-
-        grid.appendChild(item);
-
-        // Add event listeners
-        item.querySelectorAll('input').forEach(input => {
-            input.addEventListener('change', () => {
-                const itemType = input.dataset.item;
-                const type = input.dataset.type;
-                const value = clampValue(parseFloat(input.value), 50, 200);
-                input.value = value;
-
-                stateManager.setState(`itemMultipliers.${itemType}.${type}`, value);
-                scheduleItemUpdate(itemType, { preserveLayout: true });
-                updateStatusInfo();
-            });
-        });
-    });
+function setItemMultiplier(itemType, axis, value, { interactive = false } = {}) {
+    stateManager.setState(`itemMultipliers.${itemType}.${axis}`, clampValue(value, 50, 200));
+    scheduleItemUpdate(itemType, { preserveLayout: true, interactive });
 }
-
-/**
- * Initialize override controls
- */
-function initOverrideControls() {
-    const select = elements.overrideItemSelect;
-    const controlsContainer = elements.overrideControls;
-
-    const updateOverrideUI = () => {
-        const selectedItem = select.value;
-        const overrides = stateManager.getState(`itemOverrides.${selectedItem}`) || {};
-
-        controlsContainer.innerHTML = '';
-
-        const overridableParams = [
-            'wallAngle', 'wallInsetEnabled', 'wallInsetHeight', 'wallInsetDepth',
-            'bottomCornerRadius', 'footringOriginHeight', 'outerFootringAngle',
-            'footringBaseWidth', 'innerFootringAngle', 'wallThickness', 'footCavityDepth', 'rimStyle',
-            ...PATTERN_PREFIXES.flatMap(prefix =>
-                PATTERN_PARAM_SUFFIXES.map(suffix => patternParamName(prefix, suffix)))
-        ];
-
-        overridableParams.forEach(paramName => {
-            const constraints = paramName === 'footringBaseWidth'
-                ? { ...PARAMETER_CONSTRAINTS[paramName], step: 0.01 }
-                : PARAMETER_CONSTRAINTS[paramName];
-            const globalValue = stateManager.getState(`globalParameters.${paramName}`);
-            const hasOverride = overrides[paramName] !== undefined;
-            const inheritedValue = paramName === 'footringBaseWidth'
-                ? Number(parameterResolver.getAllParameters(selectedItem).footringBaseWidth.toFixed(2))
-                : globalValue;
-            const currentValue = hasOverride ? overrides[paramName] : inheritedValue;
-            const inheritedFootring = paramName === 'footringBaseWidth' && !hasOverride
-                && stateManager.getState('globalParameters.footringWidthProportional');
-
-            // Pattern variation rows only appear when the item's effective
-            // pattern type uses them
-            const patternMatch = paramName.match(/^(wall|footring)Pattern(.+)$/);
-            if (patternMatch && patternMatch[2] !== 'Type') {
-                const typeParam = patternParamName(patternMatch[1], 'Type');
-                const effectiveType = overrides[typeParam]
-                    ?? stateManager.getState(`globalParameters.${typeParam}`)
-                    ?? 'none';
-                const visible = PATTERN_VISIBLE_SUFFIXES[effectiveType] || [];
-                if (!visible.includes(patternMatch[2])) return;
-            }
-
-            const row = document.createElement('div');
-            row.className = `parameter-row ${constraints.type === 'boolean' ? 'override-boolean-row' : ''} ${hasOverride ? 'has-override' : ''}`;
-            row.dataset.param = paramName;
-
-            const label = paramName === 'wallInsetEnabled'
-                ? 'Wall Inset'
-                : patternMatch
-                ? `${PATTERN_GROUP_LABELS[patternMatch[1]]} ${PATTERN_PARAM_LABELS[patternMatch[2]] || patternMatch[2]}`
-                : formatParamName(paramName);
-
-            const controlHTML = inheritedFootring
-                ? `
-                <div class="control-group">
-                    <div class="numeric-input">
-                        <input type="number" value="${currentValue}" readonly aria-label="Inherited footring width">
-                        <span class="unit">mm</span>
-                    </div>
-                    <button class="btn btn-secondary btn-footring-override" type="button">Override</button>
-                </div>`
-                : constraints.type === 'boolean'
-                ? `
-                <div class="control-group override-toggle-control">
-                    <label class="parameter-switch" title="Override wall inset for this item">
-                        <input type="checkbox" ${currentValue ? 'checked' : ''}>
-                        <span class="parameter-switch-track"></span>
-                    </label>
-                    <span class="override-toggle-value">${currentValue ? 'On' : 'Off'}</span>
-                    <button class="btn-reset" title="${hasOverride ? 'Reset to global' : 'Reset to default'}">↺</button>
-                </div>`
-                : constraints.options
-                ? `
-                <div class="control-group">
-                    <select>${constraints.options.map(opt =>
-                        `<option value="${opt.value}" ${opt.value === currentValue ? 'selected' : ''}>${opt.label}</option>`
-                    ).join('')}</select>
-                    <button class="btn-reset" title="${hasOverride ? 'Reset to global' : 'Reset to default'}">↺</button>
-                </div>`
-                : `
-                <div class="control-group">
-                    <input type="range" min="${constraints.min}" max="${constraints.max}"
-                           value="${currentValue}" step="${constraints.step}">
-                    <div class="numeric-input">
-                        <input type="number" min="${constraints.min}" max="${constraints.max}"
-                               value="${currentValue}" step="${constraints.step}">
-                        <span class="unit">${constraints.unit}</span>
-                    </div>
-                    <button class="btn-reset" title="${hasOverride ? 'Reset to global' : 'Reset to default'}">↺</button>
-                </div>`;
-
-            const unit = constraints.unit ?? '';
-            const optionLabel = constraints.options?.find(opt => opt.value === inheritedValue)?.label;
-            const inheritedText = constraints.type === 'boolean'
-                ? (inheritedValue ? 'On' : 'Off')
-                : optionLabel ?? `${inheritedValue}${unit}`;
-            row.innerHTML = `
-                <div class="parameter-row-header">
-                    <label>${label}</label>
-                    ${hasOverride ? `<span class="inherited-hint">Global: ${inheritedText}</span>
-                    <button type="button" class="revert-chip" title="Remove this override and follow the global value">Use global</button>` : ''}
-                </div>
-                ${controlHTML}
-                ${paramName === 'footringBaseWidth' ? `<p class="parameter-help">${inheritedFootring ? 'Calculated from the plate width and reduction. ' : ''}Item overrides use a fixed width in millimeters.</p>` : ''}
-            `;
-
-            controlsContainer.appendChild(row);
-
-            // Add event listeners
-            const selectInput = row.querySelector('select');
-            const checkboxInput = constraints.type === 'boolean'
-                ? row.querySelector('input[type="checkbox"]')
-                : null;
-            const rangeInput = row.querySelector('input[type="range"]');
-            const numberInput = row.querySelector('.numeric-input input');
-            const resetBtn = row.querySelector('.btn-reset');
-
-            row.querySelector('.revert-chip')?.addEventListener('click', () => resetBtn?.click());
-
-            row.querySelector('.btn-footring-override')?.addEventListener('click', () => {
-                setOverrideValue(selectedItem, paramName, clampValue(currentValue, constraints.min, constraints.max));
-                updateOverrideUI();
-            });
-
-            if (selectInput) {
-                selectInput.addEventListener('change', () => {
-                    setOverrideValue(selectedItem, paramName, selectInput.value);
-                    // Changing a pattern type changes which variation rows apply
-                    if (patternMatch && patternMatch[2] === 'Type') {
-                        updateOverrideUI();
-                    }
-                });
-            }
-
-            if (checkboxInput) {
-                checkboxInput.addEventListener('change', () => {
-                    setOverrideValue(selectedItem, paramName, checkboxInput.checked);
-                    const valueLabel = row.querySelector('.override-toggle-value');
-                    if (valueLabel) valueLabel.textContent = checkboxInput.checked ? 'On' : 'Off';
-                });
-            }
-
-            if (rangeInput && numberInput) {
-                rangeInput.addEventListener('input', () => {
-                    numberInput.value = rangeInput.value;
-                    setOverrideValue(selectedItem, paramName, parseFloat(rangeInput.value), { interactive: true });
-                });
-                rangeInput.addEventListener('change', () => {
-                    setOverrideValue(selectedItem, paramName, parseFloat(rangeInput.value));
-                });
-
-                numberInput.addEventListener('change', () => {
-                    const value = clampValue(parseFloat(numberInput.value), constraints.min, constraints.max);
-                    numberInput.value = value;
-                    rangeInput.value = value;
-                    setOverrideValue(selectedItem, paramName, value);
-                });
-            }
-
-            resetBtn?.addEventListener('click', () => {
-                if (parameterResolver.hasOverride(selectedItem, paramName)) {
-                    // Remove override
-                    const currentOverrides = {
-                        ...(stateManager.getState(`itemOverrides.${selectedItem}`) || {})
-                    };
-                    delete currentOverrides[paramName];
-                    stateManager.setState(`itemOverrides.${selectedItem}`, currentOverrides);
-                    viewport.updateItem(selectedItem);
-                    updatePlateFootringDependents(selectedItem, paramName);
-                    updateOverrideUI();
-                    updateOverrideIndicators();
-                } else if (paramName === 'footringBaseWidth') {
-                    // With proportional sizing, the inherited width may differ
-                    // from the authored plate width and the fixed default.
-                    updateOverrideUI();
-                } else if (checkboxInput) {
-                    checkboxInput.checked = constraints.default;
-                    const valueLabel = row.querySelector('.override-toggle-value');
-                    if (valueLabel) valueLabel.textContent = constraints.default ? 'On' : 'Off';
-                } else if (selectInput) {
-                    selectInput.value = constraints.default;
-                } else {
-                    // Reset to global default
-                    rangeInput.value = constraints.default;
-                    numberInput.value = constraints.default;
-                }
-                refreshWarnings();
-            });
-        });
-        annotateWarningRows();
-    };
-
-    if (!select.dataset.overrideListener) {
-        select.dataset.overrideListener = 'true';
-        select.addEventListener('change', () => overrideUIRenderer());
-    }
-    overrideUIRenderer = updateOverrideUI;
-    updateOverrideUI();
-}
-
-let overrideUIRenderer = () => {};
 
 /**
  * Set override value for an item parameter
@@ -906,191 +242,51 @@ function setOverrideValue(itemType, paramName, value, { interactive = false } = 
     stateManager.setState(`itemOverrides.${itemType}`, currentOverrides);
     scheduleItemUpdate(itemType, { interactive });
     updatePlateFootringDependents(itemType, paramName);
-
-    // A new override rebuilds its row with the inherited value and revert chip
-    const row = elements.overrideControls.querySelector(`[data-param="${paramName}"]`);
-    if (row && !row.classList.contains('has-override') && !interactive) {
-        overrideUIRenderer();
-    } else if (row) {
-        row.classList.add('has-override');
-    }
-    updateOverrideIndicators();
+    // Refresh the selection chip's override count
+    if (!interactive && selectedItem === itemType) selectItem(itemType);
 }
 
 /**
- * Initialize footer controls
+ * Remove item overrides so the item follows the global values again.
+ */
+function clearOverrides(itemType, paramNames) {
+    const currentOverrides = {
+        ...(stateManager.getState(`itemOverrides.${itemType}`) || {})
+    };
+    paramNames.forEach(paramName => delete currentOverrides[paramName]);
+    stateManager.setState(`itemOverrides.${itemType}`, currentOverrides);
+    scheduleItemUpdate(itemType);
+    paramNames.forEach(paramName => updatePlateFootringDependents(itemType, paramName));
+    if (selectedItem === itemType) selectItem(itemType);
+}
+
+/**
+ * Initialize footer controls. Camera, display, layout and item visibility
+ * live in the View dial panel; the footer keeps the print-check menu.
  */
 function initFooterControls() {
-    // View menu toggle
-    const viewMenuContainer = document.querySelector('.view-menu-container');
-    const viewMenuBtn = document.getElementById('btnViewMenu');
-
-    // Items menu toggle
-    const itemsMenuContainer = document.querySelector('.items-menu-container');
-    const itemsMenuBtn = document.getElementById('btnItemsMenu');
-
-    viewMenuBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        viewMenuContainer.classList.toggle('open');
-        itemsMenuContainer.classList.remove('open');
-    });
-
-    itemsMenuBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        itemsMenuContainer.classList.toggle('open');
-        viewMenuContainer.classList.remove('open');
-    });
-
-    // Warnings menu toggle
     const warningsMenuContainer = document.getElementById('warningsMenuContainer');
     const warningsMenuBtn = document.getElementById('btnWarningsMenu');
 
     warningsMenuBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         warningsMenuContainer.classList.toggle('open');
-        // Close other menus if open
-        viewMenuContainer.classList.remove('open');
-        itemsMenuContainer.classList.remove('open');
     });
 
     // Close menus when clicking outside
     document.addEventListener('click', (e) => {
-        if (!viewMenuContainer.contains(e.target)) {
-            viewMenuContainer.classList.remove('open');
-        }
-        if (!itemsMenuContainer.contains(e.target)) {
-            itemsMenuContainer.classList.remove('open');
-        }
         if (!warningsMenuContainer.contains(e.target)) {
             warningsMenuContainer.classList.remove('open');
         }
     });
-
-    // Camera presets
-    document.getElementById('btnViewTop').addEventListener('click', () => {
-        setActiveViewButton('btnViewTop');
-        viewport.setCameraPreset('top');
-    });
-
-    document.getElementById('btnViewSide').addEventListener('click', () => {
-        setActiveViewButton('btnViewSide');
-        viewport.setCameraPreset('side');
-    });
-
-    document.getElementById('btnViewThreeQuarter').addEventListener('click', () => {
-        setActiveViewButton('btnViewThreeQuarter');
-        viewport.setCameraPreset('three-quarter');
-    });
-
-    document.getElementById('btnViewBottom').addEventListener('click', () => {
-        setActiveViewButton('btnViewBottom');
-        viewport.setCameraPreset('bottom');
-    });
-
-    // Reset view
-    document.getElementById('btnResetView').addEventListener('click', () => {
-        // Clear active state from preset buttons
-        ['btnViewTop', 'btnViewSide', 'btnViewThreeQuarter', 'btnViewBottom'].forEach(id => {
-            document.getElementById(id).classList.remove('active');
-        });
-        viewport.resetView();
-    });
-
-    // Cross-section toggle
-    const crossSectionBtn = document.getElementById('btnCrossSection');
-    const crossSectionToggle = document.getElementById('crossSectionToggle');
-    crossSectionBtn.addEventListener('click', () => {
-        const enabled = !crossSectionBtn.classList.contains('active');
-        crossSectionBtn.classList.toggle('active', enabled);
-        crossSectionToggle.classList.toggle('active', enabled);
-        viewport.toggleCrossSection(enabled);
-    });
-
-    // Grid toggle
-    const gridBtn = document.getElementById('btnToggleGrid');
-    const gridToggle = document.getElementById('gridToggle');
-    gridBtn.addEventListener('click', () => {
-        const visible = !gridToggle.classList.contains('active');
-        gridBtn.classList.toggle('active', visible);
-        gridToggle.classList.toggle('active', visible);
-        viewport.toggleGrid(visible);
-    });
-
-    // Background toggle (light/dark)
-    const backgroundBtn = document.getElementById('btnToggleBackground');
-    const backgroundToggle = document.getElementById('backgroundToggle');
-    backgroundBtn.addEventListener('click', () => {
-        const isLight = !backgroundToggle.classList.contains('active');
-        backgroundBtn.classList.toggle('active', isLight);
-        backgroundToggle.classList.toggle('active', isLight);
-        backgroundBtn.querySelector('span:first-of-type').textContent = isLight ? 'Light' : 'Dark';
-        viewport.setBackgroundColor(isLight ? 0xf0f0f0 : 0x1a1a1a);
-        viewport.setGridColors(isLight);
-    });
-
-    // Layout toggles
-    LAYOUT_BUTTONS.forEach((mode, id) => {
-        document.getElementById(id)?.addEventListener('click', () => {
-            setActiveLayoutButton(mode);
-            viewport.setLayoutMode(mode);
-        });
-    });
-
-    // Item toggles
-    document.querySelectorAll('.items-menu-item input').forEach(checkbox => {
-        checkbox.addEventListener('change', () => {
-            updateVisibleItems();
-        });
-    });
-
-    // Show/Hide all buttons
-    document.getElementById('btnShowAll').addEventListener('click', () => {
-        document.querySelectorAll('.items-menu-item input').forEach(cb => cb.checked = true);
-        updateVisibleItems();
-    });
-
-    document.getElementById('btnHideAll').addEventListener('click', () => {
-        document.querySelectorAll('.items-menu-item input').forEach(cb => cb.checked = false);
-        updateVisibleItems();
-    });
 }
 
-const LAYOUT_BUTTONS = new Map([
-    ['btnLayoutRow', 'row'],
-    ['btnLayoutGrid', 'grid'],
-    ['btnLayoutStack', 'stack'],
-    ['btnLayoutTable', 'table']
-]);
-
-function setActiveLayoutButton(mode) {
-    LAYOUT_BUTTONS.forEach((buttonMode, id) => {
-        document.getElementById(id)?.classList.toggle('active', buttonMode === mode);
-    });
-}
+const LAYOUT_MODES = ['row', 'grid', 'stack', 'table'];
 
 /**
- * Set active view button in the menu
+ * Show only the given items in the viewport.
  */
-function setActiveViewButton(activeId) {
-    ['btnViewTop', 'btnViewSide', 'btnViewThreeQuarter', 'btnViewBottom'].forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) {
-            btn.classList.toggle('active', id === activeId);
-        }
-    });
-}
-
-/**
- * Update visible items from checkboxes
- */
-function updateVisibleItems() {
-    const visibleItems = [];
-    document.querySelectorAll('.items-menu-item input').forEach(checkbox => {
-        if (checkbox.checked) {
-            visibleItems.push(checkbox.dataset.item);
-        }
-    });
-
+function setVisibleItems(visibleItems) {
     stateManager.setState('ui.visibleItems', visibleItems);
     viewport.updateVisibility();
     updateStatusInfo();
@@ -1228,8 +424,6 @@ function createNewProject() {
     viewport.updateAllItems();
     updateUIFromState();
     history?.reset();
-    updateOverrideIndicators();
-    syncPresetSelect();
     refreshWarnings();
     elements.projectName.textContent = 'Untitled';
     elements.unsavedIndicator.hidden = true;
@@ -1368,8 +562,6 @@ function loadProject() {
                 viewport.updateAllItems();
                 updateUIFromState();
                 history?.reset();
-                updateOverrideIndicators();
-                syncPresetSelect();
                 refreshWarnings();
 
                 elements.projectName.textContent = projectName;
@@ -1604,18 +796,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * Initialize section collapse
- */
-function initSectionCollapse() {
-    document.querySelectorAll('.section-header').forEach(header => {
-        header.addEventListener('click', () => {
-            const section = header.parentElement;
-            section.classList.toggle('expanded');
-        });
-    });
-}
-
-/**
  * Subscribe to state changes
  */
 function subscribeToStateChanges() {
@@ -1644,35 +824,8 @@ function updateUIFromState() {
     // Update project name
     elements.projectName.textContent = state.project.name || 'Untitled';
 
-    // Update parameter inputs
-    Object.entries(state.globalParameters).forEach(([param, value]) => {
-        const row = document.querySelector(`.parameter-row[data-param="${param}"]`);
-        if (row) {
-            const selectInput = row.querySelector('select');
-            const rangeInput = row.querySelector('input[type="range"]');
-            const numberInput = row.querySelector('.numeric-input input');
-            if (selectInput) selectInput.value = value;
-            if (rangeInput) rangeInput.value = value;
-            if (numberInput) numberInput.value = value;
-        }
-    });
-
-    // Update pattern row visibility for the loaded pattern types
-    updatePatternRowVisibility();
-    syncWallInsetControls();
-    syncFootringWidthControls();
-
-    // Update item toggles
-    document.querySelectorAll('.items-menu-item input').forEach(checkbox => {
-        const itemType = checkbox.dataset.item;
-        checkbox.checked = state.ui.visibleItems.includes(itemType);
-    });
-
-    // Update item proportions
-    initItemProportions();
-
-    // Update override controls
-    initOverrideControls();
+    // Update every dial from the state
+    dials.sync();
 
     // Update status
     updateStatusInfo();
@@ -1719,7 +872,6 @@ function listedWarnings() {
  */
 function updateWarningsDisplay() {
     const warnings = listedWarnings();
-    annotateWarningRows();
     viewport.setWarnedItems(warnings
         .filter(w => w.severity !== 'info')
         .map(w => w.itemType));
@@ -1772,69 +924,13 @@ function updateWarningsDisplay() {
 }
 
 /**
- * Show a parameter for an item: its override row when the item overrides
- * it, otherwise the global control.
+ * Show a parameter for an item: its override control when the item
+ * overrides it, otherwise the global control.
  */
 function revealParameter(itemType, param) {
     selectItem(itemType);
-    let row = null;
-    if (param && parameterResolver.hasOverride(itemType, param)) {
-        document.querySelector('[data-section="per-item-overrides"]')?.classList.add('expanded');
-        row = elements.overrideControls.querySelector(`[data-param="${param}"]`);
-    } else if (param) {
-        row = document.querySelector(`[data-section="global-style"] .parameter-row[data-param="${param}"], #surfacePatternControls .parameter-row[data-param="${param}"]`);
-        row?.closest('.panel-section')?.classList.add('expanded');
-    }
-    if (row) {
-        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        row.classList.remove('is-flashing');
-        void row.offsetWidth;
-        row.classList.add('is-flashing');
-        row.querySelector('input, select')?.focus({ preventScroll: true });
-    }
-}
-
-/**
- * Put each warning under the control it concerns: global rows list every
- * affected item that follows the global value; override rows show the
- * selected item's own warnings.
- */
-function annotateWarningRows() {
-    document.querySelectorAll('.param-warning').forEach(note => note.remove());
-    const byRow = new Map();
-    const add = (row, warning) => {
-        if (!row) return;
-        if (!byRow.has(row)) byRow.set(row, []);
-        byRow.get(row).push(warning);
-    };
-    const overrideItem = elements.overrideItemSelect.value;
-    sortedWarnings().forEach(warning => {
-        const params = warning.parameters || (warning.parameter ? [warning.parameter] : []);
-        params.forEach(param => {
-            if (parameterResolver.hasOverride(warning.itemType, param)) {
-                if (warning.itemType === overrideItem) {
-                    add(elements.overrideControls.querySelector(`.parameter-row[data-param="${param}"]`), warning);
-                }
-            } else {
-                add(document.querySelector(`[data-section="global-style"] .parameter-row[data-param="${param}"], #surfacePatternControls .parameter-row[data-param="${param}"]`), warning);
-            }
-        });
-    });
-    byRow.forEach((warnings, row) => {
-        const worst = warnings[0].severity;
-        const note = document.createElement('div');
-        note.className = `param-warning severity-${worst}`;
-        note.setAttribute('role', 'note');
-        const shown = warnings.slice(0, 2).map(w => `<span><strong>${w.itemName}:</strong> ${w.message}</span>`);
-        if (warnings.length > 2) shown.push(`<span class="param-warning-more">+${warnings.length - 2} more items</span>`);
-        note.innerHTML = shown.join('');
-        row.appendChild(note);
-        const control = row.querySelector('input, select');
-        if (control) {
-            if (!note.id) note.id = `param-warning-${Math.random().toString(36).slice(2, 8)}`;
-            control.setAttribute('aria-describedby', note.id);
-        }
-    });
+    openPanelDrawer();
+    dials.reveal(itemType, param);
 }
 
 /**
@@ -1845,31 +941,15 @@ function updateStatusInfo() {
     elements.statusInfo.textContent = `${visibleItems.length} item${visibleItems.length !== 1 ? 's' : ''}`;
 }
 
-/**
- * Format parameter name for display
- */
-function formatParamName(paramName) {
-    return paramName
-        .replace(/([A-Z])/g, ' $1')
-        .replace(/^./, str => str.toUpperCase())
-        .replace('Footring', 'Footring ')
-        .trim();
-}
-
 // === Selection ===
 
 let selectedItem = null;
 
 function initSelection() {
     viewport.onSelect(itemType => selectItem(itemType));
-    elements.overrideItemSelect.addEventListener('change', () => {
-        selectItem(elements.overrideItemSelect.value, { fromOverrides: true });
-    });
     document.getElementById('btnSelectionEdit')?.addEventListener('click', () => {
-        const section = document.querySelector('[data-section="per-item-overrides"]');
-        section?.classList.add('expanded');
         openPanelDrawer();
-        section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        dials.revealOverrides(selectedItem);
     });
     document.getElementById('btnSelectionClear')?.addEventListener('click', () => selectItem(null));
 }
@@ -1882,10 +962,7 @@ function selectItem(itemType, { fromOverrides = false } = {}) {
     selectedItem = itemType && ITEM_TYPES.includes(itemType) ? itemType : null;
     viewport.setSelectedItem(selectedItem);
     if (selectedItem) {
-        if (!fromOverrides && elements.overrideItemSelect.value !== selectedItem) {
-            elements.overrideItemSelect.value = selectedItem;
-            overrideUIRenderer();
-        }
+        if (!fromOverrides) dials.setOverrideItem(selectedItem);
         profilePanel?.setItem(selectedItem);
     }
     const chip = document.getElementById('selectionChip');
@@ -1908,18 +985,9 @@ function initHistory() {
         onApply: applyExternalDesignChange,
         onChange: updateHistoryButtons
     });
-    // Each committed edit (Enter, arrow key, slider/scrub release, select)
-    // is its own step; continuous drags only commit on release. Panel-level
-    // listeners run after the controls' own handlers have updated state.
-    document.getElementById('parameterPanel')?.addEventListener('change', () => {
-        history.commit();
-        updateHistoryButtons();
-    });
-    // Hold idle commits while a pointer gesture (slider, scrub, profile
-    // handle) is in progress, however slowly it moves
-    ['parameterPanel', 'profilePanel'].forEach(id => {
-        document.getElementById(id)?.addEventListener('pointerdown', () => history.hold(), true);
-    });
+    // Edits commit once they settle; the dials hold commits for the length
+    // of a drag (see initDials). Hold them too while a profile handle moves.
+    document.getElementById('profilePanel')?.addEventListener('pointerdown', () => history.hold(), true);
     ['pointerup', 'pointercancel'].forEach(type => {
         document.addEventListener(type, () => history.release(), true);
     });
@@ -1943,8 +1011,6 @@ function updateHistoryButtons() {
 function applyExternalDesignChange() {
     updateUIFromState();
     ITEM_TYPES.forEach(itemType => scheduleItemUpdate(itemType));
-    updateOverrideIndicators();
-    syncPresetSelect();
     if (selectedItem) selectItem(selectedItem);
 }
 
@@ -1969,135 +1035,69 @@ function initKeyboardShortcuts() {
     });
 }
 
-// === Style presets ===
+// === DialKit controls ===
+
+let dials = null;
 
 function allPresets() {
     return [...BUILT_IN_PRESETS, ...loadUserPresets()];
 }
 
-function initPresets() {
-    const select = document.getElementById('stylePresetSelect');
-    const saveBtn = document.getElementById('btnSavePreset');
-    const deleteBtn = document.getElementById('btnDeletePreset');
-    if (!select) return;
-
-    select.addEventListener('change', () => {
-        const preset = allPresets().find(p => p.id === select.value);
-        if (!preset) return;
-        applyPreset(stateManager, preset);
-        applyExternalDesignChange();
-    });
-
-    // Inline "save as" form instead of a blocking prompt
-    const form = document.createElement('form');
-    form.className = 'preset-save';
-    form.hidden = true;
-    form.innerHTML = `
-        <input type="text" maxlength="40" placeholder="Preset name" aria-label="Preset name" required>
-        <button type="submit" class="btn btn-small btn-primary">Save</button>
-        <button type="button" class="btn btn-small btn-secondary" data-cancel>Cancel</button>`;
-    select.closest('.preset-row').after(form);
-    const nameInput = form.querySelector('input');
-    saveBtn?.addEventListener('click', () => {
-        form.hidden = false;
-        nameInput.value = '';
-        nameInput.focus();
-    });
-    form.querySelector('[data-cancel]').addEventListener('click', () => { form.hidden = true; });
-    form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        const name = nameInput.value.trim();
-        if (!name) return;
-        try {
-            saveUserPreset(name, stateManager.getState('globalParameters'));
-            form.hidden = true;
-            syncPresetSelect();
-        } catch (error) {
-            nameInput.setCustomValidity(`Could not save: ${error.message}`);
-            nameInput.reportValidity();
-        }
-    });
-    nameInput.addEventListener('input', () => nameInput.setCustomValidity(''));
-    deleteBtn?.addEventListener('click', () => {
-        const preset = loadUserPresets().find(p => p.id === select.value);
-        if (!preset) return;
-        deleteUserPreset(preset.id);
-        syncPresetSelect();
-    });
-    syncPresetSelect();
-}
-
-function syncPresetSelect() {
-    const select = document.getElementById('stylePresetSelect');
-    if (!select) return;
-    const user = loadUserPresets();
-    const match = matchingPreset(stateManager.getState('globalParameters'), [...BUILT_IN_PRESETS, ...user]);
-    const option = (preset) => `<option value="${preset.id}">${preset.name.replace(/[<>&"]/g, '')}</option>`;
-    const html = `${match ? '' : '<option value="" disabled>Custom</option>'}
-        <optgroup label="Built-in">${BUILT_IN_PRESETS.map(option).join('')}</optgroup>
-        ${user.length ? `<optgroup label="Saved">${user.map(option).join('')}</optgroup>` : ''}`;
-    if (select.dataset.html !== html) {
-        select.innerHTML = html;
-        select.dataset.html = html;
-    }
-    select.value = match?.id ?? '';
-    const deleteBtn = document.getElementById('btnDeletePreset');
-    if (deleteBtn) deleteBtn.hidden = !match?.user;
-}
-
-// === Override indicators ===
-
-const GLOBAL_ROW_SELECTOR = '[data-section="global-style"] .parameter-row[data-param], #surfacePatternControls .parameter-row[data-param]';
-
-/**
- * Show where items differ from the set: a badge on each global control that
- * some items override, a dot on those items in the Items menu, and a count
- * in the override item picker.
- */
-function updateOverrideIndicators() {
-    document.querySelectorAll(GLOBAL_ROW_SELECTOR).forEach(row => {
-        const param = row.dataset.param;
-        const overriding = ITEM_TYPES.filter(item => parameterResolver.hasOverride(item, param));
-        let badge = row.querySelector(':scope > .override-badge');
-        if (!overriding.length) {
-            badge?.remove();
-            return;
-        }
-        if (!badge) {
-            badge = document.createElement('button');
-            badge.type = 'button';
-            badge.className = 'override-badge';
-            badge.addEventListener('pointerdown', event => event.stopPropagation());
-            badge.addEventListener('click', () => {
-                const items = JSON.parse(badge.dataset.items);
-                const next = items[(items.indexOf(selectedItem) + 1) % items.length];
-                revealParameter(next, param);
-            });
-            row.appendChild(badge);
-        }
-        badge.dataset.items = JSON.stringify(overriding);
-        badge.textContent = overriding.length === 1
-            ? `${ITEM_NAMES[overriding[0]]} differs`
-            : `${overriding.length} items differ`;
-        badge.title = `Overridden for ${overriding.map(item => ITEM_NAMES[item]).join(', ')}. Click to edit.`;
-    });
-
-    ITEM_TYPES.forEach(item => {
-        const count = Object.keys(stateManager.getState(`itemOverrides.${item}`) || {}).length;
-        const label = document.querySelector(`.items-menu-item input[data-item="${item}"]`)?.closest('label');
-        if (label) {
-            let dot = label.querySelector('.override-dot');
-            if (count && !dot) {
-                dot = document.createElement('span');
-                dot.className = 'override-dot';
-                label.appendChild(dot);
-            } else if (!count) {
-                dot?.remove();
+function initDials() {
+    dials = initDinnerwareDials({
+        container: document.getElementById('parameterPanel'),
+        setGlobal: handleParameterChange,
+        setOverride: setOverrideValue,
+        clearOverride: (itemType, paramName) => clearOverrides(itemType, [paramName]),
+        clearAllOverrides: (itemType) => clearOverrides(itemType,
+            Object.keys(stateManager.getState(`itemOverrides.${itemType}`) || {})),
+        setMultiplier: (itemType, axis, value, options) => {
+            setItemMultiplier(itemType, axis, value, options);
+            updateStatusInfo();
+        },
+        applyPreset: (id) => {
+            const preset = allPresets().find(p => p.id === id);
+            if (!preset) return;
+            applyPreset(stateManager, preset);
+            applyExternalDesignChange();
+        },
+        savePreset: (name) => {
+            try {
+                saveUserPreset(name, stateManager.getState('globalParameters'));
+            } catch (error) {
+                alert(`Could not save the preset: ${error.message}`);
             }
-            dot?.setAttribute('title', `${count} per-item override${count > 1 ? 's' : ''}`);
+        },
+        deletePreset: (id) => deleteUserPreset(id),
+        copyWallPatternToFootring: () => {
+            const updates = {};
+            PATTERN_PARAM_SUFFIXES.forEach(suffix => {
+                updates[`globalParameters.${patternParamName('footring', suffix)}`] =
+                    stateManager.getState(`globalParameters.${patternParamName('wall', suffix)}`);
+            });
+            stateManager.batchUpdate(updates);
+            ITEM_TYPES.forEach(itemType => scheduleItemUpdate(itemType));
+        },
+        onSelectItem: (itemType) => selectItem(itemType, { fromOverrides: true }),
+        setCamera: (preset) => viewport.setCameraPreset(preset),
+        resetView: () => viewport.resetView(),
+        setLayout: (mode) => viewport.setLayoutMode(mode),
+        setCrossSection: (enabled) => viewport.toggleCrossSection(enabled),
+        setGrid: (visible) => viewport.toggleGrid(visible),
+        setLightBackground: (isLight) => {
+            viewport.setBackgroundColor(isLight ? 0xf0f0f0 : 0x1a1a1a);
+            viewport.setGridColors(isLight);
+        },
+        setVisibleItems,
+        // A drag is one undo step and previews at interactive resolution;
+        // the release rebuilds every item at full resolution.
+        onGestureStart: () => history.hold(),
+        onGestureEnd: (changed) => {
+            history.release();
+            if (!changed) return;
+            ITEM_TYPES.forEach(itemType => scheduleItemUpdate(itemType));
+            if (selectedItem) selectItem(selectedItem);
         }
-        const option = elements.overrideItemSelect.querySelector(`option[value="${item}"]`);
-        if (option) option.textContent = count ? `${ITEM_NAMES[item]} (${count} override${count > 1 ? 's' : ''})` : ITEM_NAMES[item];
     });
 }
 
@@ -2127,7 +1127,7 @@ function initProfilePanel() {
             }
         }
     });
-    profilePanel.setItem(selectedItem || elements.overrideItemSelect.value);
+    profilePanel.setItem(selectedItem || ITEM_TYPES[0]);
     toggle?.addEventListener('click', () => {
         if (profilePanel.visible) profilePanel.hide();
         else profilePanel.show();
