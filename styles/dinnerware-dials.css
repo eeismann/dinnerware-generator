@@ -322,6 +322,458 @@
     color: var(--dk-text-root);
 }
 
+/* ---------- Dialogs ---------- */
+
+.dk-modal .modal-backdrop {
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.dk-modal .modal-content {
+    width: calc(100% - 32px);
+    max-width: 400px;
+    padding: 6px;
+    background: var(--dk-glass-bg);
+    border: 1px solid var(--dk-border);
+    border-radius: 14px;
+    box-shadow: var(--dk-shadow);
+    color: var(--dk-text-label);
+    font-family: var(--dk-font);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+    animation: dk-dialog-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dk-modal .modal-content.modal-small {
+    max-width: 340px;
+}
+
+@keyframes dk-dialog-in {
+    from { opacity: 0; transform: scale(0.97) translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+.dk-modal .modal-header {
+    padding: 6px 4px 10px 8px;
+    border-bottom: none;
+}
+
+.dk-modal .modal-header h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--dk-text-root);
+}
+
+.dk-modal .btn-close {
+    width: 28px;
+    height: 28px;
+    font-size: 0;
+    background: transparent;
+}
+
+.dk-modal .btn-close:hover {
+    background: var(--dk-surface-hover);
+}
+
+.dk-modal .modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 2px;
+}
+
+.dk-modal .modal-body > p {
+    margin: 0;
+    padding: 2px 8px 8px;
+    line-height: 1.5;
+    color: var(--dk-text-label);
+}
+
+.dk-modal .modal-footer {
+    gap: 6px;
+    padding: 12px 2px 2px;
+    border-top: none;
+}
+
+.dk-modal .modal-footer .dk-btn {
+    flex: 1;
+    padding: 0 12px;
+    height: 36px;
+}
+
+/* DialKit's primary toolbar button: inverted ink */
+.dk-btn.dk-btn-primary {
+    background: var(--dk-text-root);
+    color: var(--dk-glass-bg);
+}
+
+.dk-btn.dk-btn-primary:hover {
+    background: var(--dk-text-root);
+    color: var(--dk-glass-bg);
+    opacity: 0.88;
+}
+
+.dk-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* Sections: DialKit folder titles */
+.dk-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.dk-section + .dk-section {
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--dk-border);
+}
+
+.dk-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 24px;
+    padding: 0 4px 0 8px;
+}
+
+.dk-section-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-label);
+}
+
+.dk-section-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.dk-chip {
+    height: 24px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 6px;
+    background: var(--dk-surface);
+    color: var(--dk-text-label);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.dk-chip:hover {
+    background: var(--dk-surface-hover);
+    color: var(--dk-text-root);
+}
+
+/* Rows: one DialKit control row (36px surface, 8px radius) */
+.dk-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 36px;
+    padding: 0 12px;
+    box-sizing: border-box;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    color: var(--dk-text-label);
+    font-weight: 500;
+    overflow: hidden;
+}
+
+.dk-row-label {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-label);
+    cursor: pointer;
+}
+
+.dk-modal input:focus-visible,
+.dk-modal select:focus-visible,
+.dk-modal button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--dk-focus-ring);
+}
+
+/* Select row: native select dressed as dialkit-select-trigger */
+.dk-select-row {
+    cursor: pointer;
+}
+
+.dk-select-row:hover {
+    background: var(--dk-surface-hover);
+}
+
+.dk-select-row select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 0 18px 0 0;
+    margin-right: -18px;
+    border: none;
+    background: transparent;
+    color: var(--dk-text-root);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: right;
+    text-align-last: right;
+    cursor: pointer;
+}
+
+.dk-select-row select:focus-visible {
+    box-shadow: none;
+}
+
+.dk-select-row:has(select:focus-visible) {
+    box-shadow: 0 0 0 2px var(--dk-focus-ring);
+}
+
+.dk-select-row .dk-chevron {
+    flex: none;
+    pointer-events: none;
+}
+
+.dk-select-row select option {
+    background: var(--dk-dropdown-bg);
+    color: var(--dk-text-root);
+}
+
+/* Text row: inline field like DialKit's text control */
+.dk-text-row input {
+    flex: 2;
+    min-width: 0;
+    height: 28px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--dk-text-root);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: right;
+}
+
+.dk-text-row input:focus {
+    outline: none;
+    background: var(--dk-surface);
+    box-shadow: none;
+}
+
+/* Off / On segmented toggle over a real checkbox */
+.dk-segmented {
+    position: relative;
+    display: inline-flex;
+    gap: 2px;
+    margin-right: -8px;
+    padding: 2px;
+    border-radius: 6px;
+}
+
+.dk-segmented input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.dk-seg {
+    min-width: 30px;
+    height: 26px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-tertiary);
+    transition: background 0.15s, color 0.15s;
+}
+
+.dk-segmented input:not(:checked) ~ .dk-seg-off,
+.dk-segmented input:checked ~ .dk-seg-on {
+    background: var(--dk-surface-hover);
+    color: var(--dk-text-root);
+}
+
+.dk-toggle-row:has(input:focus-visible) {
+    box-shadow: 0 0 0 2px var(--dk-focus-ring);
+}
+
+/* Export pieces */
+.dk-modal .export-item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: min(46vh, 340px);
+    overflow-y: auto;
+    padding: 0;
+    border: none;
+    background: none;
+    scrollbar-width: thin;
+}
+
+.dk-modal .export-item {
+    gap: 10px;
+    padding: 6px 12px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.dk-modal .export-item:hover {
+    background: var(--dk-surface-hover);
+}
+
+.dk-modal .export-item:has(.dk-check:not(:checked)) .export-item-text {
+    opacity: 0.45;
+}
+
+.dk-check {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    border: 1.5px solid var(--dk-text-tertiary);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    display: grid;
+    place-content: center;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.dk-check::after {
+    content: '';
+    width: 8px;
+    height: 4px;
+    margin-top: -2px;
+    border-left: 2px solid var(--dk-glass-bg);
+    border-bottom: 2px solid var(--dk-glass-bg);
+    transform: rotate(-45deg) scale(0);
+    transition: transform 0.15s;
+}
+
+.dk-check:checked {
+    background: var(--dk-text-root);
+    border-color: var(--dk-text-root);
+}
+
+.dk-check:checked::after {
+    transform: rotate(-45deg) scale(1);
+}
+
+.export-item-text {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    transition: opacity 0.15s;
+}
+
+.dk-modal .export-item-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-root);
+    white-space: nowrap;
+}
+
+.export-item-meta {
+    display: flex;
+    gap: 8px;
+    min-width: 0;
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--dk-text-tertiary);
+    white-space: nowrap;
+}
+
+.dk-modal .export-item-dims,
+.dk-modal .export-item-size {
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+}
+
+.dk-modal .export-item-warning {
+    flex: none;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: rgba(245, 166, 35, 0.16);
+    color: #f5a623;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.dk-modal .export-item-warning.severity-error {
+    background: rgba(255, 92, 92, 0.16);
+    color: #ff6b6b;
+}
+
+.dk-modal .export-error {
+    margin: 4px 0 0;
+    padding: 9px 12px;
+    border-radius: var(--dk-radius);
+    background: rgba(255, 92, 92, 0.12);
+    color: #ff6b6b;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.dk-modal .export-item-size::before {
+    content: '·';
+    margin-right: 8px;
+}
+
+/* Progress reads like a DialKit slider filling */
+.dk-modal .export-progress {
+    margin-top: 6px;
+}
+
+.dk-modal .export-progress[hidden] {
+    display: none;
+}
+
+.dk-modal .progress-bar.dk-row {
+    height: 36px;
+    padding: 0 12px;
+    border: none;
+    background: var(--dk-surface);
+}
+
+.dk-modal .progress-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0;
+    height: auto;
+    border-radius: 0;
+    background: var(--dk-surface-hover);
+    transition: width 0.2s ease;
+}
+
+.dk-modal .progress-text {
+    position: relative;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-root);
+}
+
 @media (max-width: 900px) {
     .parameter-panel.dials-panel {
         top: 0;
@@ -347,6 +799,7 @@
     .parameter-panel.dials-panel,
     .params-hidden .parameter-panel.dials-panel,
     .dk-menu-list,
+    .dk-modal .modal-content,
     .dinnerware-dials .dial-flash {
         transition: none;
         animation: none;

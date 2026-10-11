@@ -565,12 +565,16 @@ async function showExportModal() {
         const warnings = warningsByItem.get(itemType) || [];
         const issues = warnings.filter(w => w.severity !== 'info');
         const item = document.createElement('label');
-        item.className = 'export-item';
+        item.className = 'export-item dk-row';
         item.innerHTML = `
-            <input type="checkbox" data-item="${itemType}" checked>
-            <span class="export-item-name">${ITEM_NAMES[itemType]}</span>
-            <span class="export-item-dims">${dims.diameter} × ${dims.height} mm</span>
-            <span class="export-item-size" data-size="${itemType}">…</span>
+            <input type="checkbox" class="dk-check" data-item="${itemType}" checked>
+            <span class="export-item-text">
+                <span class="export-item-name">${ITEM_NAMES[itemType]}</span>
+                <span class="export-item-meta">
+                    <span class="export-item-dims">${dims.diameter} × ${dims.height} mm</span>
+                    <span class="export-item-size" data-size="${itemType}">…</span>
+                </span>
+            </span>
             ${issues.length ? `<span class="export-item-warning severity-${issues[0].severity}" title="${issues.map(w => w.message).join('\n').replace(/"/g, '&quot;')}">${issues.length} issue${issues.length > 1 ? 's' : ''}</span>` : ''}
         `;
         itemList.appendChild(item);
