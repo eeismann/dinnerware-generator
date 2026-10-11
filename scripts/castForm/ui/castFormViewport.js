@@ -26,8 +26,12 @@ export class CastFormViewport {
         this.debugGroup = null;  // Debug visualization group
         this.gridHelper = null;
         
-        // Debug mode for shell visualization
+        // Debug mode for shell visualization; the page listens via onDebugModeChange
         this.debugMode = false;
+        this.onDebugModeChange = null;
+
+        // Mesh names the user has hidden (parts and 'inputPreview'); survives regeneration
+        this.hiddenParts = new Set();
         this.debugColors = {
             spareCap: 0x00ff88,    // Green-cyan - spare (pour) region top cap
             topCap: 0x00ffff,      // Cyan - top hollow caps
@@ -299,6 +303,7 @@ export class CastFormViewport {
         
         const mesh = new THREE.Mesh(inputState.geometry, material);
         mesh.name = 'inputPreview';
+        mesh.visible = !this.hiddenParts.has(mesh.name);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         
@@ -331,6 +336,7 @@ export class CastFormViewport {
             
             const footMesh = new THREE.Mesh(output.footShell, footMaterial);
             footMesh.name = 'foot';
+            footMesh.visible = !this.hiddenParts.has(footMesh.name);
             footMesh.castShadow = true;
             footMesh.receiveShadow = true;
             this.moldGroup.add(footMesh);
@@ -348,6 +354,7 @@ export class CastFormViewport {
                 
                 const wallMesh = new THREE.Mesh(wallGeo, wallMaterial);
                 wallMesh.name = `wall${index + 1}`;
+                wallMesh.visible = !this.hiddenParts.has(wallMesh.name);
                 wallMesh.castShadow = true;
                 wallMesh.receiveShadow = true;
                 this.moldGroup.add(wallMesh);
@@ -959,14 +966,20 @@ export class CastFormViewport {
     }
 
     /**
-     * Show/hide a named mold part (Studio Shell parts panel).
+     * Show/hide a named mold part or the input preview ('inputPreview').
+     * Remembered so regenerated meshes keep the choice.
      */
     setPartVisible(name, visible) {
-        const mesh = this.moldGroup && this.moldGroup.children.find(c => c.name === name);
-        if (mesh) {
-            mesh.visible = visible;
-            this.requestRender();
-        }
+        if (visible) this.hiddenParts.delete(name);
+        else this.hiddenParts.add(name);
+        [...(this.moldGroup?.children || []), ...(this.inputGroup?.children || [])]
+            .filter(child => child.name === name)
+            .forEach(mesh => { mesh.visible = visible; });
+        this.requestRender();
+    }
+
+    isPartVisible(name) {
+        return !this.hiddenParts.has(name);
     }
 
     /**
@@ -996,7 +1009,7 @@ export class CastFormViewport {
     setupDebugKeyboardShortcut() {
         this.keydownHandler = (e) => {
             // Only trigger if not typing in an input field
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
             
             if (e.key === 'd' || e.key === 'D') {
                 this.toggleDebugMode();
@@ -1031,26 +1044,10 @@ export class CastFormViewport {
     }
 
     /**
-     * Sync debug mode state with UI elements
+     * Tell the page (View dials) that debug mode changed, e.g. via the D key
      */
     syncDebugUIState() {
-        // Sync checkbox in View menu
-        const checkbox = document.getElementById('debugShellCaps');
-        if (checkbox) {
-            checkbox.checked = this.debugMode;
-        }
-        
-        // Sync button state
-        const btn = document.getElementById('debugModeBtn');
-        if (btn) {
-            if (this.debugMode) {
-                btn.classList.add('active');
-                btn.title = 'Debug Mode ON (D)';
-            } else {
-                btn.classList.remove('active');
-                btn.title = 'Toggle Debug Mode (D)';
-            }
-        }
+        this.onDebugModeChange?.(this.debugMode);
     }
 
     /**

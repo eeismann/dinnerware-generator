@@ -7,7 +7,8 @@ import { initTheme } from '../ui/themeManager.js';
 import castFormState from './state/castFormState.js';
 import { PART_COLORS } from './state/castFormDefaults.js';
 import { CastFormViewport } from './ui/castFormViewport.js';
-import { ParameterPanel } from './ui/parameterPanel.js';
+import { initPanelReadouts } from './ui/panelReadouts.js';
+import { initDkMenu, initPanelToggle } from '../ui/dialkit/dkChrome.js';
 import { ProjectFileFormat } from '../storage/fileFormat.js';
 import { MoldWorkerClient, abortMoldGeneration } from './geometry/moldWorkerClient.js';
 
@@ -64,12 +65,6 @@ function parseUrlNumber(params, name) {
     return Number.isFinite(value) ? value : null;
 }
 
-function formatControlNumber(value) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) return '';
-    return Number.isInteger(number) ? String(number) : String(Number(number.toFixed(3)));
-}
-
 function shouldGenerateRegistrationKeys(params) {
     const wallCount = Math.max(1, Math.min(4, Math.round(params?.mold?.wallCount || 2)));
     // Every split-wall mold gets seam registration keys (2-wall: legacy per-wall
@@ -80,8 +75,13 @@ function shouldGenerateRegistrationKeys(params) {
 export class CastFormApp {
     constructor({ initialize = true } = {}) {
         this.viewport = null;
-        this.parameterPanel = null;
+        this.dials = null;
+        this.panelToggle = null;
         this.regenerateTimeout = null;
+        // A dial drag regenerates once on release (see initDials)
+        this.regenerationHeld = false;
+        this.regenerateAfterHold = false;
+        this.loadingSource = false;
         this.workerClient = new MoldWorkerClient(
             () => this.createMoldWorker(),
             progress => this.updateStatus(progress?.message || 'Generating mold...')
@@ -112,11 +112,13 @@ export class CastFormApp {
             this.viewport = new CastFormViewport(viewportContainer);
         }
 
-        // Initialize parameter panel
-        this.parameterPanel = new ParameterPanel();
+        // Parameter card: source/material/warning readouts around the dials
+        initPanelReadouts();
+        await this.initDials();
 
         // Setup event listeners
         this.setupEventListeners();
+        this.initHeaderChrome();
 
         // Setup state subscriptions
         this.setupStateSubscriptions();
@@ -132,26 +134,24 @@ export class CastFormApp {
      * Setup all event listeners
      */
     setupEventListeners() {
-        // Header buttons
+        // File menu
         document.getElementById('newBtn')?.addEventListener('click', () => this.newProject());
         document.getElementById('loadBtn')?.addEventListener('click', () => this.loadProjectFromFile());
+        document.getElementById('openSavedBtn')?.addEventListener('click', () => this.showLoadModal());
         document.getElementById('saveBtn')?.addEventListener('click', () => this.showSaveModal());
         document.getElementById('exportBtn')?.addEventListener('click', () => this.showExportModal());
 
-        // Custom events from parameter panel
-        window.addEventListener('importFile', (e) => this.handleFileImport(e.detail.file));
+        // Source import: File menu, parameter card and the start card
+        this.setupSourceImport();
 
         // Modal events
         this.setupModalListeners();
 
-        // View controls
-        this.setupViewControls();
+        // Part legend
+        this.setupPartLegend();
 
-        // Case box preview controls
-        this.setupCaseBoxPreviewControls();
-
-        // Settings panel
-        this.setupSettingsPanel();
+        // Case box preview banner and readout
+        this.setupCaseBoxPreview();
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboard(e));
@@ -215,29 +215,120 @@ export class CastFormApp {
         });
 
         castFormState.subscribe('output', () => this.renderPartLegend());
+
+        castFormState.subscribe('input', () => this.updateEmptyState());
+        this.updateEmptyState();
     }
 
     /**
-     * Case box preview: toggle + target selector. Enabling swaps the viewport
-     * to the case box scene (handled by castFormViewport) and pauses the mold
-     * preview visuals; the mold data itself stays generated underneath.
+     * Mount the DialKit panels. Loads, new projects, imports and generated
+     * output all change state outside the dials, so every change syncs them.
      */
-    setupCaseBoxPreviewControls() {
-        const toggle = document.getElementById('caseBoxPreviewToggle');
-        const targetSeg = document.getElementById('caseBoxTargetSeg');
-        const paramsContainer = document.getElementById('caseBoxParams');
+    async initDials() {
+        // Loaded on demand: DialKit brings its stylesheet, which Node gates cannot import
+        const { initCastFormDials } = await import('../ui/dialkit/castFormDials.js');
+        const viewport = this.viewport;
+        this.dials = initCastFormDials({
+            container: document.getElementById('parameterPanel'),
+            setParam: (path, value) => {
+                castFormState.setState(path, path === 'params.mold.wallCount' ? Math.round(value) : value);
+            },
+            setView: (path, value) => castFormState.setState(path, value),
+            setCamera: (preset) => viewport?.setCameraPreset(preset),
+            isDebugMode: () => Boolean(viewport?.debugMode),
+            setDebugMode: (enabled) => {
+                if (viewport && viewport.debugMode !== enabled) viewport.toggleDebugMode();
+            },
+            isPartVisible: (name) => viewport?.isPartVisible(name) ?? true,
+            setPartVisible: (name, visible) => viewport?.setPartVisible(name, visible),
+            // Mold generation is expensive: a drag previews nothing and
+            // regenerates once when the pointer is released.
+            onGestureStart: () => {
+                this.regenerationHeld = true;
+            },
+            onGestureEnd: () => {
+                this.regenerationHeld = false;
+                if (this.regenerateAfterHold) {
+                    this.regenerateAfterHold = false;
+                    this.scheduleRegenerate();
+                }
+            }
+        });
+        if (viewport) viewport.onDebugModeChange = () => this.dials.sync();
+
+        // Readouts sit below the dials
+        const panel = document.getElementById('parameterPanel');
+        panel?.append(
+            ...['materialVolumeCard', 'warningsSection'].map(id => document.getElementById(id)).filter(Boolean)
+        );
+
+        castFormState.subscribe('*', () => this.dials.sync());
+    }
+
+    initHeaderChrome() {
+        this.panelToggle = initPanelToggle(document.getElementById('btnTogglePanel'), 'castform_dials_visible');
+        initDkMenu(document.getElementById('fileMenu'));
+        this.setupProjectNameEditing();
+
+        document.getElementById('warningBadge')?.addEventListener('click', () => {
+            this.panelToggle.setVisible(true);
+            document.getElementById('warningsSection')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    }
+
+    /**
+     * Rename in place from the header; empty names fall back to the default.
+     */
+    setupProjectNameEditing() {
+        const nameEl = document.getElementById('projectName');
+        if (!nameEl) return;
+        const commit = () => {
+            const name = nameEl.textContent.trim() || 'Untitled Cast Form';
+            nameEl.textContent = name;
+            castFormState.setState('project.name', name);
+        };
+        nameEl.addEventListener('blur', commit);
+        nameEl.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                nameEl.blur();
+            } else if (event.key === 'Escape') {
+                event.stopPropagation();
+                nameEl.textContent = castFormState.getState('project.name') || 'Untitled Cast Form';
+                nameEl.blur();
+            }
+        });
+    }
+
+    setupSourceImport() {
+        const fileInput = document.getElementById('fileInput');
+        ['importFile', 'sourceImportBtn', 'emptyImportBtn'].forEach((id) => {
+            document.getElementById(id)?.addEventListener('click', () => fileInput?.click());
+        });
+        document.getElementById('emptyOpenSavedBtn')?.addEventListener('click', () => this.showLoadModal());
+        fileInput?.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (file) this.handleFileImport(file);
+            fileInput.value = ''; // Reset for re-selection
+        });
+    }
+
+    /**
+     * Start card over the empty viewport until a source is loaded.
+     */
+    updateEmptyState() {
+        const empty = document.getElementById('emptyState');
+        if (empty) empty.hidden = Boolean(castFormState.getState('input.isValid')) || this.loadingSource;
+    }
+
+    /**
+     * Case box preview (toggled from the Polymer Case Box dials) swaps the
+     * viewport to the case box scene (handled by castFormViewport) and pauses
+     * the mold preview visuals; the mold data itself stays generated underneath.
+     */
+    setupCaseBoxPreview() {
         const banner = document.getElementById('caseBoxBanner');
         const legend = document.getElementById('partLegend');
-
-        toggle?.addEventListener('change', () => {
-            castFormState.setState('view.caseBoxPreview.enabled', toggle.checked);
-        });
-
-        targetSeg?.querySelectorAll('button[data-target]').forEach((button) => {
-            button.addEventListener('click', () => {
-                castFormState.setState('view.caseBoxPreview.target', button.dataset.target);
-            });
-        });
 
         let lastEnabled = null;
         const syncUI = () => {
@@ -245,12 +336,6 @@ export class CastFormApp {
             const enabled = !!preview.enabled;
             const target = preview.target === 'foot' ? 'foot' : 'wall';
 
-            if (toggle) toggle.checked = enabled;
-            targetSeg?.querySelectorAll('button[data-target]').forEach((button) => {
-                button.classList.toggle('on', button.dataset.target === target);
-            });
-            targetSeg?.classList.toggle('dimmed', !enabled);
-            paramsContainer?.classList.toggle('dimmed', !enabled);
             banner?.classList.toggle('hidden', !enabled);
             if (banner) {
                 banner.textContent = `Case box preview (${target === 'wall' ? 'Wall' : 'Foot'} box) — mold preview paused`;
@@ -284,6 +369,11 @@ export class CastFormApp {
         // Invalidate immediately, including the debounce interval: a response
         // for the previous settings must never be committed in that window.
         this.invalidateGeneration();
+
+        if (this.regenerationHeld) {
+            this.regenerateAfterHold = true;
+            return;
+        }
 
         this.regenerateTimeout = setTimeout(() => {
             this.regenerateTimeout = null;
@@ -610,22 +700,6 @@ export class CastFormApp {
     }
 
     /**
-     * Update debug mode button appearance
-     */
-    updateDebugButtonState() {
-        const btn = document.getElementById('debugModeBtn');
-        if (btn && this.viewport) {
-            if (this.viewport.debugMode) {
-                btn.classList.add('active');
-                btn.title = 'Debug Mode ON (D)';
-            } else {
-                btn.classList.remove('active');
-                btn.title = 'Toggle Debug Mode (D)';
-            }
-        }
-    }
-
-    /**
      * Setup modal event listeners
      */
     setupModalListeners() {
@@ -865,15 +939,15 @@ export class CastFormApp {
 
             if (list) {
                 list.innerHTML = projects.map(p => `
-                    <div class="project-item" data-id="${p.project?.id}">
-                        <div class="project-thumbnail">
+                    <button type="button" class="project-item" data-id="${escapeHtml(p.project?.id ?? '')}">
+                        <span class="project-thumbnail">
                             ${p.thumbnail ? `<img src="${p.thumbnail}" alt="">` : ''}
-                        </div>
-                        <div class="project-info">
-                            <div class="name">${p.project?.name || 'Untitled'}</div>
-                            <div class="date">${this.formatDate(p.project?.lastModified)}</div>
-                        </div>
-                    </div>
+                        </span>
+                        <span class="project-info">
+                            <span class="name">${escapeHtml(p.project?.name || 'Untitled')}</span>
+                            <span class="date">${this.formatDate(p.project?.lastModified)}</span>
+                        </span>
+                    </button>
                 `).join('');
 
                 // Add click handlers
@@ -917,10 +991,6 @@ export class CastFormApp {
 
         if (project) {
             castFormState.loadState(project);
-
-            // Sync UI
-            this.parameterPanel?.syncUIFromState();
-
             this.updateStatus('Project loaded');
         }
     }
@@ -939,6 +1009,12 @@ export class CastFormApp {
     renderPartLegend() {
         const legend = document.getElementById('partLegend');
         if (!legend) return;
+
+        // Nothing to name until a source is loaded
+        if (!castFormState.getState('input.isValid')) {
+            legend.replaceChildren();
+            return;
+        }
 
         let selectedPart = castFormState.getState('view.selectedPart');
         const wallCount = this.getWallDisplayCount();
@@ -1011,13 +1087,13 @@ export class CastFormApp {
 
         const description = document.getElementById('exportDescription');
         if (description) {
-            description.textContent = `Export ${parts.length} STL file${parts.length === 1 ? '' : 's'} for 3D printing:`;
+            description.textContent = `${parts.length} STL File${parts.length === 1 ? '' : 's'}`;
         }
 
         fileList.innerHTML = parts.map((part) => `
-            <label class="export-file-item">
-                <input type="checkbox" checked data-part="${part.id}">
-                <span class="file-icon" style="color: ${part.color};">◼</span>
+            <label class="dk-row export-file-item">
+                <input type="checkbox" class="dk-check" checked data-part="${part.id}">
+                <span class="file-icon" style="background: ${part.color};" aria-hidden="true"></span>
                 <span class="file-name">${escapeHtml(part.name)}</span>
             </label>
         `).join('');
@@ -1143,115 +1219,9 @@ export class CastFormApp {
     }
 
     /**
-     * Setup view controls
+     * Part legend: click a part to highlight it, again to clear
      */
-    setupViewControls() {
-        const viewMenuContainer = document.querySelector('.view-menu');
-        const viewMenuBtn = document.getElementById('viewMenuBtn');
-
-        viewMenuBtn?.addEventListener('click', (event) => {
-            event.stopPropagation();
-            viewMenuContainer?.classList.toggle('open');
-        });
-
-        document.addEventListener('click', (event) => {
-            if (!viewMenuContainer?.contains(event.target)) {
-                viewMenuContainer?.classList.remove('open');
-            }
-        });
-
-        // View mode dropdown
-        document.querySelectorAll('[data-view]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const mode = btn.dataset.view;
-                castFormState.setState('view.mode', mode);
-
-                // Update active state
-                document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-
-                // Show/hide relevant sliders based on view mode
-                const explosionContainer = document.getElementById('explosionDistanceContainer');
-                const crossSectionContainer = document.getElementById('crossSectionAngleContainer');
-
-                if (explosionContainer) {
-                    explosionContainer.style.display = mode === 'exploded' ? 'flex' : 'none';
-                }
-                if (crossSectionContainer) {
-                    crossSectionContainer.style.display = mode === 'crossSection' ? 'flex' : 'none';
-                }
-
-                viewMenuContainer?.classList.remove('open');
-            });
-        });
-
-        // Camera presets
-        document.querySelectorAll('[data-camera]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const preset = btn.dataset.camera;
-                this.viewport?.setCameraPreset(preset);
-
-                // Update active state
-                document.querySelectorAll('[data-camera]').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-            });
-        });
-
-        // Explosion distance slider
-        const explosionSlider = document.getElementById('explosionDistance');
-        const explosionValue = document.getElementById('explosionDistanceValue');
-        if (explosionSlider) {
-            explosionSlider.addEventListener('input', (e) => {
-                const value = parseFloat(e.target.value);
-                castFormState.setState('view.explosionDistance', value);
-                if (explosionValue) {
-                    explosionValue.textContent = formatControlNumber(value);
-                }
-            });
-        }
-
-        // Cross-section angle slider
-        const crossSectionSlider = document.getElementById('crossSectionAngle');
-        const crossSectionValue = document.getElementById('crossSectionAngleValue');
-        if (crossSectionSlider) {
-            crossSectionSlider.addEventListener('input', (e) => {
-                const value = parseFloat(e.target.value);
-                castFormState.setState('view.crossSectionAngle', value);
-                if (crossSectionValue) {
-                    crossSectionValue.textContent = value;
-                }
-            });
-        }
-
-        // Grid toggle
-        document.getElementById('showGrid')?.addEventListener('change', (e) => {
-            castFormState.setState('view.showGrid', e.target.checked);
-        });
-
-        // Debug shell caps toggle (checkbox in View menu)
-        document.getElementById('debugShellCaps')?.addEventListener('change', (e) => {
-            if (this.viewport) {
-                if (e.target.checked !== this.viewport.debugMode) {
-                    this.viewport.toggleDebugMode();
-                }
-            }
-        });
-
-        // Debug mode button (in footer)
-        document.getElementById('debugModeBtn')?.addEventListener('click', () => {
-            if (this.viewport) {
-                this.viewport.toggleDebugMode();
-                // Sync checkbox state
-                const checkbox = document.getElementById('debugShellCaps');
-                if (checkbox) {
-                    checkbox.checked = this.viewport.debugMode;
-                }
-                // Update button appearance
-                this.updateDebugButtonState();
-            }
-        });
-
-        // Part legend clicks
+    setupPartLegend() {
         document.getElementById('partLegend')?.addEventListener('click', (event) => {
             const item = event.target.closest('.legend-item');
             if (!item) return;
@@ -1269,42 +1239,6 @@ export class CastFormApp {
                 document.querySelectorAll('.legend-item').forEach(i => i.classList.remove('selected'));
                 item.classList.add('selected');
             }
-        });
-    }
-
-    /**
-     * Setup settings panel
-     */
-    setupSettingsPanel() {
-        const panel = document.getElementById('settingsPanel');
-        const openBtn = document.getElementById('settingsBtn');
-        const closeBtn = document.getElementById('settingsClose');
-
-        openBtn?.addEventListener('click', () => panel?.classList.remove('hidden'));
-        closeBtn?.addEventListener('click', () => panel?.classList.add('hidden'));
-
-        // Theme toggle
-        document.querySelectorAll('.theme-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const mode = btn.dataset.mode;
-                document.documentElement.setAttribute('data-mode', mode);
-                localStorage.setItem('playground-ceramics-mode', mode);
-
-                document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-            });
-        });
-
-        // Accent colors
-        document.querySelectorAll('.accent-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const color = btn.dataset.color;
-                document.documentElement.style.setProperty('--th-accent', color);
-                localStorage.setItem('playground-ceramics-accent', color);
-
-                document.querySelectorAll('.accent-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-            });
         });
     }
 
@@ -1335,7 +1269,6 @@ export class CastFormApp {
             document.querySelectorAll('.modal:not(.hidden)').forEach(modal => {
                 this.hideModal(modal);
             });
-            document.getElementById('settingsPanel')?.classList.add('hidden');
         }
     }
 
@@ -1348,14 +1281,14 @@ export class CastFormApp {
         const devStl = params.get('devStl');
 
         if (devStl) {
-            this.loadDevStlFromUrl(params);
+            this.whileLoadingSource(this.loadDevStlFromUrl(params));
             return;
         }
 
         const sourceApp = params.get('sourceApp');
         const sourceProject = params.get('sourceProject');
         if (sourceApp === 'dinnerware' && sourceProject) {
-            this.loadFromDinnerwareProject(sourceProject, params.get('sourceItem') || 'mug');
+            this.whileLoadingSource(this.loadFromDinnerwareProject(sourceProject, params.get('sourceItem') || 'mug'));
             return;
         }
 
@@ -1364,6 +1297,18 @@ export class CastFormApp {
         if (projectId) {
             this.loadProject(projectId);
         }
+    }
+
+    /**
+     * Keep the start card away while a URL-driven source loads.
+     */
+    whileLoadingSource(promise) {
+        this.loadingSource = true;
+        this.updateEmptyState();
+        promise.finally(() => {
+            this.loadingSource = false;
+            this.updateEmptyState();
+        });
     }
 
     /**
@@ -1417,47 +1362,6 @@ export class CastFormApp {
         }
     }
 
-    syncViewControls(mode, cameraPreset) {
-        if (mode) {
-            document.querySelectorAll('[data-view]').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.view === mode);
-            });
-
-            const explosionContainer = document.getElementById('explosionDistanceContainer');
-            const crossSectionContainer = document.getElementById('crossSectionAngleContainer');
-            if (explosionContainer) {
-                explosionContainer.style.display = mode === 'exploded' ? 'flex' : 'none';
-            }
-            if (crossSectionContainer) {
-                crossSectionContainer.style.display = mode === 'crossSection' ? 'flex' : 'none';
-            }
-        }
-
-        if (cameraPreset) {
-            document.querySelectorAll('[data-camera]').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.camera === cameraPreset);
-            });
-        }
-
-        this.syncExplosionDistanceControl();
-    }
-
-    syncExplosionDistanceControl(value = castFormState.getState('view.explosionDistance')) {
-        const number = Number(value);
-        if (!Number.isFinite(number)) return;
-
-        const explosionSlider = document.getElementById('explosionDistance');
-        const explosionValue = document.getElementById('explosionDistanceValue');
-        const formattedValue = formatControlNumber(number);
-
-        if (explosionSlider) {
-            explosionSlider.value = formattedValue;
-        }
-        if (explosionValue) {
-            explosionValue.textContent = formattedValue;
-        }
-    }
-
     async loadDevStlFromUrl(params) {
         try {
             const stlUrl = new URL(params.get('devStl'), window.location.origin);
@@ -1478,10 +1382,7 @@ export class CastFormApp {
             const explosionDistance = parseUrlNumber(params, 'explosionDistance');
             if (explosionDistance !== null) {
                 castFormState.setState('view.explosionDistance', explosionDistance);
-                this.syncExplosionDistanceControl(explosionDistance);
             }
-
-            this.parameterPanel?.syncUIFromState();
 
             const response = await fetch(stlUrl.href);
             if (!response.ok) {
@@ -1507,11 +1408,6 @@ export class CastFormApp {
             if (['front', 'side', 'threeQuarter', 'top'].includes(camera)) {
                 this.viewport?.setCameraPreset(camera, { instant: true });
             }
-
-            this.syncViewControls(
-                castFormState.getState('view.mode'),
-                castFormState.getState('view.cameraPreset')
-            );
             this.updateStatus('Validation STL loaded');
         } catch (error) {
             console.error('Validation STL load error:', error);

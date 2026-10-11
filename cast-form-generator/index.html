@@ -1,276 +1,167 @@
 <!DOCTYPE html>
 <html lang="en" data-mode="light">
 <head>
-    <script>(function(){try{var p=new URLSearchParams(location.search).get('ui');var m=(p==='studio'||p==='classic'||p==='line')?p:localStorage.getItem('playground-ceramics-ui');if(p==='line'||(p==='classic'&&localStorage.getItem('playground-ceramics-ui')==='line'))localStorage.setItem('playground-ceramics-ui',p);document.documentElement.dataset.ui=(m==='studio'||m==='line')?m:'classic';}catch(e){document.documentElement.dataset.ui='classic';}})();</script>
     <meta charset="UTF-8">
+    <!-- Apply the remembered parameters visibility before first paint -->
+    <script>try{if(localStorage.getItem('castform_dials_visible')==='0')document.documentElement.classList.add('params-hidden');}catch(e){}</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cast Form Generator - Playground Ceramics</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Monospace numerals only; the theme manager loads the selected UI typeface -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../styles/shared.css">
-    <link rel="stylesheet" href="../styles/studio-shell.css">
     <link rel="stylesheet" href="../styles/themes.css">
     <link rel="stylesheet" href="../styles/cast-form-generator.css">
-    <link rel="stylesheet" href="../styles/line-base.css">
-    <link rel="stylesheet" href="../styles/line-app.css">
+    <link rel="stylesheet" href="../styles/dialkit-chrome.css">
+    <link rel="stylesheet" href="../styles/cast-form-dials.css">
 </head>
 <body>
-    <!-- Header -->
-    <header class="app-header">
+    <!-- Header (DialKit-styled toolbar) -->
+    <header class="dk-header">
         <div class="header-left">
-            <a href="/dashboard.html" class="back-button" title="Back to Dashboard">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+            <a href="../dashboard.html" class="dk-icon-btn" id="btnBackToDashboard" title="Back to Dashboard" aria-label="Back to Dashboard">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/>
                 </svg>
             </a>
             <h1 class="app-title">Cast Form Generator</h1>
         </div>
         <div class="header-center">
-            <span class="project-name" id="projectName">Untitled Cast Form</span>
+            <span class="project-name" id="projectName" contenteditable="plaintext-only" role="textbox" aria-label="Project name" title="Rename project" spellcheck="false">Untitled Cast Form</span>
             <span class="unsaved-indicator" id="unsavedIndicator" style="display: none;">•</span>
         </div>
         <div class="header-right">
-            <button class="header-btn" id="newBtn" title="New Project">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14,2 14,8 20,8"/>
-                    <line x1="12" y1="18" x2="12" y2="12"/>
-                    <line x1="9" y1="15" x2="15" y2="15"/>
+            <div class="dk-menu" id="fileMenu">
+                <button class="dk-btn" id="btnFileMenu" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="fileMenuList">
+                    File
+                    <svg class="dk-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                </button>
+                <div class="dk-menu-list" id="fileMenuList" role="menu" aria-labelledby="btnFileMenu" hidden>
+                    <button class="dk-menu-item" id="newBtn" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+                        </svg>
+                        <span>New</span>
+                    </button>
+                    <button class="dk-menu-item" id="loadBtn" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        <span>Load…</span>
+                    </button>
+                    <button class="dk-menu-item" id="openSavedBtn" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+                        </svg>
+                        <span>Open Saved…</span>
+                    </button>
+                    <button class="dk-menu-item" id="saveBtn" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                        </svg>
+                        <span>Save…</span>
+                    </button>
+                    <div class="dk-menu-divider" role="separator"></div>
+                    <button class="dk-menu-item" id="importFile" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <span>Import STL / OBJ…</span>
+                    </button>
+                    <button class="dk-menu-item" id="exportBtn" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        <span>Export STL…</span>
+                    </button>
+                </div>
+            </div>
+            <button class="dk-icon-btn dk-panel-toggle" id="btnTogglePanel" type="button" aria-pressed="true" aria-controls="parameterPanel" title="Hide parameters" aria-label="Parameters">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="16" rx="2.5"/><line x1="15" y1="4" x2="15" y2="20"/>
+                    <rect class="dk-panel-fill" x="15" y="4" width="6" height="16" fill="currentColor" stroke="none"/>
                 </svg>
-                <span>New</span>
-            </button>
-            <button class="header-btn" id="loadBtn" title="Load Project">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                </svg>
-                <span>Load</span>
-            </button>
-            <button class="header-btn" id="saveBtn" title="Save Project">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                    <polyline points="17,21 17,13 7,13 7,21"/>
-                    <polyline points="7,3 7,8 15,8"/>
-                </svg>
-                <span>Save</span>
-            </button>
-            <button class="header-btn primary" id="exportBtn" title="Export STL Files">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7,10 12,15 17,10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                <span>Export</span>
             </button>
         </div>
     </header>
 
     <!-- Main Content -->
     <main class="app-main">
-        <!-- Parameter Panel -->
-        <aside class="parameter-panel custom-scrollbar" id="parameterPanel">
-            <!-- Input Source Section -->
-            <section class="param-section" data-section="input">
-                <div class="section-header" data-collapse="input">
-                    <span class="collapse-icon">▼</span>
-                    <h3>Input Source</h3>
+        <!-- Parameter controls: source card, DialKit panels (scripts/ui/dialkit/castFormDials.js),
+             then material and warning readouts -->
+        <aside class="dk-dials-card" id="parameterPanel" aria-label="Parameters">
+            <section class="cf-card cf-source" id="inputStatus" aria-live="polite">
+                <span class="cf-source-dot" aria-hidden="true"></span>
+                <div class="cf-source-text">
+                    <span class="cf-source-name status-text">No model loaded</span>
+                    <span class="cf-source-meta" id="inputMeta"></span>
                 </div>
-                <div class="section-content" id="inputSection">
-                    <div class="file-import" id="fileImport">
-                        <button class="import-btn" id="importFile">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="17,8 12,3 7,8"/>
-                                <line x1="12" y1="3" x2="12" y2="15"/>
-                            </svg>
-                            Import STL / OBJ
-                        </button>
-                        <input type="file" id="fileInput" accept=".stl,.obj" style="display: none;">
-                    </div>
-                    
-                    <div class="input-status" id="inputStatus">
-                        <span class="status-icon">○</span>
-                        <span class="status-text">No model loaded</span>
-                    </div>
-                </div>
+                <button class="dk-btn cf-source-btn" id="sourceImportBtn" type="button">Import…</button>
             </section>
-
-            <!-- Mold Configuration Section -->
-            <section class="param-section" data-section="mold">
-                <div class="section-header" data-collapse="mold">
-                    <span class="collapse-icon">▼</span>
-                    <h3>Mold Configuration</h3>
+            <input type="file" id="fileInput" accept=".stl,.obj" hidden>
+            <!-- Readouts: castFormDials.js moves these below the DialKit panels -->
+            <section class="cf-card cf-material is-empty" id="materialVolumeCard" aria-live="polite">
+                <div class="cf-card-header">
+                    <span class="cf-card-title">Polymer Required</span>
+                    <strong class="cf-material-total" id="materialVolumeTotal">—</strong>
                 </div>
-                <div class="section-content" id="moldSection">
-                    <div class="param-row">
-                        <label>Plaster Wall Thickness</label>
-                        <div class="param-control">
-                            <input type="range" id="plasterThickness" min="20" max="50" step="1" value="20">
-                            <div class="value-input">
-                                <input type="number" id="plasterThicknessValue" min="20" max="50" step="1" value="20">
-                                <span class="unit">mm</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="param-row">
-                        <label>Spare Height</label>
-                        <div class="param-control">
-                            <input type="range" id="spareHeight" min="10" max="80" step="1" value="10">
-                            <div class="value-input">
-                                <input type="number" id="spareHeightValue" min="10" max="80" step="1" value="10">
-                                <span class="unit">mm</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="param-row">
-                        <label>Wall Sections</label>
-                        <div class="param-control">
-                            <input type="range" id="wallCount" min="1" max="4" step="1" value="3">
-                            <div class="value-input">
-                                <input type="number" id="wallCountValue" min="1" max="4" step="1" value="3">
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <span class="cf-card-note" id="materialVolumeEmpty">Generate a mold to calculate</span>
+                <table class="cf-material-breakdown" id="materialVolumeBreakdown" hidden>
+                    <tbody id="materialVolumeRows"></tbody>
+                </table>
+                <p class="cf-card-note">To the case-box brim after form displacement. Add your mixing and waste allowance.</p>
             </section>
-
-            <!-- Master Mold Fill Volume Section -->
-            <section class="param-section" data-section="materialVolume">
-                <div class="section-header" data-collapse="materialVolume">
-                    <span class="collapse-icon">▼</span>
-                    <h3>Material Required</h3>
+            <section class="cf-card cf-warnings" id="warningsSection" hidden>
+                <div class="cf-card-header">
+                    <span class="cf-card-title">Warnings</span>
+                    <span class="cf-count" id="warningCount">0</span>
                 </div>
-                <div class="section-content">
-                    <div class="material-volume-card is-empty" id="materialVolumeCard" aria-live="polite">
-                        <span class="material-volume-label">Polymer required for all molds</span>
-                        <strong class="material-volume-total" id="materialVolumeTotal">—</strong>
-                        <span class="material-volume-empty" id="materialVolumeEmpty">Generate a mold to calculate</span>
-                        <table class="material-volume-breakdown" id="materialVolumeBreakdown" hidden>
-                            <tbody id="materialVolumeRows"></tbody>
-                        </table>
-                    </div>
-                    <p class="material-volume-note">Calculated to the case-box brim after form displacement. Add your preferred mixing and waste allowance.</p>
-                </div>
-            </section>
-
-            <!-- Polymer Case Box Section -->
-            <section class="param-section" data-section="caseBox">
-                <div class="section-header" data-collapse="caseBox">
-                    <span class="collapse-icon">▼</span>
-                    <h3>Polymer Case Box</h3>
-                </div>
-                <div class="section-content" id="caseBoxSection">
-                    <div class="casebox-toggle-row">
-                        <div class="casebox-toggle-label">
-                            <strong>Preview casting box</strong>
-                            <small>pauses the mold preview</small>
-                        </div>
-                        <label class="casebox-switch">
-                            <input type="checkbox" id="caseBoxPreviewToggle">
-                            <span class="casebox-switch-ui"></span>
-                        </label>
-                    </div>
-                    <div class="casebox-seg" id="caseBoxTargetSeg">
-                        <button type="button" data-target="wall" class="on">Wall box</button>
-                        <button type="button" data-target="foot">Foot box</button>
-                    </div>
-                    <div id="caseBoxParams" class="casebox-params dimmed">
-                        <div class="param-row">
-                            <label>Side Gap</label>
-                            <div class="param-control">
-                                <input type="range" id="caseBoxGap" min="4" max="25" step="1" value="10">
-                                <div class="value-input">
-                                    <input type="number" id="caseBoxGapValue" min="4" max="25" step="1" value="10">
-                                    <span class="unit">mm</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="param-row">
-                            <label>Headspace Above Form</label>
-                            <div class="param-control">
-                                <input type="range" id="caseBoxHeadspace" min="10" max="50" step="0.2" value="25.4">
-                                <div class="value-input">
-                                    <input type="number" id="caseBoxHeadspaceValue" min="10" max="50" step="0.2" value="25.4">
-                                    <span class="unit">mm</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="param-row">
-                            <label>Box Wall Thickness</label>
-                            <div class="param-control">
-                                <input type="range" id="caseBoxWallThickness" min="0.5" max="6" step="0.1" value="3">
-                                <div class="value-input">
-                                    <input type="number" id="caseBoxWallThicknessValue" min="0.5" max="6" step="0.1" value="3">
-                                    <span class="unit">mm</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="param-row">
-                            <label>Floor Thickness</label>
-                            <div class="param-control">
-                                <input type="range" id="caseBoxFloorThickness" min="0.5" max="8" step="0.5" value="3">
-                                <div class="value-input">
-                                    <input type="number" id="caseBoxFloorThicknessValue" min="0.5" max="8" step="0.5" value="3">
-                                    <span class="unit">mm</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="param-row">
-                            <label>Indent Depth</label>
-                            <div class="param-control">
-                                <input type="range" id="caseBoxIndentDepth" min="0" max="6" step="0.5" value="2.5">
-                                <div class="value-input">
-                                    <input type="number" id="caseBoxIndentDepthValue" min="0" max="6" step="0.5" value="2.5">
-                                    <span class="unit">mm</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="param-row">
-                            <label>Indent Fit Clearance</label>
-                            <div class="param-control">
-                                <input type="range" id="caseBoxFitClearance" min="0" max="0.6" step="0.05" value="0.25">
-                                <div class="value-input">
-                                    <input type="number" id="caseBoxFitClearanceValue" min="0" max="0.6" step="0.05" value="0.25">
-                                    <span class="unit">mm</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="casebox-readout hidden" id="caseBoxReadout"></div>
-                    <p class="casebox-note">These values drive the exported
-                        <code>…_Case_Box_Wall.stl</code> and <code>…_Case_Box_Foot.stl</code> —
-                        what you preview is what exports.</p>
-                </div>
-            </section>
-
-            <!-- Warnings Section -->
-            <section class="param-section warnings-section" data-section="warnings" id="warningsSection" style="display: none;">
-                <div class="section-header">
-                    <span class="collapse-icon">▼</span>
-                    <h3>Warnings</h3>
-                    <span class="warning-count" id="warningCount">0</span>
-                </div>
-                <div class="section-content">
-                    <ul class="warning-list" id="warningList"></ul>
-                </div>
+                <ul class="cf-warning-list" id="warningList"></ul>
             </section>
         </aside>
 
         <!-- Viewport -->
         <div class="viewport-container">
             <div class="viewport" id="viewport"></div>
-            
+
             <!-- Part Legend -->
-            <div class="part-legend" id="partLegend">
-                <div class="legend-item" data-part="foot">
-                    <span class="legend-color" style="background: #C45C26;"></span>
-                    <span class="legend-label">Foot</span>
+            <div class="part-legend" id="partLegend"></div>
+
+            <!-- Case Box Preview Banner and readout -->
+            <div class="casebox-banner hidden" id="caseBoxBanner">
+                Case box preview — mold preview paused
+            </div>
+            <div class="casebox-readout hidden" id="caseBoxReadout"></div>
+
+            <!-- Start state: no model yet -->
+            <div class="cf-empty dk-modal" id="emptyState" hidden>
+                <div class="modal-content modal-small">
+                    <div class="modal-header">
+                        <h2>Start a Cast Form</h2>
+                    </div>
+                    <div class="modal-body">
+                        <p>Import a vessel to generate a slip-casting mold: one foot and up to four wall sections, with registration keys and polymer case boxes.</p>
+                        <p class="cf-empty-hint">From the Dashboard, choose <strong>Open in Cast Form</strong> on a Dinnerware project to bring in its exact pattern data.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="dk-btn" id="emptyOpenSavedBtn" type="button">Open Saved…</button>
+                        <button class="dk-btn dk-btn-primary" id="emptyImportBtn" type="button">Import STL / OBJ…</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Case Box Preview Banner -->
-            <div class="casebox-banner hidden" id="caseBoxBanner">
-                Case box preview — mold preview paused
+            <!-- Status and warnings -->
+            <div class="cf-status" role="status">
+                <span class="status-text" id="statusText">Ready</span>
+                <button class="cf-warning-badge hidden" id="warningBadge" type="button" title="Show warnings">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
+                    </svg>
+                    <span id="warningBadgeCount">0</span>
+                </button>
             </div>
 
             <!-- Loading Overlay -->
@@ -281,148 +172,73 @@
         </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="app-footer">
-        <div class="footer-left">
-            <button class="footer-btn" id="settingsBtn" title="Settings">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                </svg>
-            </button>
-            <div class="view-menu">
-                <button class="footer-btn dropdown-trigger" id="viewMenuBtn">
-                    <span>View</span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="6,9 12,15 18,9"/>
-                    </svg>
-                </button>
-                <div class="dropdown-menu" id="viewMenu">
-                    <button class="dropdown-item active" data-view="exploded">Exploded View</button>
-                    <button class="dropdown-item" data-view="assembly">Assembly View</button>
-                    <button class="dropdown-item" data-view="crossSection">Cross Section</button>
-                    <div class="dropdown-divider"></div>
-                    <div class="dropdown-item slider-item" id="explosionDistanceContainer">
-                        <label for="explosionDistance">Explosion Distance</label>
-                        <div class="slider-row">
-                            <input type="range" id="explosionDistance" min="0" max="150" step="5" value="40">
-                            <span class="slider-value" id="explosionDistanceValue">40</span>
-                            <span class="slider-unit">mm</span>
-                        </div>
-                    </div>
-                    <div class="dropdown-item slider-item" id="crossSectionAngleContainer" style="display: none;">
-                        <label for="crossSectionAngle">Rotation Angle</label>
-                        <div class="slider-row">
-                            <input type="range" id="crossSectionAngle" min="0" max="360" step="5" value="0">
-                            <span class="slider-value" id="crossSectionAngleValue">0</span>
-                            <span class="slider-unit">°</span>
-                        </div>
-                    </div>
-                    <div class="dropdown-divider"></div>
-                    <label class="dropdown-item checkbox-item">
-                        <input type="checkbox" id="showGrid" checked>
-                        <span>Show Grid</span>
-                    </label>
-                    <div class="dropdown-divider"></div>
-                    <label class="dropdown-item checkbox-item">
-                        <input type="checkbox" id="debugShellCaps">
-                        <span>Debug Shell Caps</span>
-                    </label>
-                </div>
-            </div>
-            <button class="footer-btn debug-btn" id="debugModeBtn" title="Toggle Debug Mode (D)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
-                    <path d="M12 6v6l4 2"/>
-                </svg>
-                <span class="debug-label">Debug</span>
-            </button>
-        </div>
-        
-        <div class="footer-center">
-            <div class="camera-presets">
-                <button class="preset-btn" data-camera="front" title="Front View">Front</button>
-                <button class="preset-btn" data-camera="side" title="Side View">Side</button>
-                <button class="preset-btn active" data-camera="threeQuarter" title="3/4 View">3/4</button>
-                <button class="preset-btn" data-camera="top" title="Top View">Top</button>
-            </div>
-        </div>
-        
-        <div class="footer-right">
-            <span class="status-text" id="statusText">Ready</span>
-            <span class="warning-badge hidden" id="warningBadge">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
-                </svg>
-                <span id="warningBadgeCount">0</span>
-            </span>
-        </div>
-    </footer>
-
+    <!-- Dialogs: DialKit-styled cards (styles/cast-form-dials.css) -->
     <!-- Save Modal -->
-    <div class="modal hidden" id="saveModal">
+    <div class="modal dk-modal hidden" id="saveModal">
         <div class="modal-backdrop"></div>
-        <div class="modal-content">
+        <div class="modal-content modal-small">
             <div class="modal-header">
                 <h2>Save Project</h2>
-                <button class="modal-close" id="saveModalClose">×</button>
+                <button class="dk-icon-btn btn-close" id="saveModalClose" type="button" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label for="saveProjectName">Project Name</label>
-                    <input type="text" id="saveProjectName" placeholder="Enter project name">
-                </div>
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
-                        <input type="checkbox" id="saveAsFile" style="cursor: pointer;">
-                        <span>Also save as file (.json)</span>
-                    </label>
+                <label class="dk-row dk-text-row" for="saveProjectName">
+                    <span class="dk-row-label">Name</span>
+                    <input type="text" id="saveProjectName" placeholder="Project name">
+                </label>
+                <div class="dk-row dk-toggle-row">
+                    <label class="dk-row-label" for="saveAsFile">Also Save as File (.json)</label>
+                    <span class="dk-segmented">
+                        <input type="checkbox" id="saveAsFile">
+                        <span class="dk-seg dk-seg-off" aria-hidden="true">Off</span>
+                        <span class="dk-seg dk-seg-on" aria-hidden="true">On</span>
+                    </span>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" id="saveModalCancel">Cancel</button>
-                <button class="btn-primary" id="saveModalConfirm">Save</button>
+                <button class="dk-btn" id="saveModalCancel" type="button">Cancel</button>
+                <button class="dk-btn dk-btn-primary" id="saveModalConfirm" type="button">Save</button>
             </div>
         </div>
     </div>
 
     <!-- Export Modal -->
-    <div class="modal hidden" id="exportModal">
+    <div class="modal dk-modal hidden" id="exportModal">
         <div class="modal-backdrop"></div>
-        <div class="modal-content export-modal">
+        <div class="modal-content">
             <div class="modal-header">
                 <h2>Export Mold Shells</h2>
-                <button class="modal-close" id="exportModalClose">×</button>
+                <button class="dk-icon-btn btn-close" id="exportModalClose" type="button" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
             </div>
             <div class="modal-body">
-                <p class="export-description" id="exportDescription">Export STL files for 3D printing:</p>
-                <div class="export-files">
-                    <label class="export-file-item">
-                        <input type="checkbox" checked data-part="foot">
-                        <span class="file-icon" style="color: #C45C26;">◼</span>
-                        <span class="file-name" id="exportFootName">_Shell_Foot.stl</span>
-                    </label>
-                </div>
-                <div class="export-actions">
-                    <button class="btn-link" id="selectAllExport">Select All</button>
-                    <button class="btn-link" id="selectNoneExport">Select None</button>
+                <div class="dk-section">
+                    <div class="dk-section-header">
+                        <span class="dk-section-title" id="exportDescription">STL files</span>
+                        <div class="dk-section-actions">
+                            <button class="dk-chip" id="selectAllExport" type="button">All</button>
+                            <button class="dk-chip" id="selectNoneExport" type="button">None</button>
+                        </div>
+                    </div>
+                    <div class="export-files">
+                        <!-- Dynamically populated -->
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" id="exportModalCancel">Cancel</button>
-                <button class="btn-secondary" id="exportIndividual">Download Selected</button>
-                <button class="btn-primary" id="exportZip">Download ZIP</button>
+                <button class="dk-btn" id="exportModalCancel" type="button">Cancel</button>
+                <button class="dk-btn" id="exportIndividual" type="button">Download Selected</button>
+                <button class="dk-btn dk-btn-primary" id="exportZip" type="button">Download ZIP</button>
             </div>
         </div>
     </div>
 
     <!-- Load Modal -->
-    <div class="modal hidden" id="loadModal">
+    <div class="modal dk-modal hidden" id="loadModal">
         <div class="modal-backdrop"></div>
         <div class="modal-content load-modal">
             <div class="modal-header">
-                <h2>Load Project</h2>
-                <button class="modal-close" id="loadModalClose">×</button>
+                <h2>Open Saved Project</h2>
+                <button class="dk-icon-btn btn-close" id="loadModalClose" type="button" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
             </div>
             <div class="modal-body">
                 <div class="project-list" id="projectList">
@@ -431,43 +247,13 @@
                 <p class="no-projects hidden" id="noProjects">No saved projects found.</p>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" id="loadModalCancel">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Settings Panel (slide-out) -->
-    <div class="settings-panel hidden" id="settingsPanel">
-        <div class="settings-header">
-            <h3>Settings</h3>
-            <button class="settings-close" id="settingsClose">×</button>
-        </div>
-        <div class="settings-content">
-            <div class="setting-group">
-                <label>Theme</label>
-                <div class="theme-toggle">
-                    <button class="theme-btn" data-mode="light">Light</button>
-                    <button class="theme-btn active" data-mode="dark">Dark</button>
-                </div>
-            </div>
-            <div class="setting-group">
-                <label>Accent Color</label>
-                <div class="accent-colors">
-                    <button class="accent-btn active" data-color="#A259FF" style="background: #A259FF;"></button>
-                    <button class="accent-btn" data-color="#1ABCFE" style="background: #1ABCFE;"></button>
-                    <button class="accent-btn" data-color="#0FA958" style="background: #0FA958;"></button>
-                    <button class="accent-btn" data-color="#F24822" style="background: #F24822;"></button>
-                    <button class="accent-btn" data-color="#FF7262" style="background: #FF7262;"></button>
-                    <button class="accent-btn" data-color="#14B8A6" style="background: #14B8A6;"></button>
-                </div>
+                <button class="dk-btn" id="loadModalCancel" type="button">Cancel</button>
             </div>
         </div>
     </div>
 
     <!-- Scripts -->
     <script type="module" src="../scripts/castForm/castFormMain.js"></script>
-    <script type="module" src="../scripts/ui/studio/adapters/castFormAdapter.js"></script>
-    <script type="module" src="../scripts/ui/line/adapters/castFormLine.js"></script>
     <script type="module" src="../scripts/ui/pageComments/pageComments.js"></script>
 </body>
 </html>
