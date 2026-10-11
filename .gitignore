@@ -38,3 +38,6 @@ lerna-debug.log*
 # Local tool/run artifacts
 /.playwright-cli/
 /output/
+
+# Agent worktrees
+/.claude/worktrees/

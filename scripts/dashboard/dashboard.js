@@ -25,9 +25,6 @@ let elements = {};
 let projectToDelete = null;
 let searchQuery = '';
 let dragDropHandler = null;
-let selectedAppIconVariant = document.documentElement.dataset.ui === 'studio'
-    ? APP_ICON_VARIANTS.object
-    : APP_ICON_VARIANTS.line;
 
 function buildAppUrl(relativePath, queryParams) {
     const resolved = resolveAppUrl(relativePath);
@@ -51,7 +48,7 @@ function buildAppUrl(relativePath, queryParams) {
  */
 function init() {
     cacheElements();
-    selectAppIconVariant(selectedAppIconVariant);
+    renderAppSelectIcons();
     bindEvents();
     initDragDrop();
     renderProjects();
@@ -78,8 +75,7 @@ function cacheElements() {
         appSelectModal: document.getElementById('appSelectModal'),
         btnCloseAppSelect: document.getElementById('btnCloseAppSelect'),
         btnCancelAppSelect: document.getElementById('btnCancelAppSelect'),
-        appSelectCards: document.querySelectorAll('.app-select-card'),
-        appIconStyleOptions: document.querySelectorAll('.app-icon-style-option')
+        appSelectCards: document.querySelectorAll('.app-select-card')
     };
 }
 
@@ -95,11 +91,6 @@ function bindEvents() {
     elements.btnCancelAppSelect.addEventListener('click', closeAppSelectModal);
     elements.btnCloseAppSelect.addEventListener('click', closeAppSelectModal);
     elements.appSelectModal.querySelector('.modal-dashboard-backdrop').addEventListener('click', closeAppSelectModal);
-    elements.appIconStyleOptions.forEach(button => {
-        button.addEventListener('click', () => {
-            selectAppIconVariant(button.dataset.iconVariant);
-        });
-    });
     elements.appSelectCards.forEach(card => {
         card.addEventListener('click', () => {
             const app = card.dataset.app;
@@ -457,32 +448,15 @@ function getProjectAppType(project) {
 }
 
 /**
- * Render the current icon direction across all app selection cards.
+ * Render the line icon on every app selection card.
  */
 function renderAppSelectIcons() {
     elements.appSelectCards.forEach((card, index) => {
         const icon = card.querySelector('.app-select-icon');
         if (!icon) return;
 
-        icon.innerHTML = getAppIconSvg(
-            card.dataset.app,
-            `modal-${card.dataset.app}-${selectedAppIconVariant}-${index}`,
-            48,
-            selectedAppIconVariant
-        );
+        icon.innerHTML = getAppIconSvg(card.dataset.app, `modal-${card.dataset.app}-${index}`, 48, APP_ICON_VARIANTS.line);
     });
-}
-
-function selectAppIconVariant(variant) {
-    if (!APP_ICON_VARIANTS[variant]) return;
-
-    selectedAppIconVariant = variant;
-    elements.appIconStyleOptions.forEach(button => {
-        const isActive = button.dataset.iconVariant === variant;
-        button.classList.toggle('active', isActive);
-        button.setAttribute('aria-pressed', String(isActive));
-    });
-    renderAppSelectIcons();
 }
 
 /**

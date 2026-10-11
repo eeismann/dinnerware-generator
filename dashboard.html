@@ -128,8 +128,8 @@
         <div class="modal-dashboard-content modal-dashboard-large">
             <div class="app-select-heading">
                 <div>
-                    <h2 class="modal-dashboard-title">Create a new project</h2>
-                    <p class="modal-dashboard-text">Choose a tool — you can link projects together later.</p>
+                    <h2 class="modal-dashboard-title">New Project</h2>
+                    <p class="modal-dashboard-text">Choose a tool. You can link projects together later.</p>
                 </div>
                 <button class="app-select-close" type="button" id="btnCloseAppSelect" aria-label="Close project selector">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
@@ -138,48 +138,10 @@
                     </svg>
                 </button>
             </div>
-            <div class="app-icon-style-switcher" role="group" aria-label="Icon variation">
-                <button class="app-icon-style-option active" type="button" data-icon-variant="line" aria-pressed="true">Line</button>
-                <button class="app-icon-style-option" type="button" data-icon-variant="object" aria-pressed="false">3D</button>
-                <button class="app-icon-style-option" type="button" data-icon-variant="signature" aria-pressed="false">Signal</button>
-                <button class="app-icon-style-option" type="button" data-icon-variant="plate" aria-pressed="false">Plate</button>
-            </div>
             
             <div class="app-select-grid">
                 <button class="app-select-card" data-app="dinnerware">
-                    <div class="app-select-icon">
-                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <defs>
-                                <linearGradient id="dw-top" x1="14" y1="16" x2="36" y2="32" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#B7F1FF"/>
-                                    <stop offset="1" stop-color="#1ABCFE"/>
-                                </linearGradient>
-                                <linearGradient id="dw-side" x1="16" y1="24" x2="36" y2="42" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#159FD6"/>
-                                    <stop offset="1" stop-color="#0B6FA2"/>
-                                </linearGradient>
-                                <linearGradient id="dw-bowl-top" x1="18" y1="12" x2="32" y2="22" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#D4F8FF"/>
-                                    <stop offset="1" stop-color="#64D6FF"/>
-                                </linearGradient>
-                                <linearGradient id="dw-bowl-side" x1="18" y1="18" x2="32" y2="30" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#1ABCFE"/>
-                                    <stop offset="1" stop-color="#0B6FA2"/>
-                                </linearGradient>
-                            </defs>
-                            <ellipse cx="24" cy="39" rx="16" ry="4.5" fill="#000" opacity="0.10"/>
-
-                            <!-- Plate -->
-                            <path d="M10 24c0 3.6 6.3 6.5 14 6.5S38 27.6 38 24v8c0 3.6-6.3 6.5-14 6.5S10 35.6 10 32v-8z" fill="url(#dw-side)"/>
-                            <ellipse cx="24" cy="24" rx="14" ry="6.5" fill="url(#dw-top)"/>
-                            <ellipse cx="24" cy="24" rx="8.5" ry="3.8" fill="#FFFFFF" opacity="0.22"/>
-
-                            <!-- Bowl -->
-                            <path d="M16 15.5c0 2.6 3.6 4.7 8 4.7s8-2.1 8-4.7v4.2c0 2.6-3.6 4.7-8 4.7s-8-2.1-8-4.7v-4.2z" fill="url(#dw-bowl-side)"/>
-                            <ellipse cx="24" cy="15.5" rx="8" ry="4.7" fill="url(#dw-bowl-top)"/>
-                            <ellipse cx="24" cy="15.6" rx="4.9" ry="2.9" fill="#FFFFFF" opacity="0.28"/>
-                        </svg>
-                    </div>
+                    <div class="app-select-icon" aria-hidden="true"></div>
                     <div class="app-select-info">
                         <h3 class="app-select-title">Dinnerware Set</h3>
                         <p class="app-select-description">Create plates, bowls, mugs, and more with parametric controls for a complete dinnerware collection.</p>
@@ -187,39 +149,7 @@
                 </button>
                 
                 <button class="app-select-card" data-app="handle">
-                    <div class="app-select-icon">
-                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <defs>
-                                <linearGradient id="mh-front" x1="16" y1="12" x2="32" y2="38" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#FFD1F4"/>
-                                    <stop offset="1" stop-color="#FF2AD4"/>
-                                </linearGradient>
-                                <linearGradient id="mh-side" x1="26" y1="18" x2="40" y2="38" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#FF2AD4"/>
-                                    <stop offset="1" stop-color="#A8007F"/>
-                                </linearGradient>
-                                <linearGradient id="mh-lip" x1="16" y1="13" x2="32" y2="21" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#FFFFFF" stop-opacity="0.55"/>
-                                    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.10"/>
-                                </linearGradient>
-                            </defs>
-                            <ellipse cx="24" cy="40" rx="15" ry="4.2" fill="#000" opacity="0.10"/>
-
-                            <!-- Handle (3D ring) -->
-                            <path fill-rule="evenodd" clip-rule="evenodd"
-                                d="M34.2 17.2h1.6c5.4 0 9.2 3.6 9.2 8.8v0.8c0 5.2-3.8 8.8-9.2 8.8h-1.6c-2.3 0-4.2-1.9-4.2-4.2V21.4c0-2.3 1.9-4.2 4.2-4.2Zm0.6 4.4h0.9c3.1 0 4.8 2.0 4.8 4.6v0.4c0 2.6-1.7 4.6-4.8 4.6h-0.9c-0.3 0-0.6-0.3-0.6-0.6V22.2c0-0.3 0.3-0.6 0.6-0.6Z"
-                                fill="url(#mh-side)"/>
-
-                            <!-- Cup body -->
-                            <path d="M14 14.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5V33c0 3.3-2.7 6-6 6H20c-3.3 0-6-2.7-6-6V14.5z" fill="url(#mh-front)"/>
-
-                            <!-- Lip highlight -->
-                            <path d="M16.5 14.4c0-1.4 1.1-2.5 2.5-2.5h9c1.4 0 2.5 1.1 2.5 2.5v1.5c0 0.3-0.2 0.5-0.5 0.5h-13c-0.3 0-0.5-0.2-0.5-0.5v-1.5z" fill="url(#mh-lip)"/>
-
-                            <!-- Subtle specular -->
-                            <path d="M18.4 18.2c0.8-1.8 2.6-3 4.7-3h2.0" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="2.6" stroke-linecap="round"/>
-                        </svg>
-                    </div>
+                    <div class="app-select-icon" aria-hidden="true"></div>
                     <div class="app-select-info">
                         <h3 class="app-select-title">Mug Handle</h3>
                         <p class="app-select-description">Design custom handles for your mugs. Import mug dimensions from existing dinnerware projects.</p>
@@ -227,37 +157,7 @@
                 </button>
                 
                 <button class="app-select-card" data-app="vessel">
-                    <div class="app-select-icon">
-                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <defs>
-                                <linearGradient id="vs-front" x1="16" y1="10" x2="34" y2="42" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#E6D6FF"/>
-                                    <stop offset="1" stop-color="#A259FF"/>
-                                </linearGradient>
-                                <linearGradient id="vs-side" x1="22" y1="14" x2="40" y2="42" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#A259FF"/>
-                                    <stop offset="1" stop-color="#5B2FA8"/>
-                                </linearGradient>
-                                <linearGradient id="vs-lip" x1="18" y1="10" x2="30" y2="18" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#FFFFFF" stop-opacity="0.55"/>
-                                    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.12"/>
-                                </linearGradient>
-                            </defs>
-                            <ellipse cx="24" cy="40" rx="15" ry="4.2" fill="#000" opacity="0.10"/>
-
-                            <!-- Vase body (front) -->
-                            <path d="M18 11.8c0 3.3 2.6 5.6 2.6 8.2c0 1.5-1 2.6-2.4 3.8c-2.6 2.3-4.2 5.2-4.2 9.3v1.9c0 2.4 1.9 4.3 4.3 4.3h11.4c2.4 0 4.3-1.9 4.3-4.3v-1.9c0-4.1-1.6-7-4.2-9.3c-1.4-1.2-2.4-2.3-2.4-3.8c0-2.6 2.6-4.9 2.6-8.2H18z" fill="url(#vs-front)"/>
-
-                            <!-- Side shade -->
-                            <path d="M27.8 11.8c0 3.2-2.4 5.3-2.4 8.2c0 1.9 1.3 3.1 2.8 4.4c2.2 1.9 3.4 4.3 3.4 8.7v1.9c0 2.4-1.9 4.3-4.3 4.3h2.4c2.4 0 4.3-1.9 4.3-4.3v-1.9c0-4.1-1.6-7-4.2-9.3c-1.4-1.2-2.4-2.3-2.4-3.8c0-2.6 2.6-4.9 2.6-8.2h-2.1Z" fill="url(#vs-side)" opacity="0.9"/>
-
-                            <!-- Lip highlight -->
-                            <path d="M18.6 12.2c0-1.2 1-2.2 2.2-2.2h6.4c1.2 0 2.2 1 2.2 2.2v1.3c0 0.3-0.2 0.5-0.5 0.5H19.1c-0.3 0-0.5-0.2-0.5-0.5v-1.3z" fill="url(#vs-lip)"/>
-
-                            <!-- Specular -->
-                            <path d="M19.6 20.6c1.0-2.8 3.1-4.5 6.3-4.8" stroke="#FFFFFF" stroke-opacity="0.30" stroke-width="2.8" stroke-linecap="round"/>
-                        </svg>
-                    </div>
+                    <div class="app-select-icon" aria-hidden="true"></div>
                     <div class="app-select-info">
                         <h3 class="app-select-title">Vessel</h3>
                         <p class="app-select-description">Design vessels with bezier curve controls and multi-section body.</p>
@@ -265,29 +165,7 @@
                 </button>
 
                 <button class="app-select-card" data-app="vessel-v2">
-                    <div class="app-select-icon">
-                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <defs>
-                                <linearGradient id="v2-front" x1="14" y1="8" x2="34" y2="42" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#C9F7F5"/>
-                                    <stop offset="1" stop-color="#00A6A6"/>
-                                </linearGradient>
-                                <linearGradient id="v2-pen" x1="30" y1="4" x2="43" y2="17" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#FFE7B8"/>
-                                    <stop offset="1" stop-color="#F59E0B"/>
-                                </linearGradient>
-                            </defs>
-                            <ellipse cx="24" cy="41" rx="15" ry="4" fill="#000" opacity="0.10"/>
-                            <path d="M19 10c0 4 3 6 2 10-.8 3.3-5 5.7-5 12v2.5c0 2.5 2 4.5 4.5 4.5h8c2.5 0 4.5-2 4.5-4.5V32c0-6.3-4.2-8.7-5-12-1-4 2-6 2-10H19z" fill="url(#v2-front)"/>
-                            <path d="M10 39V8" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="3 3"/>
-                            <path d="M10 39c5-1 7-4 6-8s2-9 10-12" stroke="#FFFFFF" stroke-opacity="0.72" stroke-width="2.5" stroke-linecap="round"/>
-                            <circle cx="10" cy="39" r="2" fill="#FFFFFF"/>
-                            <circle cx="16" cy="31" r="2" fill="#FFFFFF"/>
-                            <circle cx="26" cy="19" r="2" fill="#FFFFFF"/>
-                            <path d="M34 6l8 8-8 8-8-8 8-8z" fill="url(#v2-pen)"/>
-                            <path d="M31 17l-4 7 7-4" fill="#6B4A13" opacity="0.75"/>
-                        </svg>
-                    </div>
+                    <div class="app-select-icon" aria-hidden="true"></div>
                     <div class="app-select-info">
                         <h3 class="app-select-title">Vessel V2</h3>
                         <p class="app-select-description">Draw a vessel profile with pen points and bezier handles, then revolve it into a radial form.</p>
@@ -295,29 +173,7 @@
                 </button>
 
                 <button class="app-select-card" data-app="vessel-v3">
-                    <div class="app-select-icon">
-                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <defs>
-                                <linearGradient id="v3-front" x1="14" y1="8" x2="34" y2="42" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#C9F7F5"/>
-                                    <stop offset="1" stop-color="#00A6A6"/>
-                                </linearGradient>
-                                <linearGradient id="v3-pen" x1="30" y1="4" x2="43" y2="17" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#FFE7B8"/>
-                                    <stop offset="1" stop-color="#F59E0B"/>
-                                </linearGradient>
-                            </defs>
-                            <ellipse cx="24" cy="41" rx="15" ry="4" fill="#000" opacity="0.10"/>
-                            <path d="M19 10c0 4 3 6 2 10-.8 3.3-5 5.7-5 12v2.5c0 2.5 2 4.5 4.5 4.5h8c2.5 0 4.5-2 4.5-4.5V32c0-6.3-4.2-8.7-5-12-1-4 2-6 2-10H19z" fill="url(#v3-front)"/>
-                            <path d="M10 39V8" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="3 3"/>
-                            <path d="M10 39c5-1 7-4 6-8s2-9 10-12" stroke="#FFFFFF" stroke-opacity="0.72" stroke-width="2.5" stroke-linecap="round"/>
-                            <circle cx="10" cy="39" r="2" fill="#FFFFFF"/>
-                            <circle cx="16" cy="31" r="2" fill="#FFFFFF"/>
-                            <circle cx="26" cy="19" r="2" fill="#FFFFFF"/>
-                            <path d="M34 6l8 8-8 8-8-8 8-8z" fill="url(#v3-pen)"/>
-                            <path d="M31 17l-4 7 7-4" fill="#6B4A13" opacity="0.75"/>
-                        </svg>
-                    </div>
+                    <div class="app-select-icon" aria-hidden="true"></div>
                     <div class="app-select-info">
                         <h3 class="app-select-title">Vessel V3</h3>
                         <p class="app-select-description">V2's profile editor, plus a foundation for spout, lid, and handle attachments coming next.</p>
@@ -325,52 +181,7 @@
                 </button>
 
                 <button class="app-select-card" data-app="castform">
-                    <div class="app-select-icon">
-                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                            <defs>
-                                <linearGradient id="cf-outer" x1="8" y1="12" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#FFE0C2"/>
-                                    <stop offset="1" stop-color="#C45C26"/>
-                                </linearGradient>
-                                <linearGradient id="cf-inner" x1="14" y1="16" x2="34" y2="36" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#C45C26"/>
-                                    <stop offset="1" stop-color="#8B3D14"/>
-                                </linearGradient>
-                                <linearGradient id="cf-wall1" x1="8" y1="20" x2="20" y2="36" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#B8D4B0"/>
-                                    <stop offset="1" stop-color="#7D9B76"/>
-                                </linearGradient>
-                                <linearGradient id="cf-wall2" x1="28" y1="20" x2="40" y2="36" gradientUnits="userSpaceOnUse">
-                                    <stop stop-color="#A8C8D8"/>
-                                    <stop offset="1" stop-color="#6B8BA4"/>
-                                </linearGradient>
-                            </defs>
-                            <ellipse cx="24" cy="42" rx="16" ry="3.5" fill="#000" opacity="0.10"/>
-                            
-                            <!-- Foot mold (bottom center) -->
-                            <ellipse cx="24" cy="38" rx="12" ry="4" fill="url(#cf-outer)"/>
-                            <ellipse cx="24" cy="38" rx="8" ry="2.5" fill="url(#cf-inner)"/>
-                            
-                            <!-- Wall segment 1 (left) -->
-                            <path d="M8 18c0-2 1.5-3.5 3.5-3.5h6c1 0 2 .8 2 1.8v16c0 1.5-1.2 2.7-2.7 2.7H11c-1.7 0-3-1.3-3-3V18z" fill="url(#cf-wall1)"/>
-                            
-                            <!-- Wall segment 2 (right) -->
-                            <path d="M28.5 14.5h6c2 0 3.5 1.5 3.5 3.5v14c0 1.7-1.3 3-3 3h-5.8c-1.5 0-2.7-1.2-2.7-2.7v-16c0-1 1-1.8 2-1.8z" fill="url(#cf-wall2)"/>
-                            
-                            <!-- Wall segment 3 (center back, implied) -->
-                            <path d="M17 12h14v2H17z" fill="#9C9588" opacity="0.7"/>
-                            
-                            <!-- Separation lines -->
-                            <line x1="20" y1="14" x2="20" y2="35" stroke="#FFF" stroke-width="1.5" opacity="0.4"/>
-                            <line x1="28" y1="14" x2="28" y2="35" stroke="#FFF" stroke-width="1.5" opacity="0.4"/>
-                            
-                            <!-- Registration key dots -->
-                            <circle cx="20" cy="22" r="2" fill="#D4A84B"/>
-                            <circle cx="28" cy="22" r="2" fill="#D4A84B"/>
-                            <circle cx="20" cy="30" r="2" fill="#D4A84B"/>
-                            <circle cx="28" cy="30" r="2" fill="#D4A84B"/>
-                        </svg>
-                    </div>
+                    <div class="app-select-icon" aria-hidden="true"></div>
                     <div class="app-select-info">
                         <h3 class="app-select-title">Cast Form</h3>
                         <p class="app-select-description">Generate 4-part slip casting molds from vessels. Includes registration keys.</p>

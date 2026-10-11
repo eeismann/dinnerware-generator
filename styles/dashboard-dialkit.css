@@ -514,41 +514,6 @@ body.dk-dashboard {
     height: 14px;
 }
 
-/* Icon style: a DialKit segmented control */
-.dk-dashboard .app-icon-style-switcher {
-    display: inline-flex;
-    gap: 2px;
-    margin: 0 0 10px 6px;
-    padding: 2px;
-    border: none;
-    border-radius: 7px;
-    background: var(--dk-surface);
-}
-
-.dk-dashboard .app-icon-style-option {
-    height: 26px;
-    padding: 0 10px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--dk-text-tertiary);
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 500;
-    box-shadow: none;
-}
-
-.dk-dashboard .app-icon-style-option:hover {
-    color: var(--dk-text-root);
-    background: transparent;
-}
-
-.dk-dashboard .app-icon-style-option.active {
-    background: var(--dk-surface-hover);
-    color: var(--dk-text-root);
-    box-shadow: none;
-}
-
 /* Apps: DialKit rows with an icon */
 .dk-dashboard .app-select-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -594,13 +559,24 @@ body.dk-dashboard {
 }
 
 .dk-dashboard .app-select-card:hover .app-select-icon {
+    background: var(--dk-surface-hover);
     transform: none;
     box-shadow: none;
 }
 
 .dk-dashboard .app-select-icon svg {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
+}
+
+/* Single-ink app icons (appIcons.js sets each app's colour inline) */
+.dk-dashboard .app-select-icon .pc-app-icon,
+.dk-dashboard .card-app-icon .pc-app-icon {
+    color: var(--dk-text-label) !important;
+}
+
+.dk-dashboard .app-select-card:hover .app-select-icon .pc-app-icon {
+    color: var(--dk-text-root) !important;
 }
 
 .dk-dashboard .app-select-info {
