@@ -1,0 +1,501 @@
+/* ================================================
+   DialKit chrome: Handle Designer
+   Page-specific pieces on top of dialkit-chrome.css: the left-hand readout
+   cards (source, warnings, mold kit, cross-section preview), viewport
+   dimension labels and the source / export dialog contents.
+   ================================================ */
+
+[hidden] {
+    display: none !important;
+}
+
+body {
+    background: var(--dk-page-bg);
+}
+
+/* No accent glow behind the DialKit chrome */
+body::after {
+    display: none;
+}
+
+.viewport-container {
+    background: var(--dk-page-bg);
+}
+
+/* ---------- Readout cards (left side) ---------- */
+
+.hd-readouts {
+    position: absolute;
+    left: 12px;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 220px;
+    font-family: var(--dk-font);
+    -webkit-font-smoothing: antialiased;
+    pointer-events: none;
+}
+
+.hd-readouts-top {
+    top: 12px;
+}
+
+.hd-readouts-bottom {
+    bottom: 12px;
+}
+
+.hd-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px;
+    box-sizing: border-box;
+    background: var(--dk-glass-bg);
+    border: 1px solid var(--dk-border);
+    border-radius: 14px;
+    box-shadow: var(--dk-shadow);
+    color: var(--dk-text-label);
+    font-size: 13px;
+    pointer-events: auto;
+}
+
+.hd-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 24px;
+    padding: 0 0 0 6px;
+}
+
+.hd-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--dk-text-root);
+}
+
+.hd-card .dk-chip:focus-visible,
+.hd-card button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--dk-focus-ring);
+}
+
+/* Source */
+.mug-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+}
+
+.mug-info-name {
+    overflow: hidden;
+    font-weight: 500;
+    color: var(--dk-text-root);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mug-info-dims {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 2px 0 0;
+}
+
+.mug-info-dims dt {
+    font-size: 11px;
+    color: var(--dk-text-tertiary);
+}
+
+.mug-info-dims dd {
+    margin: 0;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--dk-text-root);
+    white-space: nowrap;
+}
+
+/* Warnings: each row reveals its control in the dials */
+.warnings-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.warning-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: var(--dk-radius);
+    background: rgba(245, 166, 35, 0.12);
+    color: #f5a623;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.warning-item:hover {
+    background: rgba(245, 166, 35, 0.2);
+}
+
+.warning-item.severity-error {
+    background: var(--dk-danger-surface);
+    color: var(--dk-danger);
+}
+
+.warning-item svg {
+    flex: none;
+    margin-top: 2px;
+}
+
+.warning-item-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.warning-item-title {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.warning-item-message {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--dk-text-label);
+}
+
+[data-mode="light"] .warning-item:not(.severity-error) {
+    color: #b26a00;
+}
+
+/* Mold kit and handle size readouts */
+.hd-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+}
+
+.hd-stat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.hd-stat dt {
+    color: var(--dk-text-label);
+}
+
+.hd-stat dd,
+.handle-dimensions-summary {
+    margin: 0;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--dk-text-root);
+    white-space: nowrap;
+}
+
+.mold-fit-status {
+    padding: 2px 6px 4px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--dk-text-tertiary);
+}
+
+.mold-fit-status.warning {
+    color: var(--dk-danger);
+}
+
+/* Cross-section preview */
+.cross-section-inset canvas {
+    align-self: center;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+}
+
+/* ---------- Viewport dimension labels ---------- */
+
+.dimension-label {
+    gap: 6px;
+    padding: 3px 8px;
+    border: 1px solid var(--dk-border);
+    border-radius: 6px;
+    background: var(--dk-glass-bg);
+    box-shadow: var(--dk-shadow-dropdown);
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--dk-text-root);
+}
+
+.dimension-label::before {
+    width: 8px;
+    height: 1.5px;
+    background: var(--dk-text-tertiary);
+}
+
+/* ---------- Loading spinner and toast ---------- */
+
+.loading-spinner {
+    background: var(--dk-glass-bg);
+    border: 1px solid var(--dk-border);
+    border-radius: 14px;
+    box-shadow: var(--dk-shadow);
+    font-family: var(--dk-font);
+}
+
+.spinner {
+    border-color: var(--dk-border);
+    border-top-color: var(--dk-text-root);
+}
+
+.dk-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    z-index: 10000;
+    padding: 9px 14px;
+    background: var(--dk-glass-bg);
+    border: 1px solid var(--dk-border);
+    border-radius: var(--dk-radius);
+    box-shadow: var(--dk-shadow-dropdown);
+    color: var(--dk-text-root);
+    font-family: var(--dk-font);
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 12px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.dk-toast.visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+/* ---------- Source picker ---------- */
+
+.dk-modal .modal-content.modal-large {
+    max-width: 460px;
+}
+
+.dk-modal .import-source-selector {
+    display: flex;
+    cursor: default;
+}
+
+.dk-modal .import-source-btn {
+    flex: 1;
+    height: 30px;
+    padding: 0 8px;
+    border-radius: 6px;
+    color: var(--dk-text-label);
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+}
+
+.dk-modal .import-source-btn:hover {
+    color: var(--dk-text-root);
+}
+
+.dk-modal .modal-description {
+    margin: 0;
+    padding: 2px 8px 4px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-modal .project-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: min(46vh, 340px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.dk-modal .project-list-item {
+    width: 100%;
+    min-height: 48px;
+    padding: 6px 12px;
+    border: none;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.dk-modal .project-list-item:hover {
+    background: var(--dk-surface-hover);
+}
+
+.dk-modal .project-list-item[aria-disabled="true"] {
+    cursor: not-allowed;
+}
+
+.dk-modal .project-list-item[aria-disabled="true"] .project-list-item-name {
+    color: var(--dk-text-tertiary);
+}
+
+.dk-modal .project-list-item-icon {
+    display: flex;
+    flex: none;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-modal .project-list-item-info {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.dk-modal .project-list-item-name {
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-root);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dk-modal .project-list-item-meta {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-modal .project-list-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 12px;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    color: var(--dk-text-tertiary);
+    text-align: center;
+}
+
+.dk-modal .project-list-empty svg {
+    opacity: 0.7;
+}
+
+.dk-modal .project-list-empty p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.dk-modal .import-alternative {
+    justify-content: space-between;
+    padding: 0 6px 0 12px;
+}
+
+.dk-modal .import-alternative .dk-row-label {
+    cursor: default;
+}
+
+/* ---------- Export dialog ---------- */
+
+.dk-modal .export-file-row .dk-row-label {
+    flex: none;
+    cursor: default;
+}
+
+.dk-modal .export-filename {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: var(--dk-text-root);
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dk-modal .export-note {
+    margin: 0;
+    padding: 0 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-modal .export-error {
+    margin: 4px 0 0;
+    padding: 9px 12px;
+    border-radius: var(--dk-radius);
+    background: var(--dk-danger-surface);
+    color: var(--dk-danger);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* Progress reads like a DialKit slider filling */
+.dk-modal .export-progress {
+    margin-top: 6px;
+}
+
+.dk-modal .progress-bar.dk-row {
+    height: 36px;
+    padding: 0 12px;
+    border: none;
+    background: var(--dk-surface);
+}
+
+.dk-modal .progress-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0;
+    height: auto;
+    border-radius: 0;
+    background: var(--dk-surface-hover);
+    transition: width 0.2s ease;
+}
+
+.dk-modal .progress-text {
+    position: relative;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-root);
+}
+
+@media (max-width: 900px) {
+    .hd-readouts {
+        width: 180px;
+    }
+}
+
+@media (max-width: 600px) {
+    .hd-readouts-top {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dk-toast {
+        transition: none;
+    }
+}

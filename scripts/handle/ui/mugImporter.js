@@ -333,7 +333,7 @@ export function importMugFromProject(projectId) {
         
         const mugData = {
             loaded: true,
-            projectName: project.name,
+            projectName: project.projectName || project.name,
             projectId: project.id,
             sourceType: 'dinnerware',
             radiusProfile: null,
@@ -457,10 +457,15 @@ const IMPORT_SOURCES = {
  * Show the mug/vessel import modal and return the selected attachment data.
  * Supports three source types (Dinnerware Mug, Vessel V2, Vessel V3) via a
  * source-type selector; switching sources re-renders the same project list
- * UI against the corresponding project set.
+ * UI against the corresponding project set. Closing the dialog any other way
+ * (Cancel, close button, backdrop, Escape) resolves null.
+ * @param {Object} [options]
+ * @param {string} [options.cancelLabel] - Label for the dismiss button
  * @returns {Promise<Object|null>} The selected data or null if cancelled
  */
-export function showMugImportModal() {
+export async function showMugImportModal({ cancelLabel = 'Cancel' } = {}) {
+    // Loaded on demand: headless gates import this module without a DOM
+    const { openDialog, closeDialog } = await import('../../ui/accessibility.js');
     return new Promise((resolve) => {
         const modal = document.getElementById('mugImportModal');
         const projectList = document.getElementById('mugProjectList');
@@ -468,23 +473,22 @@ export function showMugImportModal() {
         const fileImportRow = document.getElementById('mugImportFromFileRow');
         const sourceButtons = Array.from(document.querySelectorAll('#importSourceSelector .import-source-btn'));
         const cancelBtn = document.getElementById('btnCancelMugImport');
-        const closeBtn = document.getElementById('btnCloseMugImportModal');
         const importFromFileBtn = document.getElementById('btnImportMugFromFile');
-        const backdrop = modal.querySelector('.modal-backdrop');
 
         let currentSource = 'dinnerware';
+        let result = null;
 
         const renderProjectList = (sourceKey) => {
             const source = IMPORT_SOURCES[sourceKey];
             const projects = source.getProjects();
 
             if (descriptionEl) descriptionEl.textContent = source.description;
-            if (fileImportRow) fileImportRow.style.display = source.allowFileImport ? '' : 'none';
+            if (fileImportRow) fileImportRow.hidden = !source.allowFileImport;
 
             if (projects.length === 0) {
                 projectList.innerHTML = `
                     <div class="project-list-empty">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
                             <rect x="6" y="4" width="10" height="14" rx="2"/>
                             <path d="M16 8h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2"/>
                         </svg>
@@ -495,21 +499,20 @@ export function showMugImportModal() {
             }
 
             projectList.innerHTML = projects.map(project => `
-                <div class="project-list-item" data-project-id="${escapeHtml(String(project.id))}" aria-disabled="${project.compatible === false}">
-                    <div class="project-list-item-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <button type="button" class="dk-row project-list-item" data-project-id="${escapeHtml(String(project.id))}" aria-disabled="${project.compatible === false}">
+                    <span class="project-list-item-icon" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="6" y="4" width="10" height="14" rx="2"/>
                             <path d="M16 8h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2"/>
                         </svg>
-                    </div>
-                    <div class="project-list-item-info">
-                        <div class="project-list-item-name">${escapeHtml(project.name)}</div>
-                        <div class="project-list-item-meta">
-                            ${escapeHtml(project.incompatibilityReason || source.formatMeta(project))}
-                            ${project.modifiedAt ? ` • ${formatDate(project.modifiedAt)}` : ''}
-                        </div>
-                    </div>
-                </div>
+                    </span>
+                    <span class="project-list-item-info">
+                        <span class="project-list-item-name">${escapeHtml(project.name)}</span>
+                        <span class="project-list-item-meta">
+                            ${escapeHtml(project.incompatibilityReason || source.formatMeta(project))}${project.modifiedAt ? ` · ${formatDate(project.modifiedAt)}` : ''}
+                        </span>
+                    </span>
+                </button>
             `).join('');
 
             // Add click handlers to project items
@@ -527,57 +530,23 @@ export function showMugImportModal() {
                         if (descriptionEl) descriptionEl.textContent = 'This project could not be imported. Check its profile and try again.';
                         return;
                     }
-                    closeModal();
-                    resolve(importedData);
+                    result = importedData;
+                    closeDialog(modal);
                 });
             });
         };
 
-        const handleSourceButtonClick = (btn) => {
-            sourceButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentSource = btn.dataset.source;
+        const selectSource = (sourceKey) => {
+            currentSource = sourceKey;
+            sourceButtons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.source === currentSource)));
             renderProjectList(currentSource);
         };
 
         const sourceButtonHandlers = sourceButtons.map(btn => {
-            const handler = () => handleSourceButtonClick(btn);
+            const handler = () => selectSource(btn.dataset.source);
             btn.addEventListener('click', handler);
             return { btn, handler };
         });
-
-        // Reset to the default source each time the modal is opened
-        sourceButtons.forEach(b => b.classList.toggle('active', b.dataset.source === currentSource));
-        renderProjectList(currentSource);
-
-        // Close modal handlers
-        const closeModal = () => {
-            modal.style.display = 'none';
-            cleanup();
-        };
-
-        const cleanup = () => {
-            cancelBtn.removeEventListener('click', handleCancel);
-            closeBtn.removeEventListener('click', handleClose);
-            backdrop.removeEventListener('click', handleBackdropClick);
-            importFromFileBtn.removeEventListener('click', handleImportFromFile);
-            sourceButtonHandlers.forEach(({ btn, handler }) => btn.removeEventListener('click', handler));
-        };
-
-        const handleCancel = () => {
-            closeModal();
-            resolve(null);
-        };
-
-        const handleClose = () => {
-            closeModal();
-            resolve(null);
-        };
-
-        const handleBackdropClick = () => {
-            closeModal();
-            resolve(null);
-        };
 
         const handleImportFromFile = () => {
             const input = document.createElement('input');
@@ -588,26 +557,32 @@ export function showMugImportModal() {
                 const file = e.target.files[0];
                 if (file) {
                     try {
-                        const mugData = await importMugFromFile(file);
-                        closeModal();
-                        resolve(mugData);
+                        result = await importMugFromFile(file);
+                        closeDialog(modal);
                     } catch (error) {
-                        alert(error.message);
+                        if (descriptionEl) descriptionEl.textContent = error.message;
                     }
                 }
             };
 
             input.click();
         };
-
-        // Attach handlers
-        cancelBtn.addEventListener('click', handleCancel);
-        closeBtn.addEventListener('click', handleClose);
-        backdrop.addEventListener('click', handleBackdropClick);
         importFromFileBtn.addEventListener('click', handleImportFromFile);
 
-        // Show modal
-        modal.style.display = 'flex';
+        // Resolve once the dialog closes, however it was closed
+        const observer = new MutationObserver(() => {
+            if (!modal.hidden) return;
+            observer.disconnect();
+            importFromFileBtn.removeEventListener('click', handleImportFromFile);
+            sourceButtonHandlers.forEach(({ btn, handler }) => btn.removeEventListener('click', handler));
+            resolve(result);
+        });
+
+        // Reset to the default source each time the modal is opened
+        cancelBtn.textContent = cancelLabel;
+        selectSource(currentSource);
+        openDialog(modal);
+        observer.observe(modal, { attributes: true, attributeFilter: ['hidden'] });
     });
 }
 
