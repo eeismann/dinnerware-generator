@@ -13,7 +13,6 @@ import { MotifPreview } from './ui/motifPreview.js';
 import { VesselViewport } from '../vessel/ui/vesselViewport.js';
 import { init as initThemeManager } from '../ui/themeManager.js';
 import { openDialog, closeDialog } from '../ui/accessibility.js';
-import { initVesselV3Dials, wallSegments } from '../ui/dialkit/vesselV3Dials.js';
 import { initDkMenu, initPanelToggle } from '../ui/dialkit/dkChrome.js';
 import { getDefaultMotif } from '../geometry/surfacePatternOptions.js';
 
@@ -50,7 +49,7 @@ class VesselV3App {
 
         this.initViewport();
         this.initProfileEditor();
-        this.initDials();
+        await this.initDials();
         this.motifPreview = new MotifPreview(document.getElementById('motifStrip'),
             () => this.dials.activeSegmentId());
         this.bindHeaderButtons();
@@ -91,7 +90,10 @@ class VesselV3App {
      * through vesselV3State; profile edits made during a slider drag skip
      * history and commit as one undo step on release.
      */
-    initDials() {
+    async initDials() {
+        // Loaded on demand: the DialKit host imports CSS, and Node gates import this module
+        this.dialsModule = await import('../ui/dialkit/vesselV3Dials.js');
+        const { initVesselV3Dials } = this.dialsModule;
         this.dials = initVesselV3Dials({
             container: document.getElementById('parameterPanel'),
             setGlobal: (param, value) => vesselV3State.setState(`global.${param}`, value, { history: false }),
@@ -151,7 +153,7 @@ class VesselV3App {
 
     /** Copy one segment's motif to its wall neighbours or to every wall segment. */
     copyMotif(segmentId, scope) {
-        const segments = wallSegments();
+        const segments = this.dialsModule.wallSegments();
         const position = segments.findIndex((segment) => segment.id === segmentId);
         if (position < 0) return;
         const targets = scope === 'all'
