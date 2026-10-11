@@ -1,0 +1,576 @@
+/* ================================================
+   DialKit chrome: Cast Form Generator
+   Page-specific pieces on top of dialkit-chrome.css: the parameter card's
+   source / material / warning cards, viewport overlays (legend, status,
+   case box readout, start card) and dialog contents.
+   ================================================ */
+
+body {
+    background: var(--dk-page-bg);
+    font-family: var(--dk-font);
+}
+
+.dk-header .unsaved-indicator {
+    color: var(--dk-text-label);
+    line-height: 1;
+}
+
+.dk-header .project-name {
+    padding: 2px 6px;
+    border-radius: 6px;
+    outline: none;
+    cursor: text;
+}
+
+/* ---------- Parameter card ---------- */
+
+.cf-card {
+    margin: 8px 12px;
+    padding: 10px 12px;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    color: var(--dk-text-label);
+    font-family: var(--dk-font);
+    font-size: 13px;
+    -webkit-font-smoothing: antialiased;
+}
+
+.cf-card[hidden] {
+    display: none;
+}
+
+.cf-card-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.cf-card-title {
+    font-weight: 500;
+    color: var(--dk-text-label);
+}
+
+.cf-card-note {
+    display: block;
+    margin: 6px 0 0;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--dk-text-tertiary);
+}
+
+.cf-card-note[hidden] {
+    display: none;
+}
+
+/* Source: what the mold is cast from */
+.cf-source {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 8px 8px 12px;
+}
+
+.cf-source-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1.5px solid var(--dk-text-tertiary);
+}
+
+.cf-source.loaded .cf-source-dot {
+    border-color: #2fbf71;
+    background: #2fbf71;
+}
+
+.cf-source.error .cf-source-dot {
+    border-color: var(--dk-danger);
+    background: var(--dk-danger);
+}
+
+.cf-source-text {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.cf-source-name {
+    overflow: hidden;
+    font-weight: 500;
+    color: var(--dk-text-root);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cf-source.error .cf-source-name {
+    color: var(--dk-danger);
+}
+
+.cf-source-meta {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--dk-text-tertiary);
+}
+
+.cf-source-btn {
+    flex: none;
+    height: 28px;
+    padding: 0 10px;
+    background: var(--dk-surface);
+}
+
+/* Polymer volume */
+.cf-material-total {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--dk-text-root);
+}
+
+.cf-material.is-empty .cf-material-total {
+    color: var(--dk-text-tertiary);
+}
+
+.cf-material-breakdown {
+    width: 100%;
+    margin-top: 8px;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.cf-material-breakdown[hidden] {
+    display: none;
+}
+
+.cf-material-breakdown td {
+    padding: 3px 0;
+    border-top: 1px solid var(--dk-border);
+    color: var(--dk-text-label);
+}
+
+.cf-material-breakdown td:last-child {
+    text-align: right;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--dk-text-root);
+}
+
+/* Warnings */
+.cf-count {
+    min-width: 20px;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: rgba(245, 166, 35, 0.16);
+    color: #d48806;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.cf-warning-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.cf-warning-list li {
+    position: relative;
+    padding-left: 14px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--dk-text-label);
+}
+
+.cf-warning-list li::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 2px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f5a623;
+}
+
+.cf-warning-list li.severity-error::before {
+    background: var(--dk-danger);
+}
+
+.cf-warning-list li.severity-info::before {
+    background: var(--dk-text-tertiary);
+}
+
+/* ---------- Viewport overlays ---------- */
+
+.part-legend,
+.casebox-readout,
+.casebox-banner,
+.cf-status {
+    border: 1px solid var(--dk-border);
+    background: var(--dk-glass-bg);
+    box-shadow: var(--dk-shadow-dropdown);
+    color: var(--dk-text-label);
+    font-family: var(--dk-font);
+    -webkit-font-smoothing: antialiased;
+}
+
+.part-legend {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 10px;
+}
+
+.part-legend:empty {
+    display: none;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px 5px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.legend-item:hover {
+    background: var(--dk-surface-hover);
+    color: var(--dk-text-root);
+}
+
+.legend-item.selected {
+    background: var(--dk-surface-active);
+    color: var(--dk-text-root);
+}
+
+.legend-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+}
+
+.casebox-banner {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.casebox-readout {
+    width: 340px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+.casebox-readout td {
+    padding: 3px 0;
+    vertical-align: top;
+}
+
+.casebox-readout td:first-child {
+    white-space: nowrap;
+}
+
+.casebox-readout td:last-child {
+    padding-left: 12px;
+    color: var(--dk-text-root);
+}
+
+/* Status: last generation message, and the warnings count */
+.cf-status {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100% - 380px);
+    min-height: 28px;
+    padding: 0 4px 0 12px;
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+.cf-status .status-text {
+    overflow: hidden;
+    padding-right: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cf-warning-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    margin-right: 0;
+    padding: 0 8px;
+    border: none;
+    border-radius: 6px;
+    background: rgba(245, 166, 35, 0.16);
+    color: #d48806;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Loading */
+.loading-overlay {
+    z-index: 20;
+    background: color-mix(in srgb, var(--dk-page-bg) 55%, transparent);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+.loading-spinner {
+    border: 3px solid var(--dk-surface-hover);
+    border-top-color: var(--dk-text-root);
+}
+
+.loading-text {
+    font-family: var(--dk-font);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-label);
+}
+
+/* Start card: the dialog frame, inline over the empty canvas */
+.cf-empty {
+    position: absolute;
+    inset: 0;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-right: 332px;
+    pointer-events: none;
+}
+
+.params-hidden .cf-empty {
+    padding-right: 0;
+}
+
+.cf-empty[hidden] {
+    display: none;
+}
+
+.cf-empty .modal-content {
+    pointer-events: auto;
+    animation: none;
+}
+
+.cf-empty .modal-header {
+    padding: 8px 8px 6px;
+}
+
+.dk-modal .modal-body > p.cf-empty-hint {
+    color: var(--dk-text-tertiary);
+    font-size: 12px;
+}
+
+.cf-empty-hint strong {
+    font-weight: 500;
+    color: var(--dk-text-label);
+}
+
+/* Debug legend (written inline by castFormViewport.js): clear of the card */
+#debug-legend {
+    top: auto !important;
+    right: auto !important;
+    bottom: 52px;
+    left: 12px;
+}
+
+/* ---------- Dialogs ---------- */
+
+.dk-modal .modal-content.load-modal {
+    max-width: 480px;
+}
+
+/* Export files: one row per STL */
+.dk-modal .export-files {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: min(46vh, 340px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.dk-modal .export-file-item {
+    gap: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.dk-modal .export-file-item:hover {
+    background: var(--dk-surface-hover);
+}
+
+.dk-modal .export-file-item:has(.dk-check:not(:checked)) .file-name,
+.dk-modal .export-file-item:has(.dk-check:not(:checked)) .file-icon {
+    opacity: 0.45;
+}
+
+.dk-modal .file-icon {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+}
+
+.dk-modal .file-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px;
+    color: var(--dk-text-root);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dk-modal .modal-footer .dk-btn {
+    white-space: nowrap;
+}
+
+.dk-check {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    border: 1.5px solid var(--dk-text-tertiary);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    display: grid;
+    place-content: center;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.dk-check::after {
+    content: '';
+    width: 8px;
+    height: 4px;
+    margin-top: -2px;
+    border-left: 2px solid var(--dk-glass-bg);
+    border-bottom: 2px solid var(--dk-glass-bg);
+    transform: rotate(-45deg) scale(0);
+    transition: transform 0.15s;
+}
+
+.dk-check:checked {
+    background: var(--dk-text-root);
+    border-color: var(--dk-text-root);
+}
+
+.dk-check:checked::after {
+    transform: rotate(-45deg) scale(1);
+}
+
+/* Saved projects */
+.dk-modal .project-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: min(56vh, 420px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.dk-modal .project-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 6px;
+    border: none;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    color: var(--dk-text-label);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.dk-modal .project-item:hover {
+    background: var(--dk-surface-hover);
+}
+
+.dk-modal .project-thumbnail {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    overflow: hidden;
+    border-radius: 6px;
+    background: var(--dk-surface);
+}
+
+.dk-modal .project-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.dk-modal .project-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.dk-modal .project-info .name {
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-root);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dk-modal .project-info .date {
+    font-size: 11px;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-modal .no-projects {
+    padding: 16px 8px;
+    text-align: center;
+    color: var(--dk-text-tertiary);
+}
+
+@media (max-width: 900px) {
+    .cf-empty {
+        padding-right: 0;
+    }
+
+    .cf-status {
+        max-width: calc(100% - 24px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dk-modal .modal-content,
+    .loading-spinner {
+        animation: none;
+    }
+}
