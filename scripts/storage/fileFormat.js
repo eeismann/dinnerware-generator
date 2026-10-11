@@ -18,7 +18,7 @@ export class ProjectFileFormat {
     /**
      * Serialize project data to enhanced JSON format
      * @param {Object} project - Project data from localStorage
-     * @param {string} appType - 'dinnerware', 'handle', 'vessel', or 'castform'
+     * @param {string} appType - 'dinnerware', 'handle', 'vessel', 'vessel-v2', or 'castform'
      * @returns {Object} Enhanced JSON structure
      */
     static serialize(project, appType) {
@@ -66,7 +66,7 @@ export class ProjectFileFormat {
             fileFormat: data.fileFormat,
             project: data.project,
             state: data.state,
-            metadata: data.metadata
+            metadata: data.metadata || {}
         };
     }
 
@@ -133,12 +133,15 @@ export class ProjectFileFormat {
      */
     static validate(data) {
         const errors = [];
+        if (!data || typeof data !== 'object' || Array.isArray(data)) return ['Expected a project object'];
 
         // Check for enhanced format
         if (data.fileFormat?.type === this.TYPE) {
             // Enhanced format validation
             if (!data.fileFormat.version) {
                 errors.push('Missing fileFormat.version');
+            } else if (!/^1(?:\.|$)/.test(data.fileFormat.version)) {
+                errors.push('Unsupported file format version');
             }
             if (!data.fileFormat.appType) {
                 errors.push('Missing fileFormat.appType');
@@ -152,10 +155,24 @@ export class ProjectFileFormat {
         } else {
             // Legacy format validation
             // Must have at least a state or project structure
-            if (!data.state && !data.globalParameters && !data.version && !data.project) {
+            if (!data.state && !data.globalParameters && !data.profile && !data.version && !data.project) {
                 errors.push('Unrecognized file format');
             }
         }
+
+        const appType = this._detectAppType(data);
+        const state = data.state || data;
+        const object = value => !!value && typeof value === 'object' && !Array.isArray(value);
+        const validState = {
+            dinnerware: object(state.globalParameters),
+            vessel: object(state.sections) || Array.isArray(state.sections),
+            'vessel-v2': Array.isArray(state.profile?.points),
+            'vessel-v3': Array.isArray(state.profile?.points),
+            handle: object(state.handleParams),
+            castform: object(state.params)
+        };
+        if (!(appType in validState)) errors.push('Unsupported or unrecognized project type');
+        else if (!validState[appType]) errors.push(`Missing ${appType} state data`);
 
         return errors;
     }
@@ -166,7 +183,7 @@ export class ProjectFileFormat {
      * @returns {string} 'enhanced' or 'legacy'
      */
     static detectFormat(data) {
-        if (data.fileFormat?.type === this.TYPE) {
+        if (data?.fileFormat?.type === this.TYPE) {
             return 'enhanced';
         }
         return 'legacy';
@@ -185,13 +202,22 @@ export class ProjectFileFormat {
         // Detect from state structure
         const state = data.state || data;
 
+        if (state.appType === 'vessel-v3' || (Array.isArray(state.profile?.points) && (state.spout || state.lid))) {
+            return 'vessel-v3';
+        }
+
         // Dinnerware: has globalParameters, itemRatios, itemMultipliers
-        if (state.globalParameters && state.itemRatios && state.itemMultipliers) {
+        if (state.globalParameters) {
             return 'dinnerware';
         }
 
+        // Vessel V2: pen-drawn profile points
+        if (state.appType === 'vessel-v2' || Array.isArray(state.profile?.points)) {
+            return 'vessel-v2';
+        }
+
         // Vessel: has sections array and version
-        if (state.sections && Array.isArray(state.sections) && state.version) {
+        if (state.sections && typeof state.sections === 'object') {
             return 'vessel';
         }
 
@@ -205,8 +231,7 @@ export class ProjectFileFormat {
             return 'castform';
         }
 
-        // Default fallback
-        return 'dinnerware';
+        return null;
     }
 
     /**
@@ -230,6 +255,10 @@ export class ProjectFileFormat {
             if (state.sections) {
                 return state.sections.length;
             }
+        }
+
+        if (appType === 'vessel-v2' || appType === 'vessel-v3') {
+            return state.profile?.points?.length || 0;
         }
 
         return 0;

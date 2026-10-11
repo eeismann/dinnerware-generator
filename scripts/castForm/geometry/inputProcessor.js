@@ -7,6 +7,8 @@ import * as THREE from 'three';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { getEdgeValenceStats } from '../../geometry/meshQuality.js';
+import { Z_UP_HEADER_TAG } from '../../geometry/stlCore.js';
 
 export class InputProcessor {
     
@@ -25,6 +27,8 @@ export class InputProcessor {
             if (extension === 'stl') {
                 const loader = new STLLoader();
                 geometry = loader.parse(arrayBuffer);
+                // Platform exports saved Z-up for slicers come back upright
+                if (this.isTaggedZUp(arrayBuffer)) geometry.rotateX(-Math.PI / 2);
             } else if (extension === 'obj') {
                 const loader = new OBJLoader();
                 const text = new TextDecoder().decode(arrayBuffer);
@@ -38,6 +42,17 @@ export class InputProcessor {
         }
         
         return this.processGeometry(geometry);
+    }
+
+    /**
+     * Whether an STL was written by this platform in the Z-up frame. Both the
+     * binary header and the ASCII solid name carry the tag in their first
+     * 80 bytes.
+     * @param {ArrayBuffer} arrayBuffer
+     */
+    static isTaggedZUp(arrayBuffer) {
+        const head = new Uint8Array(arrayBuffer, 0, Math.min(80, arrayBuffer.byteLength));
+        return String.fromCharCode(...head).includes(Z_UP_HEADER_TAG);
     }
 
     /**
@@ -83,23 +98,23 @@ export class InputProcessor {
         // Recompute bounds after centering
         geometry.computeBoundingBox();
         
-        // Validate geometry
-        const validation = this.validateGeometry(geometry);
-        if (!validation.isValid) {
-            errors.push(...validation.errors);
-        }
-        
         // Compute normals if missing
         if (!geometry.getAttribute('normal')) {
             geometry.computeVertexNormals();
         }
         
-        // Merge duplicate vertices for cleaner geometry
+        // Merge duplicate vertices before validation for robust manifold checks.
         try {
             geometry = mergeVertices(geometry);
             geometry.computeVertexNormals();
         } catch (e) {
             // Non-critical, continue with original geometry
+        }
+
+        // Validate geometry
+        const validation = this.validateGeometry(geometry);
+        if (!validation.isValid) {
+            errors.push(...validation.errors);
         }
         
         return { geometry, errors };
@@ -163,47 +178,8 @@ export class InputProcessor {
      * @returns {{isManifold: boolean, nonManifoldEdgeCount: number}}
      */
     static checkManifold(geometry) {
-        const position = geometry.getAttribute('position');
-        const index = geometry.getIndex();
-        
-        const edgeMap = new Map();
-        const triangleCount = index 
-            ? index.count / 3 
-            : position.count / 3;
-        
-        // Build edge map
-        for (let i = 0; i < triangleCount; i++) {
-            const idx = i * 3;
-            
-            let i0, i1, i2;
-            if (index) {
-                i0 = index.getX(idx);
-                i1 = index.getX(idx + 1);
-                i2 = index.getX(idx + 2);
-            } else {
-                i0 = idx;
-                i1 = idx + 1;
-                i2 = idx + 2;
-            }
-            
-            // Create edge keys (sorted to be direction-independent)
-            const edges = [
-                [Math.min(i0, i1), Math.max(i0, i1)],
-                [Math.min(i1, i2), Math.max(i1, i2)],
-                [Math.min(i2, i0), Math.max(i2, i0)]
-            ];
-            
-            edges.forEach(([a, b]) => {
-                const key = `${a}-${b}`;
-                edgeMap.set(key, (edgeMap.get(key) || 0) + 1);
-            });
-        }
-        
-        // Count non-manifold edges (should have exactly 2 adjacent faces)
-        let nonManifoldEdgeCount = 0;
-        edgeMap.forEach((count) => {
-            if (count !== 2) nonManifoldEdgeCount++;
-        });
+        const edgeStats = getEdgeValenceStats(geometry, { weldDecimalPlaces: 4 });
+        const nonManifoldEdgeCount = edgeStats.nonManifoldEdges;
         
         return {
             isManifold: nonManifoldEdgeCount === 0,
@@ -388,6 +364,5 @@ export class InputProcessor {
 }
 
 export default InputProcessor;
-
 
 

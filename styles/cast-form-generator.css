@@ -111,15 +111,52 @@ body {
     display: flex;
     flex: 1;
     overflow: hidden;
+    position: relative;
 }
 
-/* Parameter Panel */
-.parameter-panel {
+/* Parameter Panel — a floating control surface, consistent with the other
+   classic generators. It intentionally sits over the canvas rather than
+   reserving a permanent column beside it. */
+html[data-ui="classic"] .parameter-panel,
+html:not([data-ui="studio"]) .parameter-panel {
+    position: absolute;
+    top: 12px;
+    left: 12px;
     width: 320px;
-    background: var(--th-bg-primary, #2C2C2C);
-    border-right: 1px solid var(--th-border, #3a3a3a);
+    max-height: calc(100% - 24px);
+    background: var(--th-panel-bg, rgba(56, 56, 56, 0.92));
+    border: var(--th-border-width, 1px) solid var(--th-border, #3a3a3a);
+    border-radius: var(--th-radius-lg, 12px);
+    box-shadow: none;
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
     overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--th-scrollbar-thumb) var(--th-scrollbar-track);
     flex-shrink: 0;
+    z-index: 50;
+}
+
+html[data-ui="classic"] .parameter-panel::-webkit-scrollbar,
+html:not([data-ui="studio"]) .parameter-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+html[data-ui="classic"] .parameter-panel::-webkit-scrollbar-track,
+html:not([data-ui="studio"]) .parameter-panel::-webkit-scrollbar-track {
+    background: var(--th-scrollbar-track);
+}
+
+html[data-ui="classic"] .parameter-panel::-webkit-scrollbar-thumb,
+html:not([data-ui="studio"]) .parameter-panel::-webkit-scrollbar-thumb {
+    background: var(--th-scrollbar-thumb);
+    border-radius: 3px;
+}
+
+html[data-ui="classic"] .parameter-panel::-webkit-scrollbar-thumb:hover,
+html:not([data-ui="studio"]) .parameter-panel::-webkit-scrollbar-thumb:hover {
+    background: var(--th-text-muted);
 }
 
 .param-section {
@@ -189,12 +226,74 @@ body {
 
 .param-control input[type="range"] {
     flex: 1;
+    min-width: 0;
     height: 4px;
     -webkit-appearance: none;
     appearance: none;
     background: var(--th-bg-tertiary, #444444);
     border-radius: 2px;
     cursor: pointer;
+}
+
+/* Master mold material volume */
+.material-volume-card {
+    background: var(--th-bg-tertiary);
+    border: 1px solid var(--th-border);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.material-volume-label,
+.material-volume-empty {
+    display: block;
+    color: var(--th-text-secondary);
+    font-size: 11.5px;
+}
+
+.material-volume-empty[hidden] {
+    display: none;
+}
+
+.material-volume-total {
+    display: block;
+    margin-top: 3px;
+    color: var(--th-text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.material-volume-card.is-empty .material-volume-total {
+    color: var(--th-text-secondary);
+}
+
+.material-volume-breakdown {
+    width: 100%;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--th-border);
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+}
+
+.material-volume-breakdown td {
+    padding: 2.5px 0;
+    color: var(--th-text-secondary);
+}
+
+.material-volume-breakdown td:last-child {
+    color: var(--th-text-primary);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.material-volume-note {
+    margin-top: 8px;
+    color: var(--th-text-secondary);
+    font-size: 11.5px;
+    line-height: 1.45;
 }
 
 .param-control input[type="range"]::-webkit-slider-thumb {
@@ -214,13 +313,14 @@ body {
 .value-input {
     display: flex;
     align-items: center;
-    gap: 4px;
-    min-width: 70px;
+    gap: 6px;
+    min-width: 108px;
+    flex: 0 0 108px;
 }
 
 .value-input input[type="number"] {
-    width: 50px;
-    padding: 6px 8px;
+    width: 76px;
+    padding: 6px 10px;
     background: var(--th-bg-tertiary);
     border: 1px solid var(--th-border);
     border-radius: var(--radius-sm);
@@ -238,7 +338,7 @@ body {
 .value-input .unit {
     font-size: 11px;
     color: var(--th-text-muted);
-    min-width: 20px;
+    min-width: 24px;
 }
 
 /* Select Dropdown */
@@ -454,7 +554,7 @@ body {
 .viewport-container {
     flex: 1;
     position: relative;
-    background: var(--th-bg-deep);
+    background: #e9e9e6;
 }
 
 .viewport {
@@ -608,6 +708,7 @@ body {
 }
 
 .view-menu:hover .dropdown-menu,
+.view-menu.open .dropdown-menu,
 .dropdown-menu:hover {
     opacity: 1;
     visibility: visible;
@@ -1095,6 +1196,27 @@ body {
     margin-bottom: 10px;
 }
 
+.setting-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--th-text-primary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.setting-toggle-row input[type="checkbox"] {
+    accent-color: var(--th-accent);
+}
+
+.setting-hint {
+    margin-top: 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--th-text-muted);
+}
+
 .theme-toggle {
     display: flex;
     gap: 8px;
@@ -1195,3 +1317,54 @@ body {
     }
 }
 
+/* ── Polymer Case Box section ─────────────────────────────────────────── */
+.casebox-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--th-bg-tertiary);
+    border: 1px solid var(--th-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    gap: 10px;
+}
+.casebox-toggle-label strong { display: block; font-size: 13px; }
+.casebox-toggle-label small { color: var(--th-text-secondary); font-size: 11px; }
+
+.casebox-switch { position: relative; width: 38px; height: 21px; flex: none; display: inline-block; }
+.casebox-switch input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; margin: 0; }
+.casebox-switch-ui { position: absolute; inset: 0; background: var(--th-bg-active); border-radius: 999px;
+    transition: .15s; pointer-events: none; }
+.casebox-switch-ui::before { content: ""; position: absolute; width: 15px; height: 15px;
+    border-radius: 50%; background: var(--th-bg-primary); top: 3px; left: 3px; transition: .15s; }
+.casebox-switch input:checked + .casebox-switch-ui { background: var(--th-accent-secondary); }
+.casebox-switch input:checked + .casebox-switch-ui::before { transform: translateX(17px); background: var(--th-bg-primary); }
+
+.casebox-seg { display: flex; background: var(--th-bg-tertiary); border: 1px solid var(--th-border); border-radius: 8px;
+    padding: 3px; margin-bottom: 10px; }
+.casebox-seg button { flex: 1; background: transparent; border: 0;
+    color: var(--th-text-secondary); padding: 6px 0; border-radius: 6px;
+    font-size: 12.5px; cursor: pointer; }
+.casebox-seg button.on { background: var(--th-bg-primary); color: var(--th-text-primary); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+
+.casebox-params.dimmed { opacity: .38; pointer-events: none; }
+.casebox-seg.dimmed { opacity: .38; pointer-events: none; }
+
+.casebox-readout { background: var(--th-bg-tertiary); border: 1px solid var(--th-border); border-radius: 8px;
+    padding: 10px 12px; margin-top: 12px; }
+.casebox-readout table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.casebox-readout td { padding: 2.5px 0; color: var(--th-text-secondary); }
+.casebox-readout td:last-child { text-align: right; color: var(--th-text-primary);
+    font-variant-numeric: tabular-nums; }
+.casebox-readout.hidden { display: none; }
+
+.casebox-note { color: var(--th-text-secondary); font-size: 11.5px;
+    margin-top: 10px; line-height: 1.5; }
+.casebox-note code { color: var(--th-accent-dark); font-size: 11px; }
+
+.casebox-banner { position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(255, 255, 255, .92); border: 1px solid var(--th-border); color: var(--th-text-secondary);
+    border-radius: 999px; padding: 6px 16px; font-size: 12px; z-index: 10;
+    pointer-events: none; }
+.casebox-banner.hidden { display: none; }

@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polymer Casting Box — Plan Preview</title>
+<style>
+    :root {
+        --bg: #1a1a1c;
+        --panel: #232326;
+        --panel2: #2b2b2f;
+        --text: #e8e6e1;
+        --muted: #9a978f;
+        --accent: #29b6f6;
+        --amber: #e0a83c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--text);
+        font: 14px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+    #app { display: flex; height: 100%; }
+    #viewport { flex: 1; position: relative; }
+    #viewport canvas { display: block; }
+    #status { position: absolute; top: 12px; left: 14px; color: var(--muted);
+        font-size: 12px; letter-spacing: .04em; }
+    aside { width: 340px; background: var(--panel); border-left: 1px solid #333;
+        padding: 18px 18px 28px; overflow-y: auto; }
+    h1 { font-size: 16px; margin-bottom: 2px; }
+    .sub { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+    h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
+        color: var(--muted); margin: 18px 0 8px; }
+    ul.plan { list-style: none; font-size: 12.5px; }
+    ul.plan li { padding: 4px 0 4px 18px; position: relative; color: #cfcdc6; }
+    ul.plan li::before { content: "•"; position: absolute; left: 4px; color: var(--accent); }
+    .row { display: flex; align-items: center; justify-content: space-between;
+        margin: 7px 0; gap: 10px; }
+    .row label { font-size: 12.5px; color: #cfcdc6; flex: 1; }
+    .row input[type=range] { width: 120px; accent-color: var(--accent); }
+    .row .val { width: 62px; text-align: right; font-variant-numeric: tabular-nums;
+        color: var(--text); font-size: 12.5px; }
+    .toggles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .toggles button { background: var(--panel2); color: var(--text); border: 1px solid #3a3a3f;
+        border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
+    .toggles button.on { border-color: var(--accent); color: var(--accent); }
+    table.dims { width: 100%; border-collapse: collapse; font-size: 12px; }
+    table.dims td { padding: 3px 0; color: #cfcdc6; }
+    table.dims td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+    .note { font-size: 11.5px; color: var(--muted); margin-top: 10px; }
+    .amber { color: var(--amber); }
+</style>
+</head>
+<body>
+<div id="app">
+    <div id="viewport"><div id="status">generating mold parts…</div></div>
+    <aside>
+        <h1>Polymer Casting Box</h1>
+        <div class="sub">Plan preview — real generator output, proposed boxes</div>
+
+        <h2>The plan being verified</h2>
+        <ul class="plan">
+            <li><b>Two separate printable boxes</b>, independent of the mold forms: one rectangular box for wall forms, one circular box for the foot form.</li>
+            <li><b>One box serves all walls</b> — every wall form is identical (shared half-width), so print the wall box once.</li>
+            <li>Form sits <b>outer-face-down</b> on the box floor, nested into a shallow <b>indent</b> that registers it and seals the underside.</li>
+            <li><b>Consistent gap</b> between the form's sides and the box walls, all the way around.</li>
+            <li><b>Open top</b>; interior is <b>1&Prime; taller</b> than the seated form → pour to the brim leaves 1&Prime; of polymer over the form.</li>
+        </ul>
+
+        <h2>Parameters</h2>
+        <div class="row"><label>Side gap</label>
+            <input type="range" id="gap" min="4" max="25" step="1" value="10"><span class="val" id="gapV"></span></div>
+        <div class="row"><label>Headspace</label>
+            <input type="range" id="head" min="10" max="50" step="0.2" value="25.4"><span class="val" id="headV"></span></div>
+        <div class="row"><label>Box wall thickness</label>
+            <input type="range" id="wallT" min="0.5" max="6" step="0.1" value="3"><span class="val" id="wallTV"></span></div>
+        <div class="row"><label>Floor thickness</label>
+            <input type="range" id="floorT" min="0.5" max="8" step="0.5" value="3"><span class="val" id="floorTV"></span></div>
+        <div class="row"><label>Indent depth</label>
+            <input type="range" id="indent" min="0" max="6" step="0.5" value="2.5"><span class="val" id="indentV"></span></div>
+        <div class="row"><label>Indent fit clearance</label>
+            <input type="range" id="clear" min="0" max="0.6" step="0.05" value="0.25"><span class="val" id="clearV"></span></div>
+
+        <h2>View</h2>
+        <div class="toggles">
+            <button id="tPolymer" class="on">polymer pour</button>
+            <button id="tForms" class="on">mold forms</button>
+            <button id="tLift">lift forms</button>
+            <button id="tSection">cutaway</button>
+        </div>
+
+        <h2>Computed — wall box</h2>
+        <table class="dims" id="dimsWall"></table>
+        <h2>Computed — foot box</h2>
+        <table class="dims" id="dimsFoot"></table>
+
+        <p class="note">Forms shown are generated live by the actual mold generator
+        (3-wall compact blocks with registration keys) from the test mug. The
+        <span class="amber">amber volume</span> is the polymer pour, filled to the brim.
+        Verify the concept, tweak parameters — then the real build adds these two
+        boxes to the Cast Form export set.</p>
+    </aside>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+import { MoldGenerator } from '/scripts/castForm/geometry/moldGenerator.js';
+import { InputProcessor } from '/scripts/castForm/geometry/inputProcessor.js';
+import { DEFAULT_PARAMS } from '/scripts/castForm/state/castFormDefaults.js';
+
+const INCH = 25.4;
+const statusEl = document.getElementById('status');
+
+// ── Scene scaffolding ────────────────────────────────────────────────────────
+const viewport = document.getElementById('viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+viewport.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a1c);
+
+const camera = new THREE.PerspectiveCamera(40, 1, 1, 4000);
+camera.position.set(260, 210, 330);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 45, 0);
+controls.enableDamping = true;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const key = new THREE.DirectionalLight(0xffffff, 1.2);
+key.position.set(180, 320, 220);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x88aaff, 0.35);
+fill.position.set(-200, 120, -160);
+scene.add(fill);
+
+const grid = new THREE.GridHelper(700, 35, 0x333338, 0x27272b);
+scene.add(grid);
+
+function resize() {
+    const w = viewport.clientWidth;
+    const h = viewport.clientHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+renderer.setAnimationLoop(() => {
+    controls.update();
+    renderer.render(scene, camera);
+});
+
+// ── Materials ────────────────────────────────────────────────────────────────
+const formMaterial = new THREE.MeshStandardMaterial({
+    color: 0x7d9b76, roughness: 0.75, metalness: 0.02, side: THREE.DoubleSide
+});
+const footFormMaterial = new THREE.MeshStandardMaterial({
+    color: 0xc45c26, roughness: 0.75, metalness: 0.02, side: THREE.DoubleSide
+});
+const boxMaterial = new THREE.MeshStandardMaterial({
+    color: 0x6b8ba4, roughness: 0.45, metalness: 0.05,
+    transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false
+});
+const polymerMaterial = new THREE.MeshStandardMaterial({
+    color: 0xe0a83c, roughness: 0.25, metalness: 0,
+    transparent: true, opacity: 0.24, depthWrite: false
+});
+const edgeColor = 0x9fc3dd;
+
+// ── Small geometry helpers (the box construction prototype) ─────────────────
+// Rectangular ring (frame) extruded upward: [innerHX, innerHZ] .. [outerHX, outerHZ]
+function rectRing(innerHX, innerHZ, outerHX, outerHZ, height) {
+    const shape = new THREE.Shape();
+    shape.moveTo(-outerHX, -outerHZ);
+    shape.lineTo(outerHX, -outerHZ);
+    shape.lineTo(outerHX, outerHZ);
+    shape.lineTo(-outerHX, outerHZ);
+    shape.closePath();
+    const hole = new THREE.Path();
+    hole.moveTo(-innerHX, -innerHZ);
+    hole.lineTo(-innerHX, innerHZ);
+    hole.lineTo(innerHX, innerHZ);
+    hole.lineTo(innerHX, -innerHZ);
+    hole.closePath();
+    shape.holes.push(hole);
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+    geo.rotateX(-Math.PI / 2); // extrude +Z -> +Y ... rotate so depth runs up
+    geo.translate(0, height, 0);
+    geo.rotateX(Math.PI);      // fix handedness: end with ring from y=0..height
+    geo.rotateZ(Math.PI);
+    return geo;
+}
+function circRing(innerR, outerR, height, segments = 96) {
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, outerR, 0, Math.PI * 2, false);
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
+    shape.holes.push(hole);
+    const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: height, bevelEnabled: false, curveSegments: segments
+    });
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(0, height, 0);
+    geo.rotateX(Math.PI);
+    geo.rotateZ(Math.PI);
+    return geo;
+}
+function slab(hx, hz, thickness) {
+    const geo = new THREE.BoxGeometry(hx * 2, thickness, hz * 2);
+    geo.translate(0, thickness / 2, 0);
+    return geo;
+}
+function disc(r, thickness, segments = 96) {
+    const geo = new THREE.CylinderGeometry(r, r, thickness, segments);
+    geo.translate(0, thickness / 2, 0);
+    return geo;
+}
+
+function textSprite(text, { size = 13, color = '#e8e6e1' } = {}) {
+    const pad = 8;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = `${size * 4}px -apple-system, sans-serif`;
+    canvas.width = ctx.measureText(text).width + pad * 8;
+    canvas.height = size * 4 + pad * 6;
+    ctx.font = `${size * 4}px -apple-system, sans-serif`;
+    ctx.fillStyle = 'rgba(26,26,28,0.72)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = color;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, pad * 4, canvas.height / 2);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false }));
+    sprite.scale.set(canvas.width / 16, canvas.height / 16, 1);
+    sprite.renderOrder = 10; // draw over the translucent box/polymer volumes
+    return sprite;
+}
+
+function signedVolume(geometry) {
+    const pos = geometry.getAttribute('position');
+    const idx = geometry.getIndex();
+    const count = idx ? idx.count : pos.count;
+    const get = (i) => idx ? idx.getX(i) : i;
+    let volume = 0;
+    for (let i = 0; i < count; i += 3) {
+        const a = get(i); const b = get(i + 1); const c = get(i + 2);
+        const ax = pos.getX(a), ay = pos.getY(a), az = pos.getZ(a);
+        const bx = pos.getX(b), by = pos.getY(b), bz = pos.getZ(b);
+        const cx = pos.getX(c), cy = pos.getY(c), cz = pos.getZ(c);
+        volume += (ax * (by * cz - bz * cy) + ay * (bz * cx - bx * cz) + az * (bx * cy - by * cx)) / 6;
+    }
+    return Math.abs(volume);
+}
+
+// ── Generate the real mold parts ─────────────────────────────────────────────
+async function generateParts() {
+    const response = await fetch('/output/fixtures/untitled_mug_6.stl');
+    if (!response.ok) throw new Error(`fixture fetch failed: ${response.status}`);
+    const buffer = await response.arrayBuffer();
+    const raw = new STLLoader().parse(buffer);
+    const processed = InputProcessor.processGeometry(raw);
+    if (!processed.geometry) throw new Error(processed.errors.join('; '));
+
+    const params = JSON.parse(JSON.stringify(DEFAULT_PARAMS));
+    params.mold.wallCount = 3;
+    const generator = new MoldGenerator();
+    generator.applySamplingPreset(processed.geometry, 'preview');
+    return generator.generate(processed.geometry, params, {
+        quality: 'preview',
+        natchesEnabled: true
+    });
+}
+
+// Lay wall 0 outer-face-down: worldX = tangent, worldY = D - u (up), worldZ = mold-Y.
+function layFlatWall(geometry, wallCount = 3) {
+    const phi = (Math.PI * 2) / wallCount * 0.5; // wall 0 bisector
+    const cos = Math.cos(phi);
+    const sin = Math.sin(phi);
+    const pos = geometry.getAttribute('position');
+
+    let D = -Infinity;
+    let uMin = Infinity;
+    let halfWidth = 0;
+    let yMin = Infinity;
+    let yMax = -Infinity;
+    for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
+        const u = x * cos + z * sin;
+        const v = -x * sin + z * cos;
+        if (u > D) D = u;
+        if (u < uMin) uMin = u;
+        const av = Math.abs(v);
+        if (av > halfWidth) halfWidth = av;
+        if (y < yMin) yMin = y;
+        if (y > yMax) yMax = y;
+    }
+
+    const flat = geometry.clone();
+    const fpos = flat.getAttribute('position');
+    const zMid = (yMin + yMax) / 2;
+    for (let i = 0; i < fpos.count; i++) {
+        const x = fpos.getX(i);
+        const y = fpos.getY(i);
+        const z = fpos.getZ(i);
+        const u = x * cos + z * sin;
+        const v = -x * sin + z * cos;
+        fpos.setXYZ(i, v, D - u, y - zMid);
+    }
+    fpos.needsUpdate = true;
+    flat.computeVertexNormals();
+
+    return {
+        geometry: flat,
+        halfWidth,                 // footprint half-extent in X
+        halfLength: (yMax - yMin) / 2, // footprint half-extent in Z
+        height: D - uMin           // seated form height
+    };
+}
+
+function measureFoot(geometry) {
+    const pos = geometry.getAttribute('position');
+    let radius = 0;
+    let yMin = Infinity;
+    let yMax = -Infinity;
+    for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
+        const r = Math.hypot(x, z);
+        if (r > radius) radius = r;
+        if (y < yMin) yMin = y;
+        if (y > yMax) yMax = y;
+    }
+    const flat = geometry.clone();
+    flat.translate(0, -yMin, 0); // bottom face onto pocket floor
+    return { geometry: flat, radius, height: yMax - yMin };
+}
+
+// ── Box builders (this construction IS the implementation prototype) ────────
+function buildWallBox({ halfWidth, halfLength, formHeight }, p) {
+    const group = new THREE.Group();
+    const pocketHX = halfWidth + p.clearance;
+    const pocketHZ = halfLength + p.clearance;
+    const innerHX = halfWidth + p.gap;
+    const innerHZ = halfLength + p.gap;
+    const outerHX = innerHX + p.wallT;
+    const outerHZ = innerHZ + p.wallT;
+    const brim = formHeight + p.head; // interior top, measured from pocket floor (y=0)
+
+    const parts = [
+        slab(outerHX, outerHZ, p.floorT),                                  // base slab (y=-floorT..0)
+        rectRing(pocketHX, pocketHZ, innerHX, innerHZ, p.indent),          // pocket ledge (y=0..indent)
+        rectRing(innerHX, innerHZ, outerHX, outerHZ, brim)                 // walls (y=0..brim)
+    ];
+    parts[0].translate(0, -p.floorT, 0);
+    for (const geo of parts) {
+        const mesh = new THREE.Mesh(geo, boxMaterial);
+        group.add(mesh);
+        group.add(new THREE.LineSegments(
+            new THREE.EdgesGeometry(geo, 30),
+            new THREE.LineBasicMaterial({ color: edgeColor, transparent: true, opacity: 0.5 })
+        ));
+    }
+
+    // polymer pour: ledge top -> brim, inside the walls
+    const pourHeight = brim - p.indent;
+    const polymer = new THREE.Mesh(slab(innerHX, innerHZ, pourHeight), polymerMaterial);
+    polymer.position.y = p.indent;
+    group.userData = { brim, innerHX, innerHZ, outerHX, outerHZ, pourHeight };
+    return { group, polymer };
+}
+
+function buildFootBox({ radius, formHeight }, p) {
+    const group = new THREE.Group();
+    const pocketR = radius + p.clearance;
+    const innerR = radius + p.gap;
+    const outerR = innerR + p.wallT;
+    const brim = formHeight + p.head;
+
+    const base = disc(outerR, p.floorT);
+    base.translate(0, -p.floorT, 0);
+    const parts = [
+        base,
+        circRing(pocketR, innerR, p.indent),
+        circRing(innerR, outerR, brim)
+    ];
+    for (const geo of parts) {
+        group.add(new THREE.Mesh(geo, boxMaterial));
+        group.add(new THREE.LineSegments(
+            new THREE.EdgesGeometry(geo, 30),
+            new THREE.LineBasicMaterial({ color: edgeColor, transparent: true, opacity: 0.5 })
+        ));
+    }
+
+    const pourHeight = brim - p.indent;
+    const polymer = new THREE.Mesh(disc(innerR, pourHeight), polymerMaterial);
+    polymer.position.y = p.indent;
+    group.userData = { brim, innerR, outerR, pourHeight };
+    return { group, polymer };
+}
+
+// ── Assemble the preview ─────────────────────────────────────────────────────
+const state = {
+    gap: 10, head: INCH, wallT: 3, floorT: 3, indent: 2.5, clearance: 0.25,
+    showPolymer: true, showForms: true, lift: false, section: false
+};
+
+const wallAssembly = new THREE.Group();
+const footAssembly = new THREE.Group();
+scene.add(wallAssembly, footAssembly);
+
+let wallFlat = null;
+let footFlat = null;
+let wallFormMesh = null;
+let footFormMesh = null;
+let wallFormVolume = 0;
+let footFormVolume = 0;
+let wallBox = null;
+let footBox = null;
+const labels = new THREE.Group();
+scene.add(labels);
+
+function clearGroup(group) {
+    for (const child of [...group.children]) group.remove(child);
+}
+
+function fmt(mm) { return `${mm.toFixed(1)} mm`; }
+
+function rebuildBoxes() {
+    if (!wallFlat || !footFlat) return;
+    const p = {
+        gap: state.gap, head: state.head, wallT: state.wallT,
+        floorT: state.floorT, indent: state.indent, clearance: state.clearance
+    };
+
+    clearGroup(wallAssembly);
+    clearGroup(footAssembly);
+    clearGroup(labels);
+
+    // Wall assembly
+    wallBox = buildWallBox(
+        { halfWidth: wallFlat.halfWidth, halfLength: wallFlat.halfLength, formHeight: wallFlat.height },
+        p
+    );
+    wallFormMesh = new THREE.Mesh(wallFlat.geometry, formMaterial);
+    wallAssembly.add(wallBox.group, wallBox.polymer, wallFormMesh);
+
+    // Foot assembly
+    footBox = buildFootBox({ radius: footFlat.radius, formHeight: footFlat.height }, p);
+    footFormMesh = new THREE.Mesh(footFlat.geometry, footFormMaterial);
+    footAssembly.add(footBox.group, footBox.polymer, footFormMesh);
+
+    // Layout: wall box left of origin, foot box to its right
+    const wallOuterHX = wallBox.group.userData.outerHX;
+    const footOuterR = footBox.group.userData.outerR;
+    const spacing = 40;
+    wallAssembly.position.set(-(footOuterR + spacing / 2), 0, 0);
+    footAssembly.position.set(wallOuterHX + spacing / 2 + footOuterR, 0, 0);
+
+    applyViewState();
+    updateLabels();
+    updateReadouts(p);
+}
+
+function applyViewState() {
+    if (!wallBox) return;
+    wallBox.polymer.visible = state.showPolymer;
+    footBox.polymer.visible = state.showPolymer;
+    wallFormMesh.visible = state.showForms;
+    footFormMesh.visible = state.showForms;
+    const liftAmount = state.lift ? 70 : 0;
+    wallFormMesh.position.y = liftAmount;
+    footFormMesh.position.y = liftAmount * 0.6;
+
+    // Cutaway: clip the front half (z > 0) of box + polymer so the nesting reads
+    const planes = state.section ? [new THREE.Plane(new THREE.Vector3(0, 0, -1), 0)] : [];
+    boxMaterial.clippingPlanes = planes;
+    polymerMaterial.clippingPlanes = planes;
+    renderer.localClippingEnabled = state.section;
+}
+
+function updateLabels() {
+    const wallData = wallBox.group.userData;
+    const wallTop = new THREE.Vector3().copy(wallAssembly.position);
+
+    const l1 = textSprite('WALL CASE BOX — print once, serves all 3 identical walls');
+    l1.position.set(wallTop.x, wallData.brim + 26, 0);
+    labels.add(l1);
+
+    const l2 = textSprite('FOOT CASE BOX', {});
+    l2.position.set(footAssembly.position.x, footBox.group.userData.brim + 22, 0);
+    labels.add(l2);
+
+    const l3 = textSprite(`1″ headspace above form → pour to brim`, { color: '#e0a83c' });
+    l3.position.set(wallTop.x, wallFlat.height + state.head / 2 + 8, wallData.innerHZ + 14);
+    labels.add(l3);
+
+    const l4 = textSprite(`form nests in ${state.indent.toFixed(1)} mm floor indent`, { color: '#9fc3dd' });
+    l4.position.set(wallTop.x, -12, wallData.innerHZ + 20);
+    labels.add(l4);
+}
+
+function updateReadouts(p) {
+    const w = wallBox.group.userData;
+    const f = footBox.group.userData;
+    const wallPourVol = (w.innerHX * 2 * w.innerHZ * 2 * w.pourHeight
+        - Math.max(0, wallFormVolume - wallFlat.halfWidth * 2 * wallFlat.halfLength * 2 * p.indent)) / 1000;
+    const footPourVol = (Math.PI * f.innerR * f.innerR * f.pourHeight
+        - Math.max(0, footFormVolume - Math.PI * footFlat.radius * footFlat.radius * p.indent)) / 1000;
+
+    document.getElementById('dimsWall').innerHTML = `
+        <tr><td>Form footprint (outer face)</td><td>${fmt(wallFlat.halfWidth * 2)} × ${fmt(wallFlat.halfLength * 2)}</td></tr>
+        <tr><td>Form height (seated)</td><td>${fmt(wallFlat.height)}</td></tr>
+        <tr><td>Box outer</td><td>${fmt(w.outerHX * 2)} × ${fmt(w.outerHZ * 2)} × ${fmt(w.brim + p.floorT)}</td></tr>
+        <tr><td>Interior above form</td><td>${fmt(p.head)}</td></tr>
+        <tr><td>Polymer pour ≈</td><td>${wallPourVol.toFixed(0)} mL</td></tr>`;
+    document.getElementById('dimsFoot').innerHTML = `
+        <tr><td>Form Ø / height</td><td>${fmt(footFlat.radius * 2)} / ${fmt(footFlat.height)}</td></tr>
+        <tr><td>Box outer Ø × H</td><td>${fmt(f.outerR * 2)} × ${fmt(f.brim + p.floorT)}</td></tr>
+        <tr><td>Polymer pour ≈</td><td>${footPourVol.toFixed(0)} mL</td></tr>`;
+}
+
+// ── Wire controls ────────────────────────────────────────────────────────────
+const sliders = [
+    ['gap', 'gap', (v) => `${v.toFixed(0)} mm`],
+    ['head', 'head', (v) => `${v.toFixed(1)} mm${Math.abs(v - INCH) < 0.3 ? ' (1″)' : ''}`],
+    ['wallT', 'wallT', (v) => `${v.toFixed(1)} mm`],
+    ['floorT', 'floorT', (v) => `${v.toFixed(1)} mm`],
+    ['indent', 'indent', (v) => `${v.toFixed(1)} mm`],
+    ['clear', 'clearance', (v) => `${v.toFixed(2)} mm`]
+];
+for (const [id, keyName, format] of sliders) {
+    const input = document.getElementById(id);
+    const valueEl = document.getElementById(`${id}V`);
+    const sync = () => {
+        state[keyName] = Number(input.value);
+        valueEl.textContent = format(state[keyName]);
+    };
+    sync();
+    input.addEventListener('input', () => { sync(); rebuildBoxes(); });
+}
+const toggles = [
+    ['tPolymer', 'showPolymer'], ['tForms', 'showForms'],
+    ['tLift', 'lift'], ['tSection', 'section']
+];
+for (const [id, keyName] of toggles) {
+    const button = document.getElementById(id);
+    button.addEventListener('click', () => {
+        state[keyName] = !state[keyName];
+        button.classList.toggle('on', state[keyName]);
+        applyViewState();
+    });
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+try {
+    const result = await generateParts();
+    wallFlat = layFlatWall(result.walls[0], 3);
+    footFlat = measureFoot(result.foot);
+    wallFormVolume = signedVolume(wallFlat.geometry);
+    footFormVolume = signedVolume(footFlat.geometry);
+    rebuildBoxes();
+    statusEl.textContent =
+        'drag to orbit · scroll to zoom — forms are live generator output (3-wall, keys on)';
+} catch (error) {
+    statusEl.textContent = `failed: ${error.message} — open via the Vite dev server (npm run dev)`;
+    console.error(error);
+}
+</script>
+</body>
+</html>

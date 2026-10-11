@@ -4,6 +4,11 @@
  */
 
 import castFormState from '../state/castFormState.js';
+import { calculateCaseBoxMaterialVolume } from '../geometry/caseBoxVolumeCalculator.js';
+
+const volumeFormatter = new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 1
+});
 
 export class ParameterPanel {
     constructor() {
@@ -15,8 +20,7 @@ export class ParameterPanel {
         this.setupCollapsibleSections();
         this.setupInputSourceControls();
         this.setupMoldControls();
-        this.setupNatchControls();
-        this.setupShellControls();
+        this.setupCaseBoxControls();
         this.setupStateSubscriptions();
     }
 
@@ -60,31 +64,23 @@ export class ParameterPanel {
     setupMoldControls() {
         this.bindSliderToState('plasterThickness', 'plasterThicknessValue', 'params.mold.plasterWallThickness');
         this.bindSliderToState('spareHeight', 'spareHeightValue', 'params.mold.spareHeight');
-        this.bindSliderToState('cornerCutWidth', 'cornerCutWidthValue', 'params.mold.cornerCutWidth');
+        this.bindSliderToState('wallCount', 'wallCountValue', 'params.mold.wallCount');
     }
 
     /**
-     * Setup registration key (natch) controls
+     * Setup polymer case box controls. These drive both the case box preview
+     * and the exported *_Case_Box_*.stl files; changing them never triggers a
+     * mold regeneration (castFormMain excludes params.caseBox from the
+     * regeneration snapshot).
      */
-    setupNatchControls() {
-        this.bindSliderToState('natchDiameter', 'natchDiameterValue', 'params.natches.diameter');
-        this.bindSliderToState('natchDepth', 'natchDepthValue', 'params.natches.depth');
-        this.bindSliderToState('natchTolerance', 'natchToleranceValue', 'params.natches.toleranceOffset');
-        
-        // Natch count dropdown
-        const natchCountSelect = document.getElementById('natchCount');
-        if (natchCountSelect) {
-            natchCountSelect.addEventListener('change', (e) => {
-                castFormState.setState('params.natches.countPerSeam', parseInt(e.target.value));
-            });
-        }
-    }
-
-    /**
-     * Setup shell property controls
-     */
-    setupShellControls() {
-        this.bindSliderToState('shellThickness', 'shellThicknessValue', 'params.shell.wallThickness');
+    setupCaseBoxControls() {
+        const live = { debounceMs: 0 };
+        this.bindSliderToState('caseBoxGap', 'caseBoxGapValue', 'params.caseBox.gap', live);
+        this.bindSliderToState('caseBoxHeadspace', 'caseBoxHeadspaceValue', 'params.caseBox.headspace', live);
+        this.bindSliderToState('caseBoxWallThickness', 'caseBoxWallThicknessValue', 'params.caseBox.wallThickness', live);
+        this.bindSliderToState('caseBoxFloorThickness', 'caseBoxFloorThicknessValue', 'params.caseBox.floorThickness', live);
+        this.bindSliderToState('caseBoxIndentDepth', 'caseBoxIndentDepthValue', 'params.caseBox.indentDepth', live);
+        this.bindSliderToState('caseBoxFitClearance', 'caseBoxFitClearanceValue', 'params.caseBox.fitClearance', live);
     }
 
     /**
@@ -93,7 +89,7 @@ export class ParameterPanel {
      * @param {string} inputId 
      * @param {string} statePath 
      */
-    bindSliderToState(sliderId, inputId, statePath) {
+    bindSliderToState(sliderId, inputId, statePath, options = {}) {
         const slider = document.getElementById(sliderId);
         const input = document.getElementById(inputId);
         
@@ -103,9 +99,12 @@ export class ParameterPanel {
         let debounceTimer = null;
         const updateState = (value) => {
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                castFormState.setState(statePath, parseFloat(value));
-            }, 50);
+            const commit = () => castFormState.setState(statePath, parseFloat(value));
+            if (options.debounceMs === 0) {
+                commit();
+            } else {
+                debounceTimer = setTimeout(commit, options.debounceMs ?? 50);
+            }
         };
         
         // Slider change
@@ -139,14 +138,17 @@ export class ParameterPanel {
         
         // Subscribe to warning changes
         castFormState.subscribe('warnings', () => this.updateWarnings());
+
+        // Recalculate only when a new generated mold replaces the output.
+        castFormState.subscribe('output', () => this.updateMaterialVolume());
+        castFormState.subscribe('params.caseBox', () => this.updateMaterialVolume());
+        this.updateMaterialVolume();
     }
 
     /**
      * Sync UI controls from state
      */
     syncUIFromState() {
-        const params = castFormState.getState('params');
-        
         this.parameterBindings.forEach(({ sliderId, inputId, statePath }) => {
             const value = castFormState.getState(statePath);
             const slider = document.getElementById(sliderId);
@@ -155,10 +157,6 @@ export class ParameterPanel {
             if (slider && value !== undefined) slider.value = value;
             if (input && value !== undefined) input.value = value;
         });
-        
-        // Sync dropdowns
-        const natchCountSelect = document.getElementById('natchCount');
-        if (natchCountSelect) natchCountSelect.value = params.natches.countPerSeam;
     }
 
     /**
@@ -223,7 +221,54 @@ export class ParameterPanel {
             `).join('');
         }
     }
+
+    /**
+     * Update polymer pour volume from the generated forms and live case-box params.
+     */
+    updateMaterialVolume() {
+        const card = document.getElementById('materialVolumeCard');
+        const total = document.getElementById('materialVolumeTotal');
+        const empty = document.getElementById('materialVolumeEmpty');
+        const breakdown = document.getElementById('materialVolumeBreakdown');
+        const rows = document.getElementById('materialVolumeRows');
+        if (!card || !total || !empty || !breakdown || !rows) return;
+
+        const output = castFormState.getState('output') || {};
+        const walls = (output.wallShells || []).filter(Boolean);
+        if (!output.footShell && walls.length === 0) {
+            card.classList.add('is-empty');
+            total.textContent = '—';
+            empty.hidden = false;
+            breakdown.hidden = true;
+            rows.replaceChildren();
+            return;
+        }
+
+        const volume = calculateCaseBoxMaterialVolume(
+            { foot: output.footShell, walls },
+            castFormState.getState('params.caseBox')
+        );
+        const formatMl = (value) => `${volumeFormatter.format(value)} mL`;
+        const rowData = [];
+        if (output.footShell) rowData.push(['Foot', volume.footMl]);
+        volume.wallPartsMl.forEach((wallVolume, index) => {
+            rowData.push([`Wall ${index + 1}`, wallVolume]);
+        });
+
+        card.classList.remove('is-empty');
+        total.textContent = formatMl(volume.totalMl);
+        empty.hidden = true;
+        breakdown.hidden = false;
+        rows.replaceChildren(...rowData.map(([label, value]) => {
+            const row = document.createElement('tr');
+            const labelCell = document.createElement('td');
+            const valueCell = document.createElement('td');
+            labelCell.textContent = label;
+            valueCell.textContent = formatMl(value);
+            row.append(labelCell, valueCell);
+            return row;
+        }));
+    }
 }
 
 export default ParameterPanel;
-

@@ -31,6 +31,7 @@ Playground Ceramics is a multi-application design studio with four specialized t
 |-------------|-------------|
 | **Dinnerware Designer** | Create complete dinnerware sets with consistent parametric styling |
 | **Vessel Generator** | Design custom vases with section-by-section control |
+| **Vessel Designer V2** | Draw a vessel profile with pen points and bezier handles |
 | **Handle Generator** | Create mug handles that integrate with Dinnerware projects |
 | **Cast Form Generator** | Generate 4-part slip casting molds from vessel geometry |
 
@@ -55,6 +56,12 @@ Playground Ceramics is a multi-application design studio with four specialized t
 - **Flat Wall Mode**: Toggle between curved and flat walls per section
 - **Section Linking**: Lock diameters between adjacent sections
 - **Multiple Lip Styles**: Straight, Flared, Rolled, Beaded, Squared, and more
+
+### Vessel Designer V2
+- **Pen-Drawn Profile**: Define the exterior vessel silhouette from a locked centerline/base point
+- **Bezier Editing**: Add straight points, drag curve handles, edit points, delete points, and undo/redo
+- **Live Radial Preview**: Revolve the drawn profile into a 3D vessel with automatic wall thickness and rim closure
+- **STL Export**: Export valid drawn profiles directly for 3D printing
 
 ### Handle Generator
 - **Mug Integration**: Import mug data from Dinnerware projects
@@ -122,7 +129,35 @@ npm run build
 npm run preview
 ```
 
-The development server will start at `http://localhost:5173` (default Vite port).
+The development server will start at `http://localhost:3000` (configured Vite port).
+
+## Validation
+
+Use Node.js 20 or later. `npm test` runs the geometry, scene, storage, import,
+worker, registration and profile regression gates without writing generated models.
+
+```bash
+npm test
+npx playwright install chromium  # once per development machine
+npm run test:browser              # isolated Chromium + temporary Vite port
+npm run verify:performance        # separate cold/edit/cache-hit timings and budgets
+npm run benchmark:cleanup        # slower Pattern_mug fidelity, time and memory comparison
+npm run build
+```
+
+CI runs the deterministic suite, browser workflows and production build. Timing
+budgets stay in the separate performance command to avoid machine-dependent CI failures.
+The browser tests use their own storage and never open personal saved projects.
+
+Dinnerware drafts have per-project identities and URLs. New unsaved drafts appear
+on the dashboard; reopening a saved design restores its newer draft. Imported and
+duplicated projects receive fresh identities for every generator.
+
+Handle imports use the actual compiled V2/V3 profile (curves and rounding included).
+For folded profiles, contact uses the outermost surface at each height. Active
+motifs and spouts require an angular attachment policy; the picker explains why
+these sources cannot yet be imported. Existing Handle projects retain their stored
+source profile until reimported.
 
 ## Usage
 
@@ -161,6 +196,10 @@ The development server will start at `http://localhost:5173` (default Vite port)
 3. Each item exports as a separate STL file
 4. Files are named `ProjectName_item_type.stl`
 
+Dinnerware STL exports regenerate each item with at least 512 sides around its
+circumference. Patterned items may use more to preserve repeating detail. The
+interactive preview keeps its lighter mesh for responsive editing.
+
 ## Project Structure
 
 ```
@@ -169,6 +208,8 @@ dinnerware-generator/
 ├── index.html                        # Dinnerware Designer
 ├── vessel-generator/
 │   └── index.html                   # Vessel Generator
+├── vessel-v2-generator/
+│   └── index.html                   # Pen Profile Vessel Designer
 ├── handle-generator/
 │   └── index.html                   # Handle Generator
 ├── cast-form-generator/
@@ -185,6 +226,11 @@ dinnerware-generator/
 │   │   ├── geometry/                # Vessel mesh generation
 │   │   ├── state/                   # Vessel state management
 │   │   └── ui/                      # Vessel UI components
+│   ├── vesselV2/
+│   │   ├── vesselV2Main.js          # Pen profile vessel entry point
+│   │   ├── geometry/                # Drawn profile sampling and mesh adapter
+│   │   ├── state/                   # Vessel V2 state management
+│   │   └── ui/                      # Profile editor
 │   ├── handle/
 │   │   ├── handleMain.js            # Handle entry point
 │   │   ├── geometry/                # Handle mesh generation
@@ -405,9 +451,9 @@ When reporting bugs, please include:
 - Check for gaps in STL mesh (use mesh repair tool)
 
 **Problem: "Development server won't start"**
-- Solution: Ensure Node.js is installed (v16+)
+- Solution: Ensure Node.js 20 or later is installed
 - Delete `node_modules` and `package-lock.json`, run `npm install` again
-- Check that port 5173 is not already in use
+- Check that port 3000 is not already in use
 - Try `npm run dev -- --port 3000` to use different port
 
 **Problem: "Handle doesn't attach properly to mug"**

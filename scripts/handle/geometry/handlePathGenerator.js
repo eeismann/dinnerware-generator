@@ -17,6 +17,7 @@
  */
 
 import * as THREE from 'three';
+import { getOuterContactRadius, VESSEL_CONTACT_POLICY } from './vesselContactProfile.js';
 
 /**
  * Create a quarter-circle bezier curve
@@ -24,6 +25,52 @@ import * as THREE from 'three';
  */
 function createCornerBezier(start, end, cornerPoint) {
     return new THREE.QuadraticBezierCurve3(start, cornerPoint, end);
+}
+
+function getSortedRadiusProfile(mugData = {}) {
+    if (!Array.isArray(mugData.radiusProfile)) return [];
+
+    return mugData.radiusProfile
+        .map((point) => ({
+            y: Number(point.y ?? point.height),
+            radius: Number(point.radius)
+        }))
+        .filter((point) => Number.isFinite(point.y) && Number.isFinite(point.radius) && point.radius > 0)
+        .sort((left, right) => left.y - right.y);
+}
+
+export function getMugRadiusAtHeight(mugData = {}, height = 0) {
+    if (mugData.radiusProfilePolicy === VESSEL_CONTACT_POLICY) {
+        const radius = getOuterContactRadius(mugData.radiusProfile, height);
+        if (radius !== null) return radius;
+    }
+    const profile = getSortedRadiusProfile(mugData);
+
+    if (profile.length === 1) {
+        return profile[0].radius;
+    }
+
+    if (profile.length > 1) {
+        if (height <= profile[0].y) return profile[0].radius;
+
+        const last = profile[profile.length - 1];
+        if (height >= last.y) return last.radius;
+
+        for (let i = 0; i < profile.length - 1; i++) {
+            const current = profile[i];
+            const next = profile[i + 1];
+            if (height < current.y || height > next.y) continue;
+
+            const t = (height - current.y) / Math.max(1e-6, next.y - current.y);
+            return current.radius + (next.radius - current.radius) * t;
+        }
+    }
+
+    const mugTopRadius = mugData.loaded ? mugData.topDiameter / 2 : 40;
+    const mugBottomRadius = mugData.loaded ? mugData.bottomDiameter / 2 : 30;
+    const mugHeight = mugData.loaded ? mugData.height : 95;
+    const t = Math.max(0, Math.min(1, height / Math.max(1, mugHeight)));
+    return mugBottomRadius + (mugTopRadius - mugBottomRadius) * t;
 }
 
 /**
@@ -49,21 +96,9 @@ export function generateHandlePath(params, mugData) {
         verticalArmAngle = 0,  // Angle of vertical arm in degrees
     } = params;
     
-    // Calculate mug radius at each attachment height (accounting for taper)
-    const mugTopRadius = mugData.loaded ? mugData.topDiameter / 2 : 40;
-    const mugBottomRadius = mugData.loaded ? mugData.bottomDiameter / 2 : 30;
-    const mugHeight = mugData.loaded ? mugData.height : 95;
-    
-    // Linear interpolation to get radius at any height
-    // t=0 at bottom, t=1 at top
-    const getRadiusAtHeight = (height) => {
-        const t = Math.max(0, Math.min(1, height / mugHeight));
-        return mugBottomRadius + (mugTopRadius - mugBottomRadius) * t;
-    };
-    
     // Get mug radius at each attachment point
-    const topMugRadius = getRadiusAtHeight(topAttachmentHeight);
-    const bottomMugRadius = getRadiusAtHeight(bottomAttachmentHeight);
+    const topMugRadius = getMugRadiusAtHeight(mugData, topAttachmentHeight);
+    const bottomMugRadius = getMugRadiusAtHeight(mugData, bottomAttachmentHeight);
     
     // Outer edge X is based on the larger radius plus protrusion
     const maxMugRadius = Math.max(topMugRadius, bottomMugRadius);
@@ -265,29 +300,29 @@ export function calculateAttachmentZones(params, mugData) {
     const { 
         topAttachmentHeight, 
         bottomAttachmentHeight, 
-        attachmentWidth,
         attachmentRadius,
     } = params;
-    
-    const mugRadius = mugData.loaded 
-        ? mugData.topDiameter / 2 
-        : 40;
-    
-    const attachmentAngle = attachmentWidth / mugRadius;
+
+    const attachmentWidth = Number.isFinite(params.attachmentWidth)
+        ? params.attachmentWidth
+        : (Number.isFinite(params.handleWidth) ? params.handleWidth : 25);
+
+    const topRadius = Math.max(1, getMugRadiusAtHeight(mugData, topAttachmentHeight));
+    const bottomRadius = Math.max(1, getMugRadiusAtHeight(mugData, bottomAttachmentHeight));
     
     return {
         top: {
             height: topAttachmentHeight,
-            radius: mugRadius,
+            radius: topRadius,
             width: attachmentWidth,
-            angle: attachmentAngle,
+            angle: attachmentWidth / topRadius,
             blendRadius: attachmentRadius,
         },
         bottom: {
             height: bottomAttachmentHeight,
-            radius: mugRadius,
+            radius: bottomRadius,
             width: attachmentWidth,
-            angle: attachmentAngle,
+            angle: attachmentWidth / bottomRadius,
             blendRadius: attachmentRadius,
         },
     };

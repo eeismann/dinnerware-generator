@@ -1,0 +1,593 @@
+/* ================================================
+   Vessel Designer V2 - Pen Profile App
+   ================================================ */
+
+@import url('./vessel-generator.css');
+
+.main-content {
+    display: grid;
+    grid-template-columns: minmax(360px, 44vw) minmax(420px, 1fr);
+    gap: 1px;
+    background: var(--th-border);
+}
+
+.profile-workspace,
+.viewport-shell {
+    min-width: 0;
+    min-height: 0;
+    background: var(--th-bg-deep);
+}
+
+.profile-workspace {
+    display: grid;
+    grid-template-rows: auto minmax(240px, 1fr) auto auto auto auto;
+    border-right: var(--th-border-width) solid var(--th-border);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.profile-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px;
+    background: var(--th-bg-secondary);
+    border-bottom: var(--th-border-width) solid var(--th-border);
+}
+
+.tool-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    background: var(--th-bg-tertiary);
+    border: var(--th-border-width) solid var(--th-border);
+    border-radius: var(--th-radius-md);
+    color: var(--th-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.icon-button svg {
+    width: 17px;
+    height: 17px;
+}
+
+.icon-button:hover,
+.icon-button.active {
+    background: var(--th-bg-hover);
+    border-color: var(--th-accent);
+    color: var(--th-text-primary);
+}
+
+.icon-button:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+}
+
+.icon-button.danger:hover {
+    border-color: var(--th-danger, #ef4444);
+    color: var(--th-danger, #ef4444);
+}
+
+.zoom-tool-group {
+    padding: 2px 4px;
+    border: var(--th-border-width) solid var(--th-border);
+    border-radius: var(--th-radius-lg);
+    background: var(--th-bg-tertiary);
+}
+
+.zoom-value {
+    min-width: 46px;
+    color: var(--th-text-secondary);
+    font-family: var(--th-font-mono);
+    font-size: 12px;
+    text-align: center;
+    line-height: 1;
+}
+
+.profile-canvas-wrap {
+    min-height: 0;
+    padding: 12px;
+    overflow: hidden;
+}
+
+.profile-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 360px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+        var(--th-bg-secondary);
+    border: var(--th-border-width) solid var(--th-border);
+    border-radius: var(--th-radius-lg);
+    touch-action: none;
+    user-select: none;
+}
+
+.profile-svg.pan-mode,
+.profile-svg.space-pan-mode,
+.profile-svg.pan-mode .profile-anchor,
+.profile-svg.space-pan-mode .profile-anchor,
+.profile-svg.pan-mode .profile-anchor-hit,
+.profile-svg.space-pan-mode .profile-anchor-hit,
+.profile-svg.pan-mode .profile-handle,
+.profile-svg.space-pan-mode .profile-handle,
+.profile-svg.pan-mode .profile-handle-hit,
+.profile-svg.space-pan-mode .profile-handle-hit,
+.profile-svg.pan-mode .profile-segment-hit,
+.profile-svg.space-pan-mode .profile-segment-hit {
+    cursor: grab;
+}
+
+.profile-svg.panning,
+.profile-svg.panning .profile-anchor,
+.profile-svg.panning .profile-anchor-hit,
+.profile-svg.panning .profile-handle,
+.profile-svg.panning .profile-handle-hit,
+.profile-svg.panning .profile-segment-hit {
+    cursor: grabbing;
+}
+
+.profile-grid-line {
+    stroke: var(--th-border);
+    stroke-width: 0.25;
+    opacity: 0.45;
+    vector-effect: non-scaling-stroke;
+}
+
+.profile-grid-line.major {
+    stroke-width: 0.45;
+    opacity: 0.75;
+    vector-effect: non-scaling-stroke;
+}
+
+.profile-centerline {
+    stroke: var(--th-accent);
+    stroke-width: 1.2;
+    stroke-dasharray: 4 4;
+    vector-effect: non-scaling-stroke;
+}
+
+.profile-baseline {
+    stroke: var(--th-text-muted);
+    stroke-width: 0.9;
+    vector-effect: non-scaling-stroke;
+}
+
+.profile-path {
+    fill: none;
+    stroke: var(--th-text-primary);
+    stroke-width: 2.3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.profile-segment-hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 10;
+    cursor: copy;
+    pointer-events: stroke;
+    vector-effect: non-scaling-stroke;
+}
+
+.profile-sampled-path {
+    fill: none;
+    stroke: var(--th-accent);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+    opacity: 0.55;
+    vector-effect: non-scaling-stroke;
+}
+
+.profile-segment-selected {
+    fill: none;
+    stroke: var(--th-accent);
+    stroke-width: 3.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.95;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+}
+
+.profile-motif-badge {
+    stroke: var(--th-bg-deep);
+    stroke-width: 1.2;
+    vector-effect: non-scaling-stroke;
+    cursor: pointer;
+}
+
+.profile-anchor {
+    fill: var(--th-bg-secondary);
+    stroke: var(--th-text-primary);
+    stroke-width: 1.25;
+    cursor: grab;
+    vector-effect: non-scaling-stroke;
+}
+
+.profile-anchor-hit,
+.profile-handle-hit {
+    fill: transparent;
+    stroke: transparent;
+    cursor: grab;
+    pointer-events: all;
+}
+
+.profile-anchor.selected {
+    fill: var(--th-accent);
+    stroke: var(--th-text-inverse);
+}
+
+.profile-anchor.locked {
+    fill: var(--th-text-muted);
+    cursor: not-allowed;
+}
+
+.profile-handle-line {
+    stroke: var(--th-accent);
+    stroke-width: 0.8;
+    opacity: 0.8;
+    vector-effect: non-scaling-stroke;
+}
+
+.profile-handle {
+    fill: var(--th-bg-deep);
+    stroke: var(--th-accent);
+    stroke-width: 1.15;
+    cursor: grab;
+    vector-effect: non-scaling-stroke;
+}
+
+.profile-controls,
+.profile-stats {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--th-bg-secondary);
+    border-top: var(--th-border-width) solid var(--th-border);
+}
+
+.control-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--th-text-secondary);
+    font-size: 12px;
+}
+
+.control-line input[type="number"] {
+    width: 58px;
+    padding: 5px 6px;
+    background: var(--th-input-bg);
+    border: var(--th-border-width) solid var(--th-border);
+    border-radius: var(--th-radius-md);
+    color: var(--th-text-primary);
+    font-family: var(--th-font-mono);
+    font-size: 12px;
+}
+
+.control-line input[type="checkbox"] {
+    accent-color: var(--th-accent);
+}
+
+.profile-mode-control {
+    gap: 8px;
+}
+
+.segmented-control {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px;
+    background: var(--th-bg-tertiary);
+    border: var(--th-border-width) solid var(--th-border);
+    border-radius: var(--th-radius-md);
+}
+
+.segment-button {
+    min-width: 64px;
+    height: 24px;
+    padding: 0 9px;
+    background: transparent;
+    border: 0;
+    border-radius: var(--th-radius-sm);
+    color: var(--th-text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.segment-button.active {
+    background: var(--th-accent);
+    color: var(--th-text-inverse);
+}
+
+.corner-radius-control[hidden] {
+    display: none;
+}
+
+.corner-radius-control input:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.grid-control {
+    gap: 4px;
+}
+
+.grid-step-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: var(--th-bg-tertiary);
+    border: var(--th-border-width) solid var(--th-border);
+    border-radius: var(--th-radius-sm);
+    color: var(--th-text-secondary);
+    cursor: pointer;
+}
+
+.grid-step-button:hover {
+    border-color: var(--th-accent);
+    color: var(--th-text-primary);
+}
+
+.grid-step-button svg {
+    width: 13px;
+    height: 13px;
+}
+
+.profile-stats {
+    justify-content: space-between;
+    color: var(--th-text-muted);
+    font-size: 12px;
+}
+
+.profile-stats strong {
+    color: var(--th-text-primary);
+    font-family: var(--th-font-mono);
+    font-weight: 500;
+}
+
+.profile-warnings {
+    min-height: 36px;
+    padding: 8px 12px 12px;
+    background: var(--th-bg-secondary);
+    color: var(--th-warning);
+    font-size: 12px;
+}
+
+.profile-warning {
+    padding: 4px 0;
+}
+
+.profile-warning.muted {
+    color: var(--th-text-muted);
+}
+
+.viewport-shell {
+    position: relative;
+}
+
+.viewport-shell .viewport {
+    width: 100%;
+    height: 100%;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+/* ================================================
+   Per-Segment Surface Motif — contextual inspector
+   ================================================ */
+.motif-inspector {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 4;
+    width: 296px;
+    max-height: calc(100vh - 32px);
+    display: flex;
+    flex-direction: column;
+    background: var(--th-bg-secondary);
+    border: var(--th-border-width) solid var(--th-border);
+    border-radius: 12px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.motif-inspector.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px) scale(0.98);
+}
+
+.mi-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 12px 13px;
+    border-bottom: var(--th-border-width) solid var(--th-border);
+    background: linear-gradient(180deg, var(--th-accent-soft, rgba(79, 140, 255, 0.08)), transparent);
+}
+.mi-diamond { width: 9px; height: 9px; border-radius: 2px; transform: rotate(45deg); background: var(--th-accent); flex: 0 0 auto; }
+.mi-title { font-size: 13px; font-weight: 600; flex: 1 1 auto; color: var(--th-text-primary); }
+.mi-title small { display: block; font-weight: 400; font-size: 10.5px; color: var(--th-text-muted); font-family: var(--th-font-mono); margin-top: 1px; }
+.mi-close { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 0; color: var(--th-text-muted); border-radius: var(--th-radius-sm); cursor: pointer; }
+.mi-close svg { width: 15px; height: 15px; }
+.mi-close:hover { background: var(--th-bg-hover); color: var(--th-text-primary); }
+
+.mi-body { min-height: 0; padding: 12px 13px; display: flex; flex-direction: column; gap: 11px; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+.mi-field { display: flex; flex-direction: column; gap: 6px; }
+.mi-hideable[hidden] { display: none; }
+.mi-label { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; color: var(--th-text-secondary); }
+.mi-val { font-family: var(--th-font-mono); color: var(--th-text-primary); font-size: 11.5px; }
+
+.mi-select {
+    width: 100%;
+    height: 32px;
+    padding: 0 8px;
+    background: var(--th-input-bg);
+    border: var(--th-border-width) solid var(--th-border);
+    border-radius: var(--th-radius-md);
+    color: var(--th-text-primary);
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+}
+
+.mi-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 3px;
+    background: var(--th-bg-hover);
+    outline: none;
+    cursor: pointer;
+}
+.mi-range::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--th-accent); border: 2px solid var(--th-bg-secondary); cursor: pointer; }
+.mi-range::-moz-range-thumb { width: 14px; height: 14px; border: 2px solid var(--th-bg-secondary); border-radius: 50%; background: var(--th-accent); cursor: pointer; }
+
+.mi-seg { display: inline-flex; width: 100%; padding: 2px; background: var(--th-bg-tertiary); border: var(--th-border-width) solid var(--th-border); border-radius: var(--th-radius-md); }
+.mi-seg button { flex: 1; height: 26px; background: transparent; border: 0; border-radius: var(--th-radius-sm); color: var(--th-text-secondary); cursor: pointer; font: inherit; font-size: 12px; }
+.mi-seg button.active { background: var(--th-accent); color: var(--th-text-inverse); }
+
+.mi-preview { border: var(--th-border-width) solid var(--th-border); border-radius: var(--th-radius-md); overflow: hidden; background: var(--th-input-bg); }
+.mi-preview-cap { display: flex; justify-content: space-between; padding: 5px 8px; font-size: 10px; color: var(--th-text-muted); font-family: var(--th-font-mono); border-bottom: var(--th-border-width) solid var(--th-border); }
+#motifPreview { display: block; width: 100%; height: 72px; }
+
+.mi-warn { display: none; align-items: flex-start; gap: 7px; padding: 8px 9px; border-radius: var(--th-radius-md); font-size: 11.5px; line-height: 1.35; background: rgba(245, 181, 68, 0.1); border: var(--th-border-width) solid rgba(245, 181, 68, 0.3); color: var(--th-warning); }
+.mi-warn.show { display: flex; }
+.mi-warn svg { width: 14px; height: 14px; flex: 0 0 auto; margin-top: 1px; }
+
+.mi-actions { display: flex; gap: 6px; }
+.mi-btn { flex: 1; height: 30px; background: var(--th-bg-tertiary); border: var(--th-border-width) solid var(--th-border); border-radius: var(--th-radius-md); color: var(--th-text-secondary); font: inherit; font-size: 11.5px; cursor: pointer; transition: all var(--transition-fast); }
+.mi-btn:hover { background: var(--th-bg-hover); color: var(--th-text-primary); border-color: var(--th-accent); }
+
+.mi-hint { padding: 8px 9px; border-radius: var(--th-radius-md); font-size: 11.5px; line-height: 1.35; background: var(--th-bg-tertiary); border: var(--th-border-width) solid var(--th-border); color: var(--th-text-muted); }
+.mi-toggle-field { flex-direction: row; align-items: center; justify-content: space-between; cursor: pointer; }
+.mi-toggle-field input[type="checkbox"] { accent-color: var(--th-accent); }
+.mi-inline-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--th-text-secondary); cursor: pointer; }
+.mi-inline-toggle input[type="checkbox"] { accent-color: var(--th-accent); }
+
+/* ================================================
+   Spout — contextual inspector (Phase 1: state/UI only)
+   ================================================ */
+.spout-inspector {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 4;
+    width: 296px;
+    max-height: calc(100vh - 32px);
+    display: flex;
+    flex-direction: column;
+    background: var(--th-bg-secondary);
+    border: var(--th-border-width) solid var(--th-border);
+    border-radius: 12px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.spout-inspector.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px) scale(0.98);
+}
+
+/* ================================================
+   Lid — static settings panel (Phase 1: state/UI only)
+   ================================================ */
+.lid-inspector {
+    margin: 0 16px 12px;
+    background: var(--th-bg-secondary);
+    border: var(--th-border-width) solid var(--th-border);
+    border-radius: 12px;
+    overflow: visible;
+}
+.lid-inspector .mi-head { cursor: default; }
+#lidFlangeDepthField[hidden] { display: none; }
+
+@media (max-width: 980px) {
+    .main-content {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(420px, 52vh) minmax(360px, 1fr);
+    }
+
+    .profile-workspace {
+        border-right: none;
+        border-bottom: var(--th-border-width) solid var(--th-border);
+    }
+}
+
+@media (max-width: 760px) {
+    .main-content {
+        grid-template-rows: minmax(620px, 72vh) minmax(360px, 1fr);
+    }
+
+    .header {
+        height: auto;
+        min-height: 56px;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 12px;
+    }
+
+    .header-left,
+    .header-center,
+    .header-right {
+        flex: 1 1 auto;
+    }
+
+    .header-right {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 7px 10px;
+    }
+
+    .profile-toolbar,
+    .profile-controls,
+    .profile-stats {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .profile-toolbar {
+        justify-content: flex-start;
+        gap: 8px;
+    }
+
+    .profile-svg {
+        min-height: 0;
+    }
+
+    .zoom-tool-group {
+        order: 3;
+        flex: 1 1 100%;
+        justify-content: flex-start;
+    }
+}

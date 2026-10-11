@@ -239,6 +239,16 @@ function generateDProfileCrossSection(width, height, segments) {
 export function getCrossSectionPoints(width, height, segments = 32, type = 'oval', cornerRadius = 3) {
     const threeShape = generateCrossSection(width, height, segments, type, cornerRadius);
     const points = threeShape.getPoints(segments);
+
+    // Shape sampling returns the closing point duplicated at the end.
+    // Drop it so sweep indexing does not generate a degenerate seam strip.
+    if (points.length > 2) {
+        const first = points[0];
+        const last = points[points.length - 1];
+        if (first.distanceToSquared(last) < 1e-10) {
+            points.pop();
+        }
+    }
     
     return points.map(p => ({ x: p.x, y: p.y }));
 }
@@ -324,4 +334,3 @@ export function wrapCrossSectionToCylinder(points2D, cylinderRadius, wrapIntensi
         };
     });
 }
-

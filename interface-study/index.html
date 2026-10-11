@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playground Ceramics — Interface Directions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <svg class="icon-sprite" aria-hidden="true">
+        <defs>
+            <symbol id="i-home" viewBox="0 0 24 24"><path d="m3.5 10 8.5-7 8.5 7v9.5a1.5 1.5 0 0 1-1.5 1.5h-5v-6H10v6H5a1.5 1.5 0 0 1-1.5-1.5Z"/></symbol>
+            <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+            <symbol id="i-bowl" viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="8" ry="3.5"/><path d="M4 7c.7 7 3.2 10.5 8 10.5S19.3 14 20 7"/><path d="M8.5 20h7"/></symbol>
+            <symbol id="i-vessel" viewBox="0 0 24 24"><path d="M8 3h8c-.7 2-1.3 3.4-.4 5.1 1.6 2.8 2.2 4.7 1.4 8.7-.4 2.2-2.3 4.2-5 4.2s-4.6-2-5-4.2c-.8-4 .2-6.4 1.5-8.7C9.4 6.4 8.7 5 8 3Z"/><path d="M8 3h8"/></symbol>
+            <symbol id="i-mold" viewBox="0 0 24 24"><path d="m4 8 8-4 8 4v9l-8 4-8-4Z"/><path d="m4 8 8 4 8-4M12 12v9"/><path d="m8.5 6.1 8 4"/></symbol>
+            <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h3M11 12h9M4 18h8M16 18h4"/><circle cx="16" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></symbol>
+            <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5Z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/></symbol>
+            <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+            <symbol id="i-pan" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3m3-3 3 3M22 12l-3-3m3 3-3 3M12 22l-3-3m3 3 3-3M2 12l3-3m-3 3 3 3"/></symbol>
+            <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/><path d="m3 8 5-5m8 0 5 5M3 16l5 5m8 0 5-5"/></symbol>
+            <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></symbol>
+            <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+            <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+            <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3h12l3 3v15H4V4a1 1 0 0 1 1-1Z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/></symbol>
+            <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V3m0 0-4 4m4-4 4 4"/><path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></symbol>
+            <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></symbol>
+            <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+            <symbol id="i-pin" viewBox="0 0 24 24"><path d="m14 4 6 6-3 1-4 4-1 5-2-2-4-4-2-2 5-1 4-4Z"/><path d="m9 15-6 6"/></symbol>
+            <symbol id="i-collapse" viewBox="0 0 24 24"><path d="m8 4-5 5 5 5M3 9h10a6 6 0 0 1 6 6v5"/></symbol>
+            <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+            <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7 4 12l5 5M4 12h9a7 7 0 0 1 7 7"/></symbol>
+            <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 7 5 5-5 5m5-5h-9a7 7 0 0 0-7 7"/></symbol>
+            <symbol id="i-pen" viewBox="0 0 24 24"><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10Z"/><path d="m14 7 3 3M4 20l3-4 1.5 3Z"/></symbol>
+            <symbol id="i-orbit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M4 12a8 4 0 0 0 16 0 8 4 0 0 0-16 0Z"/><path d="M12 4a4 8 0 0 0 0 16"/></symbol>
+        </defs>
+    </svg>
+
+    <main class="study" id="interfaceStudy">
+        <header class="study-header">
+            <div>
+                <p class="eyebrow">Interface study · July 2026</p>
+                <h1>Playground Ceramics</h1>
+            </div>
+            <div class="study-meta" aria-live="polite">
+                <span id="conceptName">01 · Floating Shelf</span>
+                <span class="meta-dot"></span>
+                <span id="conceptSummary">Shapr3D-inspired, balanced</span>
+            </div>
+        </header>
+
+        <nav class="study-controls" aria-label="Prototype choices">
+            <div class="control-group" aria-label="Interface direction">
+                <span class="control-label">Direction</span>
+                <button class="study-chip active" type="button" data-option="1">01 Floating</button>
+                <button class="study-chip" type="button" data-option="2">02 Docked</button>
+                <button class="study-chip" type="button" data-option="3">03 Canvas</button>
+                <button class="study-chip" type="button" data-option="4">04 Workspaces</button>
+            </div>
+            <div class="control-group surface-group" aria-label="Application surface">
+                <span class="control-label">Surface</span>
+                <button class="study-chip active" type="button" data-surface="dashboard">Dashboard</button>
+                <button class="study-chip" type="button" data-surface="dinnerware">Dinnerware</button>
+                <button class="study-chip" type="button" data-surface="vessel">Vessel V2</button>
+                <button class="study-chip" type="button" data-surface="mold">Cast Form</button>
+            </div>
+        </nav>
+
+        <section class="prototype-frame" data-option="1" data-surface="dashboard">
+            <div class="app-shell">
+                <header class="app-header">
+                    <div class="app-header-left">
+                        <button class="icon-button quiet home-button" type="button" aria-label="Dashboard"><svg><use href="#i-home"/></svg></button>
+                        <span class="product-name">Playground</span>
+                        <span class="product-section" id="surfaceTitle">Dashboard</span>
+                    </div>
+                    <button class="document-pill" type="button">
+                        <span class="document-dot"></span>
+                        <span id="documentName">Ceramics workspace</span>
+                        <svg><use href="#i-chevron"/></svg>
+                    </button>
+                    <div class="app-header-actions">
+                        <button class="icon-button quiet history-action" type="button" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
+                        <button class="icon-button quiet history-action" type="button" aria-label="Redo"><svg><use href="#i-redo"/></svg></button>
+                        <button class="action-button secondary-action" type="button"><svg><use href="#i-save"/></svg><span>Save</span></button>
+                        <button class="action-button primary-action" type="button"><svg><use href="#i-export"/></svg><span id="primaryActionLabel">New project</span></button>
+                        <button class="icon-button quiet" type="button" aria-label="More actions"><svg><use href="#i-more"/></svg></button>
+                    </div>
+                </header>
+
+                <div class="workspace">
+                    <nav class="tool-rail" aria-label="Application tools">
+                        <div class="tool-rail-primary">
+                            <button class="rail-button active" type="button" aria-label="Projects" data-tool="projects"><svg><use href="#i-grid"/></svg><span>Projects</span></button>
+                            <button class="rail-button" type="button" aria-label="Dinnerware" data-tool="dinnerware"><svg><use href="#i-bowl"/></svg><span>Set</span></button>
+                            <button class="rail-button" type="button" aria-label="Vessel" data-tool="vessel"><svg><use href="#i-vessel"/></svg><span>Vessel</span></button>
+                            <button class="rail-button" type="button" aria-label="Cast form" data-tool="mold"><svg><use href="#i-mold"/></svg><span>Mold</span></button>
+                            <span class="rail-divider"></span>
+                            <button class="rail-button" type="button" aria-label="Parameters"><svg><use href="#i-sliders"/></svg><span>Controls</span></button>
+                            <button class="rail-button" type="button" aria-label="Items"><svg><use href="#i-layers"/></svg><span>Items</span></button>
+                        </div>
+                        <div class="tool-rail-bottom">
+                            <button class="rail-button" type="button" aria-label="View settings"><svg><use href="#i-eye"/></svg><span>View</span></button>
+                        </div>
+                    </nav>
+
+                    <aside class="control-shelf" aria-label="Controls shelf">
+                        <div class="shelf-header">
+                            <div>
+                                <span class="shelf-kicker" id="shelfKicker">Library</span>
+                                <h2 id="shelfTitle">Projects</h2>
+                            </div>
+                            <div class="shelf-actions">
+                                <button class="icon-button shelf-pin" type="button" aria-label="Pin shelf"><svg><use href="#i-pin"/></svg></button>
+                                <button class="icon-button shelf-collapse" type="button" aria-label="Collapse shelf"><svg><use href="#i-collapse"/></svg></button>
+                                <button class="icon-button shelf-close" type="button" aria-label="Close controls"><svg><use href="#i-x"/></svg></button>
+                            </div>
+                        </div>
+                        <div class="shelf-body" id="shelfBody"></div>
+                        <div class="shelf-footer">
+                            <span><kbd>Space</kbd> + drag to pan</span>
+                            <button type="button" class="text-button fit-view"><svg><use href="#i-fit"/></svg>Fit</button>
+                        </div>
+                    </aside>
+
+                    <button class="shelf-reveal" type="button" aria-label="Show controls">
+                        <svg><use href="#i-sliders"/></svg><span>Controls</span>
+                    </button>
+
+                    <main class="canvas" id="panCanvas">
+                        <section class="dashboard-view" aria-label="Dashboard proposal">
+                            <div class="dashboard-topline">
+                                <div>
+                                    <span class="canvas-kicker">Good morning</span>
+                                    <h2>Continue making</h2>
+                                </div>
+                                <div class="dashboard-actions">
+                                    <label class="search-field"><svg><use href="#i-search"/></svg><input type="search" placeholder="Search projects" aria-label="Search projects"></label>
+                                    <button class="action-button secondary-action" type="button"><svg><use href="#i-import"/></svg>Import</button>
+                                    <button class="action-button primary-action" type="button"><svg><use href="#i-plus"/></svg>Create</button>
+                                </div>
+                            </div>
+                            <div class="project-grid">
+                                <article class="project-card selected-card">
+                                    <div class="project-preview dinnerware-preview">
+                                        <div class="plate plate-a"></div><div class="plate plate-b"></div><div class="cup cup-a"></div>
+                                        <span class="app-glyph"><svg><use href="#i-bowl"/></svg></span>
+                                    </div>
+                                    <div class="project-info"><div><h3>Sunday service</h3><p>Dinnerware set · 7 items</p></div><span>12m</span></div>
+                                </article>
+                                <article class="project-card">
+                                    <div class="project-preview vessel-preview">
+                                        <div class="vessel-object vessel-one"></div>
+                                        <span class="app-glyph violet"><svg><use href="#i-vessel"/></svg></span>
+                                    </div>
+                                    <div class="project-info"><div><h3>Soft shoulder vase</h3><p>Vessel V2 · 138 mm</p></div><span>2h</span></div>
+                                </article>
+                                <article class="project-card">
+                                    <div class="project-preview mold-preview">
+                                        <div class="mold-block mold-left"></div><div class="mold-block mold-right"></div><div class="mold-core"></div>
+                                        <span class="app-glyph orange"><svg><use href="#i-mold"/></svg></span>
+                                    </div>
+                                    <div class="project-info"><div><h3>Sunday bowl mold</h3><p>Cast form · 2 walls</p></div><span>1d</span></div>
+                                </article>
+                            </div>
+                            <div class="dashboard-bottomline">
+                                <span>3 recent projects</span>
+                                <div class="density-control"><button type="button" class="active">Comfortable</button><button type="button">Compact</button></div>
+                            </div>
+                        </section>
+
+                        <section class="model-view" aria-label="3D editor proposal">
+                            <div class="scene-toolbar">
+                                <div class="scene-tool-group">
+                                    <button class="scene-tool active" type="button"><svg><use href="#i-orbit"/></svg><span>Orbit</span></button>
+                                    <button class="scene-tool pan-toggle" type="button"><svg><use href="#i-pan"/></svg><span>Pan</span></button>
+                                    <button class="scene-tool fit-view" type="button"><svg><use href="#i-fit"/></svg><span>Fit</span></button>
+                                </div>
+                                <span class="view-readout">Perspective · 100%</span>
+                            </div>
+
+                            <div class="scene-content" id="sceneContent">
+                                <div class="scene-grid"></div>
+                                <div class="dinnerware-scene scene-object-group">
+                                    <div class="dw-shadow"></div>
+                                    <div class="dw-object bowl-main"><span></span></div>
+                                    <div class="dw-object plate-main"><span></span></div>
+                                    <div class="dw-object cup-main"><span></span></div>
+                                    <div class="dw-object plate-back"><span></span></div>
+                                </div>
+
+                                <div class="vessel-scene scene-object-group">
+                                    <div class="profile-editor">
+                                        <div class="profile-ruler"><span>140</span><span>70</span><span>0 mm</span></div>
+                                        <svg viewBox="0 0 260 420" role="img" aria-label="Editable vessel profile">
+                                            <path class="profile-axis" d="M56 35v350M32 385h200"/>
+                                            <path class="profile-line" d="M74 372 C132 370 159 302 178 218 C197 132 178 86 126 44"/>
+                                            <circle cx="74" cy="372" r="7"/><circle cx="178" cy="218" r="7"/><circle cx="126" cy="44" r="7"/>
+                                        </svg>
+                                        <div class="profile-tools"><button type="button"><svg><use href="#i-pen"/></svg> Edit</button><span>Grid 5 mm</span></div>
+                                    </div>
+                                    <div class="vessel-render"><div class="vessel-hero"></div><div class="vessel-shadow"></div></div>
+                                </div>
+
+                                <div class="mold-scene scene-object-group">
+                                    <div class="mold-shadow"></div>
+                                    <div class="cast-block cast-block-a"><span>W1</span></div>
+                                    <div class="cast-block cast-block-b"><span>W2</span></div>
+                                    <div class="cast-foot"><span>F</span></div>
+                                    <div class="cast-form"></div>
+                                </div>
+                            </div>
+
+                            <div class="view-cube" aria-label="View cube">
+                                <button class="cube-face cube-top" type="button" data-view="Top">TOP</button>
+                                <button class="cube-face cube-front" type="button" data-view="Front">FRONT</button>
+                                <button class="cube-face cube-right" type="button" data-view="Right">RIGHT</button>
+                                <span class="axis axis-x">X</span><span class="axis axis-y">Y</span><span class="axis axis-z">Z</span>
+                            </div>
+
+                            <div class="navigation-cluster">
+                                <button class="icon-button pan-toggle" type="button" aria-label="Pan"><svg><use href="#i-pan"/></svg></button>
+                                <button class="icon-button fit-view" type="button" aria-label="Fit view"><svg><use href="#i-fit"/></svg></button>
+                            </div>
+
+                            <div class="view-toast" id="viewToast">3/4 view</div>
+                        </section>
+                    </main>
+
+                    <aside class="context-shelf" aria-label="Scene information">
+                        <div class="context-header"><span id="contextTitle">Selection</span><button class="icon-button" type="button" aria-label="Close"><svg><use href="#i-x"/></svg></button></div>
+                        <div class="context-body" id="contextBody"></div>
+                    </aside>
+                </div>
+
+                <footer class="status-bar">
+                    <div><span class="status-dot"></span><span id="statusText">Workspace ready</span></div>
+                    <div class="gesture-hints"><span><b>RMB</b> Pan</span><span><b>MMB</b> Orbit</span><span><b>Scroll</b> Zoom</span></div>
+                    <span id="viewLabel">Perspective</span>
+                </footer>
+            </div>
+        </section>
+
+        <footer class="decision-strip">
+            <div><span class="decision-label">Best for</span><strong id="bestFor">A coherent default across all four surfaces</strong></div>
+            <div><span class="decision-label">Control shelf</span><strong id="shelfSpec">296 px floating · pin / hide / close</strong></div>
+            <div><span class="decision-label">Canvas gain</span><strong id="canvasGain">+296 px when hidden</strong></div>
+            <div><span class="decision-label">Tradeoff</span><strong id="tradeoff">One click to reopen controls</strong></div>
+        </footer>
+    </main>
+
+    <script src="./study.js"></script>
+</body>
+</html>

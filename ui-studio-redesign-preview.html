@@ -1,0 +1,2136 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playground Ceramics — Studio Shell UI Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PLAYGROUND CERAMICS — "STUDIO SHELL" REDESIGN PREVIEW
+   Canvas-first workspace: all chrome floats as islands.
+   ============================================================ */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+
+:root{
+  --accent:#A259FF; --accent-dark:#8B3FE8; --accent-light:#B87FFF;
+  --accent-glow:rgba(162,89,255,.28);
+  --accent-soft:rgba(162,89,255,.14);
+  --warn:#E8A13B; --danger:#F24822; --ok:#0FA958;
+  --font:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:'JetBrains Mono','SF Mono',monospace;
+  --ease:cubic-bezier(.3,.7,.25,1);
+}
+html[data-mode="light"]{
+  --cv-hi:#F3F4F6; --cv-lo:#E1E3E7;
+  --isl-bg:rgba(255,255,255,.88);
+  --isl-border:rgba(20,22,26,.08);
+  --isl-shadow:0 1px 2px rgba(20,22,26,.05),0 12px 32px rgba(20,22,26,.12);
+  --txt-1:#1B1D21; --txt-2:#5F646C; --txt-3:#9AA0A8;
+  --hover:rgba(20,22,26,.05); --active:rgba(20,22,26,.09);
+  --input-bg:rgba(20,22,26,.04);
+  --track:rgba(20,22,26,.13);
+  --tile:#F1F2F4;
+  --grid:#C9CCD3;
+  --ico-top:#8A9099; --ico-mid:#535A64; --ico-side:#394048; --ico-deep:#22262B; --ico-seam:#F1F2F4;
+  --face-bg:rgba(255,255,255,.95); --face-border:#D6D9DE;
+  --veil:rgba(24,25,28,.42);
+  --home-bg:#EEEFF2; --card-bg:#FFFFFF; --thumb-bg:#F4F5F7;
+}
+html[data-mode="dark"]{
+  --cv-hi:#2C2D31; --cv-lo:#1C1D20;
+  --isl-bg:rgba(42,43,47,.88);
+  --isl-border:rgba(255,255,255,.09);
+  --isl-shadow:0 1px 2px rgba(0,0,0,.4),0 16px 40px rgba(0,0,0,.5);
+  --txt-1:#F2F3F5; --txt-2:#A7ACB4; --txt-3:#6E7379;
+  --hover:rgba(255,255,255,.07); --active:rgba(255,255,255,.12);
+  --input-bg:rgba(255,255,255,.06);
+  --track:rgba(255,255,255,.16);
+  --tile:#313236;
+  --grid:#393B41;
+  --ico-top:#9AA1AB; --ico-mid:#6A7280; --ico-side:#4A515B; --ico-deep:#2B3036; --ico-seam:#313236;
+  --face-bg:rgba(56,57,62,.96); --face-border:#4A4C52;
+  --veil:rgba(0,0,0,.55);
+  --home-bg:#202124; --card-bg:#2A2B2F; --thumb-bg:#232427;
+}
+
+body{
+  font-family:var(--font);font-size:14px;color:var(--txt-1);
+  background:var(--home-bg);overflow:hidden;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+input,select{font-family:inherit;color:inherit}
+svg.ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.a3{display:block}
+.a3 svg,svg.a3{width:100%;height:100%;display:block}
+kbd{font-family:var(--mono);font-size:10px;background:var(--input-bg);border:1px solid var(--isl-border);border-radius:5px;padding:2px 6px;color:var(--txt-3)}
+
+/* ---------- screens ---------- */
+.screen{display:none}
+body[data-screen="home"] #screen-home,
+body[data-screen="selector"] #screen-home{display:block}
+body[data-screen="dw"] #screen-dw{display:block}
+body[data-screen="mold"] #screen-mold{display:block}
+body[data-screen="vessel2"] #screen-vessel2{display:block}
+/* studios are offset below the meta preview strip (36px). In the real product
+   there is no strip and .studio/.home would be inset:0. */
+.studio{position:fixed;top:36px;left:0;right:0;bottom:0;overflow:hidden}
+#screen-home{position:fixed;top:36px;left:0;right:0;bottom:0;overflow-y:auto;background:var(--home-bg);transition:background .3s}
+
+/* ============================================================
+   ISLANDS — the core floating-panel primitive
+   ============================================================ */
+.isl{
+  position:absolute;
+  background:var(--isl-bg);
+  -webkit-backdrop-filter:blur(24px) saturate(1.4);
+  backdrop-filter:blur(24px) saturate(1.4);
+  border:1px solid var(--isl-border);
+  border-radius:14px;
+  box-shadow:var(--isl-shadow);
+}
+[data-hide]{transition:opacity .3s var(--ease),transform .3s var(--ease)}
+
+/* icon button inside islands */
+.ib{position:relative;display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:9px;color:var(--txt-2);transition:background .15s,color .15s}
+.ib:hover{background:var(--hover);color:var(--txt-1)}
+.ib.on{background:var(--accent-soft);color:var(--accent)}
+
+/* hover label chips (Shapr3D-style flyout labels) */
+[data-tip]::after{
+  content:attr(data-tip);position:absolute;top:50%;
+  transform:translateY(-50%) translateX(-4px);
+  white-space:nowrap;background:var(--isl-bg);
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  border:1px solid var(--isl-border);box-shadow:var(--isl-shadow);
+  color:var(--txt-1);font-size:12px;font-weight:500;
+  padding:6px 11px;border-radius:9px;opacity:0;pointer-events:none;
+  transition:opacity .15s var(--ease) .12s,transform .15s var(--ease) .12s;z-index:60;
+}
+.tip-r::after{left:calc(100% + 14px)}
+.tip-l::after{right:calc(100% + 14px);transform:translateY(-50%) translateX(4px)}
+[data-tip]:hover::after{opacity:1;transform:translateY(-50%) translateX(0)}
+[data-tip-b]::after{
+  content:attr(data-tip-b);position:absolute;left:50%;top:calc(100% + 12px);
+  transform:translateX(-50%) translateY(-4px);
+  white-space:nowrap;background:var(--isl-bg);
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  border:1px solid var(--isl-border);box-shadow:var(--isl-shadow);
+  color:var(--txt-1);font-size:12px;font-weight:500;
+  padding:6px 11px;border-radius:9px;opacity:0;pointer-events:none;
+  transition:opacity .15s var(--ease) .12s,transform .15s var(--ease) .12s;z-index:60;
+}
+[data-tip-b]:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- top-center project bar ---------- */
+.topbar{
+  top:16px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:2px;height:44px;padding:0 6px;
+  border-radius:22px;z-index:14;
+}
+.tb-name{display:flex;align-items:center;gap:7px;height:32px;padding:0 11px;border-radius:9px;font-size:13px;font-weight:600;transition:background .15s}
+.tb-name:hover{background:var(--hover)}
+.tb-name .ic{width:13px;height:13px;color:var(--txt-3)}
+.save-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:none}
+.tb-div{width:1px;height:20px;background:var(--isl-border);margin:0 5px;flex:none}
+.btn-primary{
+  display:flex;align-items:center;gap:6px;height:32px;padding:0 14px;border-radius:999px;
+  font-size:12.5px;font-weight:600;color:#fff;
+  background:linear-gradient(135deg,var(--accent),var(--accent-dark));
+  box-shadow:0 2px 10px var(--accent-glow);
+  transition:transform .15s var(--ease),box-shadow .15s;
+}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 16px var(--accent-glow)}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary .ic{width:14px;height:14px;stroke-width:2}
+
+/* ---------- corner buttons (top-right) ---------- */
+.corner-btn{position:absolute;top:16px;width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;color:var(--txt-2);z-index:22;background:var(--isl-bg);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);border:1px solid var(--isl-border);box-shadow:var(--isl-shadow)}
+.corner-btn:hover{color:var(--txt-1)}
+.corner-btn.on{color:var(--accent)}
+.js-layers{right:16px}
+.js-focus{right:62px}
+.corner-handle{position:absolute;top:58px;right:24px;width:20px;height:3px;border-radius:2px;background:var(--txt-3);opacity:.45;z-index:22;cursor:pointer;transition:opacity .15s}
+.corner-handle:hover{opacity:.9}
+
+/* ---------- left tool rail (pinned near the top; params opens to its right) ---------- */
+.left-rail{left:16px;top:16px;display:flex;flex-direction:column;gap:2px;padding:6px;width:44px;z-index:17;transition:opacity .25s var(--ease),transform .25s var(--ease)}
+.rail-div{height:1px;background:var(--isl-border);margin:4px 3px}
+
+/* ---------- right dock: tool rail always sits just LEFT of the panel ---------- *
+   The dock is anchored to the right edge. Its inner rails live at right:16px.
+   When the panel opens the whole dock slides left by (panel 272 + gap 12) so the
+   rail is always to the right of the model and to the left of the open panel,
+   never overlapping it.                                                          */
+.right-dock{position:absolute;top:0;bottom:0;right:0;width:0;z-index:16;transition:transform .34s var(--ease);pointer-events:none}
+.studio.items-open .right-dock{transform:translateX(-284px)}
+.tools-rail{position:absolute;right:16px;top:calc(50% - 40px);transform:translateY(-50%);display:flex;flex-direction:column;gap:2px;padding:6px;width:44px;pointer-events:auto}
+/* bottom-right stack sits BELOW the panel (panel bottom is 88px up) so it never
+   overlaps it — it stays pinned to the corner and does NOT shift with the dock. */
+.br-stack{position:absolute;right:16px;bottom:16px;z-index:14;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.isl--static{position:static}
+
+/* ============================================================
+   VIEW CUBE  (docks to the RIGHT of the toolbar; slides right of the
+   properties panel when it opens so it is always the rightmost of the
+   left-side cluster)
+   ============================================================ */
+.vc-wrap{position:absolute;left:72px;top:18px;z-index:16;width:76px}
+.studio.params-open .vc-wrap{transform:translateX(312px)}
+.vc-scene{width:40px;height:40px;perspective:340px;margin-left:12px;cursor:grab;touch-action:none}
+.vc-scene:active{cursor:grabbing}
+.viewcube{width:100%;height:100%;position:relative;transform-style:preserve-3d;transform:rotateX(-24deg) rotateY(-38deg);transition:transform .55s var(--ease)}
+.viewcube.no-anim{transition:none}
+.vc-face{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:5.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--txt-2);
+  background:var(--face-bg);border:1px solid var(--face-border);border-radius:5px;
+  cursor:pointer;backface-visibility:hidden;transition:background .15s,color .15s;
+  user-select:none;-webkit-user-select:none;
+}
+.vc-face:hover{color:var(--accent);background:var(--accent-soft)}
+.vc-front{transform:translateZ(20px)}
+.vc-back{transform:rotateY(180deg) translateZ(20px)}
+.vc-right{transform:rotateY(90deg) translateZ(20px)}
+.vc-left{transform:rotateY(-90deg) translateZ(20px)}
+.vc-top{transform:rotateX(90deg) translateZ(20px)}
+.vc-bottom{transform:rotateX(-90deg) translateZ(20px)}
+.vc-axes{margin:12px 0 0 2px;display:block}
+.vc-reset{position:absolute;top:-8px;right:0;width:20px;height:20px;border-radius:50%;background:var(--isl-bg);border:1px solid var(--isl-border);box-shadow:var(--isl-shadow);color:var(--txt-3);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s,color .15s}
+.vc-reset .ic{width:10px;height:10px}
+.vc-wrap:hover .vc-reset{opacity:1}
+.vc-reset:hover{color:var(--txt-1)}
+
+/* ============================================================
+   PANELS (parameters left / items right)
+   ============================================================ */
+.pan-head{display:flex;align-items:center;gap:9px;height:46px;padding:0 8px 0 14px;border-bottom:1px solid var(--isl-border);flex:none}
+.pan-head .ph-ic{width:16px;height:16px;color:var(--txt-2)}
+.ph-t{font-size:13px;font-weight:600;flex:1;display:flex;align-items:center;gap:6px;min-width:0}
+.ph-t .ic{width:12px;height:12px;color:var(--txt-3)}
+
+.params{left:72px;top:16px;bottom:88px;width:300px;z-index:15;display:flex;flex-direction:column;opacity:0;transform:translateX(-16px);pointer-events:none}
+.studio.params-open .params{opacity:1;transform:none;pointer-events:auto}
+.studio.params-open .left-rail .js-params{background:var(--accent-soft);color:var(--accent)}
+/* in case-box mode the Case Box icon is the active one, not Parameters */
+.studio.case-mode .left-rail .js-params{background:transparent;color:var(--txt-2)}
+.pan-body{flex:1;overflow-y:auto;padding:2px 8px 10px}
+.pan-body::-webkit-scrollbar,.items-list::-webkit-scrollbar,.spec-b::-webkit-scrollbar,#screen-home::-webkit-scrollbar{width:8px}
+.pan-body::-webkit-scrollbar-thumb,.items-list::-webkit-scrollbar-thumb,.spec-b::-webkit-scrollbar-thumb,#screen-home::-webkit-scrollbar-thumb{background:var(--track);border-radius:4px;border:2px solid transparent;background-clip:content-box}
+
+/* accordion sections */
+.acc{border-bottom:1px solid var(--isl-border)}
+.acc:last-child{border-bottom:none}
+.acc-head{display:flex;align-items:center;gap:8px;width:100%;padding:12px 6px;font-size:12.5px;font-weight:600;color:var(--txt-1);text-align:left}
+.acc-head .ic{width:13px;height:13px;color:var(--txt-3);transform:rotate(-90deg);transition:transform .25s var(--ease)}
+.acc.open .acc-head .ic{transform:none}
+.acc-head em{font-style:normal;margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--txt-3);font-weight:400}
+.acc-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s var(--ease)}
+.acc.open .acc-body{grid-template-rows:1fr}
+.acc-inner{overflow:hidden;padding:0 6px}
+.acc.open .acc-inner{padding-bottom:14px}
+
+/* parameter rows */
+.prow{margin-bottom:13px}
+.prow:last-child{margin-bottom:2px}
+.prow>label{display:block;font-size:12px;color:var(--txt-2);margin-bottom:6px}
+.param-ctrl{display:flex;align-items:center;gap:9px}
+input[type=range].param-slider{
+  -webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:2px;outline:none;
+  background:linear-gradient(to right,var(--accent) var(--val,50%),var(--track) var(--val,50%));
+}
+input[type=range].param-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:#fff;border:1px solid rgba(20,22,26,.2);box-shadow:0 1px 3px rgba(20,22,26,.3);cursor:grab}
+input[type=range].param-slider::-webkit-slider-thumb:active{cursor:grabbing}
+input[type=range].param-slider::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#fff;border:1px solid rgba(20,22,26,.2);box-shadow:0 1px 3px rgba(20,22,26,.3);cursor:grab}
+.num{display:flex;align-items:center;gap:3px;background:var(--input-bg);border:1px solid var(--isl-border);border-radius:7px;padding:0 7px;height:26px;flex:none}
+.num input{width:36px;border:none;background:none;font-family:var(--mono);font-size:12px;text-align:right;color:var(--txt-1);outline:none;-moz-appearance:textfield;appearance:textfield}
+.num input::-webkit-outer-spin-button,.num input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.num span{font-family:var(--mono);font-size:10.5px;color:var(--txt-3);min-width:14px}
+select.psel{width:100%;height:30px;border-radius:8px;border:1px solid var(--isl-border);background:var(--input-bg);font-size:12.5px;padding:0 8px;outline:none;color:var(--txt-1);cursor:pointer}
+html[data-mode=dark] select.psel option{background:#2A2B2F}
+.btn-ghost{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:8px;border:1px solid var(--isl-border);font-size:12px;font-weight:500;color:var(--txt-2);transition:background .15s,color .15s}
+.btn-ghost:hover{background:var(--hover);color:var(--txt-1)}
+.btn-ghost .ic{width:13px;height:13px}
+
+/* switch */
+.sw{width:34px;height:20px;border-radius:10px;background:var(--track);position:relative;transition:background .2s;flex:none;display:inline-block;cursor:pointer}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s var(--ease)}
+.sw.on{background:var(--accent)}
+.sw.on::after{left:16px}
+.srow{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
+.srow>label{font-size:12px;color:var(--txt-2)}
+
+/* source card (mold input) */
+.src-card{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--isl-border);border-radius:10px;background:var(--input-bg);margin-bottom:12px}
+.src-card .a3{width:34px;height:34px;background:var(--tile);border-radius:9px;padding:4px;flex:none}
+.src-card b{display:block;font-size:12.5px;font-weight:600}
+.src-card small{font-size:11px;color:var(--txt-3);font-family:var(--mono)}
+.src-card .grow{flex:1;min-width:0}
+
+/* ---------- items panel ---------- */
+.items{top:64px;right:16px;bottom:88px;width:272px;z-index:20;display:flex;flex-direction:column;opacity:0;transform:translateX(24px);pointer-events:none}
+.studio.items-open .items{opacity:1;transform:none;pointer-events:auto}
+.items-list{flex:1;overflow-y:auto;padding:6px}
+.item-row{display:flex;align-items:center;gap:9px;height:34px;padding:0 5px 0 9px;border-radius:8px;cursor:default;transition:background .15s}
+.item-row:hover{background:var(--hover)}
+.item-row.is-sel{background:var(--accent-soft)}
+.item-row .it{width:16px;height:16px;color:var(--txt-2);stroke-width:1.6;transition:opacity .15s}
+.it-name{flex:1;font-size:12.5px;font-weight:500;transition:color .15s;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.eye{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--txt-3);opacity:0;transition:opacity .15s,background .15s,color .15s;flex:none}
+.eye .ic{width:15px;height:15px;stroke-width:1.6}
+.item-row:hover .eye,.item-row.is-off .eye{opacity:1}
+.eye:hover{background:var(--active);color:var(--txt-1)}
+.eye .e-off{display:none}
+.item-row.is-off .e-on{display:none}
+.item-row.is-off .e-off{display:block}
+.item-row.is-off .it-name{color:var(--txt-3)}
+.item-row.is-off .it{opacity:.4}
+.items-foot{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--isl-border);font-size:11px;color:var(--txt-3)}
+.items-foot .js-count{font-family:var(--mono);font-size:10.5px}
+.if-link{font-size:11px;font-weight:500;color:var(--txt-2)}
+.if-link:hover{color:var(--accent)}
+.if-spacer{flex:1}
+
+/* dot indicators (used in the panel status footer) */
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dot.ok{background:var(--ok)}
+.dot.warn{background:var(--warn)}
+
+/* ---------- panel status footer (item/part/point count) ---------- */
+.pan-status{display:flex;align-items:center;gap:9px;padding:11px 14px;border-top:1px solid var(--isl-border);flex:none;font-size:11.5px;color:var(--txt-2)}
+.pan-status .mono{font-family:var(--mono);font-size:11px}
+.pan-status .ps-div{width:1px;height:13px;background:var(--isl-border);flex:none}
+
+/* ---------- warnings UI (lower-left) ---------- */
+.warnings{left:16px;bottom:16px;height:36px;display:flex;align-items:center;z-index:22}
+.warn-btn{display:flex;align-items:center;gap:8px;height:100%;padding:0 14px;border-radius:12px;font-size:12px;font-weight:600;color:var(--warn)}
+.warn-btn .ic{width:15px;height:15px}
+.warn-pop{position:absolute;bottom:calc(100% + 10px);left:0;width:300px;background:var(--isl-bg);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);border:1px solid var(--isl-border);box-shadow:var(--isl-shadow);border-radius:14px;padding:6px;opacity:0;visibility:hidden;transform:translateY(6px);transition:opacity .18s var(--ease),transform .18s var(--ease),visibility .18s;z-index:45}
+.warnings.open .warn-pop{opacity:1;visibility:visible;transform:none}
+.warn-pop-head{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-3);font-weight:600;padding:7px 8px 4px}
+.warn-row{display:flex;gap:9px;padding:9px 8px;border-radius:8px;align-items:flex-start}
+.warn-row:hover{background:var(--hover)}
+.warn-row .ic{width:14px;height:14px;color:var(--warn);margin-top:1px;flex:none}
+.warn-row b{display:block;font-size:12px;font-weight:600;margin-bottom:2px;color:var(--txt-1)}
+.warn-row small{font-size:11px;color:var(--txt-3);line-height:1.45;display:block}
+
+/* ---------- Cast Form: case-box editor mode ---------- */
+.mv-view,.case-view{transition:opacity .3s var(--ease)}
+.case-view{opacity:0;pointer-events:none}
+.studio.case-mode .mv-view{opacity:0;pointer-events:none}
+.studio.case-mode .case-view{opacity:1;pointer-events:auto}
+.js-case-body{display:none}
+.studio.case-mode .js-mold-body{display:none}
+.studio.case-mode .js-case-body{display:block}
+
+/* in-panel exploded control (folded from the bottom-right island) */
+.exp-row{display:flex;align-items:center;gap:10px}
+.exp-row input[type=range]{flex:1}
+
+/* ---------- focus mode ---------- */
+.studio.focus [data-hide]{opacity:0!important;pointer-events:none!important}
+.studio.focus [data-hide="up"]{transform:translateY(-20px)}
+.studio.focus [data-hide="down"]{transform:translateY(20px)}
+.studio.focus [data-hide="left"]{transform:translateX(-20px)}
+.studio.focus [data-hide="right"]{transform:translateX(20px)}
+.studio.focus .topbar{transform:translate(-50%,-20px)}
+.studio.focus .tools-rail{transform:translateY(-50%) translateX(20px)}
+.studio.focus .params,.studio.focus .left-rail{opacity:0!important;pointer-events:none!important;transform:translateX(-24px)}
+.studio.focus .items{opacity:0!important;pointer-events:none!important;transform:translateX(24px)}
+.canvas svg{transition:transform .6s var(--ease)}
+.studio.focus .canvas svg{transform:scale(1.035)}
+.focus-exit{
+  position:absolute;right:16px;bottom:16px;z-index:30;
+  display:flex;align-items:center;gap:9px;height:38px;padding:0 9px 0 13px;border-radius:12px;
+  background:var(--isl-bg);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4);
+  border:1px solid var(--isl-border);box-shadow:var(--isl-shadow);
+  font-size:12px;font-weight:500;color:var(--txt-2);
+  opacity:0;visibility:hidden;transform:translateY(8px);
+  transition:opacity .3s var(--ease) .15s,transform .3s var(--ease) .15s,visibility .3s;
+}
+.studio.focus .focus-exit{opacity:1;visibility:visible;transform:none}
+.focus-exit:hover{color:var(--txt-1)}
+.focus-exit .ic{width:15px;height:15px}
+
+/* ---------- canvas ---------- */
+.canvas{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 40%,var(--cv-hi) 0%,var(--cv-lo) 82%);transition:background .3s}
+.canvas svg{width:100%;height:100%;display:block}
+.cv-item,.mv-part{transition:opacity .25s var(--ease)}
+.cv-off{opacity:0!important;pointer-events:none}
+.cv-sel{filter:drop-shadow(0 0 2px rgba(162,89,255,.85)) drop-shadow(0 8px 20px rgba(162,89,255,.3))}
+.cv-grid{transition:opacity .3s}
+.studio.grid-off .cv-grid{opacity:0}
+.studio.section-on .cv-scene{clip-path:inset(0 0 0 50%)}
+#cv-cut{opacity:0;transition:opacity .3s}
+.studio.section-on #cv-cut{opacity:1}
+.anim-parts .mv-part{transition:transform .58s var(--ease),opacity .25s var(--ease)}
+
+/* ============================================================
+   VESSEL V2 — profile editor, bezier handles, point configurator
+   ============================================================ */
+/* segmented control (node type, view mode) */
+.seg{display:inline-flex;background:var(--input-bg);border:1px solid var(--isl-border);border-radius:9px;padding:2px;gap:2px}
+.seg-opt{height:26px;padding:0 12px;border-radius:7px;font-size:12px;font-weight:500;color:var(--txt-2);display:flex;align-items:center;gap:6px;transition:background .15s,color .15s;white-space:nowrap}
+.seg-opt .ic{width:14px;height:14px}
+.seg-opt.on{background:var(--isl-bg);color:var(--accent);box-shadow:0 1px 3px rgba(20,22,26,.14)}
+html[data-mode=dark] .seg-opt.on{background:#3A3B40}
+
+/* SVG profile editor */
+.pe-axis{stroke:var(--accent);stroke-width:1.4;stroke-dasharray:6 6;opacity:.45}
+.pe-axis-cap{fill:var(--accent);opacity:.6}
+.pe-fill{fill:var(--accent);opacity:.06}
+.pe-mirror{fill:none;stroke:var(--txt-3);stroke-width:1.6;opacity:.3}
+.pe-curve{fill:none;stroke:var(--txt-1);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.pe-hline{stroke:var(--accent);stroke-width:1.5;opacity:.85}
+.pnode{fill:var(--cv-hi);stroke:var(--txt-2);stroke-width:2.5;cursor:pointer;transition:stroke .15s,fill .15s}
+.pnode:hover{stroke:var(--accent)}
+.pnode.sel{fill:var(--accent);stroke:var(--accent)}
+.pnode.corner{rx:1.5px}
+.phandle{fill:var(--accent);stroke:var(--cv-hi);stroke-width:2;cursor:pointer}
+.pe-node-g{transition:opacity .25s var(--ease)}
+.studio.solid-view .pe-node-g,.studio.solid-view .pe-hline,.studio.solid-view .pe-axis,.studio.solid-view .pe-mirror{opacity:0;pointer-events:none}
+.pe-solid{opacity:0;transition:opacity .35s var(--ease)}
+.studio.solid-view .pe-solid{opacity:1}
+/* canvas-tone toggle (real: background light/dark toggle in viewport) */
+.studio.tone-alt .canvas{background:radial-gradient(120% 90% at 50% 40%,var(--cv-lo) 0%,var(--cv-hi) 92%)}
+
+/* ---------- in-panel "View mode" control (folded from bottom island) ---------- */
+.pan-field{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}
+.pan-field>label{font-size:12px;color:var(--txt-2)}
+.pan-field .seg-opt{height:24px;padding:0 10px;font-size:11.5px}
+
+/* ---------- in-panel "Selected Point" section (folds the point configurator in) ---------- */
+.point-sec{border-bottom:1px solid var(--isl-border);padding:12px 6px 14px;background:linear-gradient(var(--accent-soft),transparent)}
+.point-sec .ps-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.point-sec .ps-dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);flex:none}
+.point-sec .ps-name{font-size:12.5px;font-weight:600;color:var(--txt-1)}
+.point-sec .ps-tag{margin-left:auto;font-size:9.5px;font-family:var(--mono);color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
+.point-sec .seg{width:100%;margin-bottom:12px}
+.point-sec .seg-opt{flex:1;justify-content:center;padding:0 4px}
+.pc-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.pc-cell{display:flex;flex-direction:column;gap:5px}
+.pc-cell .pc-lab{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt-3);font-weight:600}
+.pc-cell .num{width:100%;height:28px;justify-content:space-between}
+.pc-cell .num input{text-align:left;flex:1}
+.studio:not(.node-sel) .point-sec{display:none}
+.pt-badge{font-size:9.5px;font-family:var(--mono);color:var(--txt-3);padding:2px 7px;border-radius:6px;background:var(--input-bg);flex:none}
+.item-row.is-sel .pt-badge{color:var(--accent)}
+
+/* ============================================================
+   HOME
+   ============================================================ */
+.home-wrap{max-width:1140px;margin:0 auto;padding:26px 40px 40px}
+.home-head{display:flex;align-items:center;gap:12px;padding:6px 0 30px}
+.brand{display:flex;align-items:center;gap:11px;margin-right:auto}
+.brand .a3{width:30px;height:30px}
+.brand b{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.brand span{font-size:12px;color:var(--txt-3)}
+.search{display:flex;align-items:center;gap:8px;width:248px;height:36px;padding:0 12px;border-radius:11px;background:var(--card-bg);border:1px solid var(--isl-border)}
+.search .ic{width:15px;height:15px;color:var(--txt-3)}
+.search input{border:none;background:none;outline:none;font-size:13px;flex:1;color:var(--txt-1);min-width:0}
+.search input::placeholder{color:var(--txt-3)}
+.btn-soft{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border-radius:11px;background:var(--card-bg);border:1px solid var(--isl-border);font-size:13px;font-weight:500;color:var(--txt-2);transition:color .15s,border-color .15s}
+.btn-soft:hover{color:var(--txt-1);border-color:var(--txt-3)}
+.btn-soft .ic{width:15px;height:15px}
+.home-head .btn-primary{height:36px;border-radius:11px}
+.sec-row{display:flex;align-items:baseline;gap:10px;margin:6px 0 18px}
+.sec-row h2{font-size:20px;font-weight:600;letter-spacing:-.01em}
+.sec-row span{font-family:var(--mono);font-size:11px;color:var(--txt-3)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:18px}
+.card{background:var(--card-bg);border:1px solid var(--isl-border);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .22s var(--ease),box-shadow .22s,border-color .22s;text-align:left;display:block;width:100%}
+.card:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(20,22,26,.12);border-color:rgba(20,22,26,.15)}
+html[data-mode=dark] .card:hover{box-shadow:0 14px 34px rgba(0,0,0,.5);border-color:rgba(255,255,255,.18)}
+.thumb{aspect-ratio:16/10;background:radial-gradient(100% 85% at 50% 42%,var(--cv-hi),var(--thumb-bg));display:flex;align-items:center;justify-content:center;transition:background .3s}
+.thumb svg{width:80%;height:80%}
+.card-b{display:flex;align-items:center;gap:10px;padding:12px 10px 12px 14px}
+.card-b .a3{width:28px;height:28px;flex:none;background:var(--tile);border-radius:8px;padding:3px}
+.card-b .grow{flex:1;min-width:0}
+.card-b b{display:block;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-b small{font-size:11.5px;color:var(--txt-3)}
+.card-dots{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--txt-3);opacity:0;transition:opacity .15s,background .15s}
+.card:hover .card-dots{opacity:1}
+.card-dots:hover{background:var(--hover);color:var(--txt-1)}
+.card-new{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;border:1.5px dashed var(--track);border-radius:16px;background:transparent;min-height:238px;color:var(--txt-3);cursor:pointer;transition:color .2s,border-color .2s;font-size:13px;font-weight:500}
+.card-new:hover{color:var(--accent);border-color:var(--accent)}
+.card-new .plus{width:40px;height:40px;border-radius:50%;border:1.5px dashed currentColor;display:flex;align-items:center;justify-content:center}
+.card-new .plus .ic{width:18px;height:18px}
+.home-foot{display:flex;align-items:center;gap:8px;padding:38px 0 10px;font-size:11.5px;color:var(--txt-3)}
+.home-foot .hf-sp{flex:1}
+.home-foot .ib{width:28px;height:28px}
+.home-foot .ib .ic{width:15px;height:15px}
+
+/* ============================================================
+   APP SELECTOR MODAL
+   ============================================================ */
+.veil{position:fixed;inset:0;background:var(--veil);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s;z-index:100}
+body[data-screen=selector] .veil{opacity:1;visibility:visible}
+.sheet{width:758px;max-width:calc(100vw - 48px);max-height:calc(100vh - 80px);overflow-y:auto;background:var(--card-bg);border:1px solid var(--isl-border);border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.3);padding:26px;transform:translateY(10px) scale(.985);transition:transform .28s var(--ease)}
+body[data-screen=selector] .sheet{transform:none}
+.sheet-h{display:flex;align-items:flex-start;gap:12px;margin-bottom:22px}
+.sheet-h h2{font-size:18px;font-weight:600;letter-spacing:-.01em}
+.sheet-h p{font-size:13px;color:var(--txt-2);margin-top:4px}
+.sheet-x{margin-left:auto;width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--txt-3);flex:none}
+.sheet-x:hover{background:var(--hover);color:var(--txt-1)}
+.app-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.app-tile{display:flex;flex-direction:column;align-items:flex-start;padding:16px;border-radius:16px;border:1px solid var(--isl-border);background:transparent;text-align:left;cursor:pointer;transition:transform .18s var(--ease),border-color .18s,box-shadow .18s}
+.app-tile:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 10px 30px var(--accent-glow)}
+.app-tile .a3{width:56px;height:56px;background:var(--tile);border-radius:14px;padding:6px;margin-bottom:13px}
+.app-tile b{font-size:13.5px;font-weight:600}
+.app-tile small{font-size:11.5px;line-height:1.5;color:var(--txt-3);margin-top:4px}
+.sheet-f{display:flex;align-items:center;margin-top:22px;font-size:11.5px;color:var(--txt-3)}
+.sheet-f .btn-soft{margin-left:auto;height:34px}
+
+/* ============================================================
+   PREVIEW CHROME (not part of the design — switcher / spec)
+   ============================================================ */
+/* meta preview strip — a thin harness bar pinned to the very top, visually
+   distinct from the design so it never reads as a product footer/header. */
+#previewBar{position:fixed;top:0;left:0;right:0;height:36px;display:flex;align-items:center;gap:2px;padding:0 12px;background:rgba(16,17,20,.97);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.08);z-index:2600;color:#B9BEC7;transition:opacity .3s}
+body:has(.studio.focus) #previewBar{opacity:.3}
+body:has(.studio.focus) #previewBar:hover{opacity:1}
+.pb-label{font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#5A606A;margin-right:12px;display:flex;align-items:center;gap:7px}
+.pb-label::before{content:'';width:6px;height:6px;border-radius:50%;background:#E8A13B}
+#previewBar .tab{height:24px;padding:0 11px;border-radius:7px;font-size:11.5px;font-weight:500;color:#B9BEC7;transition:color .15s,background .15s}
+#previewBar .tab:hover{color:#fff}
+#previewBar .tab.active{background:rgba(255,255,255,.14);color:#fff}
+.pb-sp{flex:1}
+.pb-div{width:1px;height:16px;background:rgba(255,255,255,.14);margin:0 6px}
+.pb-ic{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#B9BEC7;transition:color .15s,background .15s}
+.pb-ic:hover{color:#fff;background:rgba(255,255,255,.1)}
+.pb-ic .ic{width:15px;height:15px}
+html[data-mode=light] .m-sun{display:none}
+html[data-mode=dark] .m-moon{display:none}
+
+/* spec sheet */
+#spec{position:fixed;top:36px;right:0;bottom:0;width:400px;background:var(--card-bg);border-left:1px solid var(--isl-border);box-shadow:-20px 0 60px rgba(0,0,0,.18);z-index:2500;transform:translateX(102%);transition:transform .32s var(--ease);display:flex;flex-direction:column}
+#spec.open{transform:none}
+.spec-h{display:flex;align-items:center;gap:10px;padding:18px 20px;border-bottom:1px solid var(--isl-border);flex:none}
+.spec-h b{font-size:14px;font-weight:600}
+.spec-h .sheet-x{margin-left:auto}
+.spec-b{flex:1;overflow-y:auto;padding:4px 22px 44px;font-size:12.5px;line-height:1.6;color:var(--txt-2)}
+.spec-b h4{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-3);margin:24px 0 8px;font-weight:600}
+.spec-b ul{list-style:none}
+.spec-b li{padding:3.5px 0}
+.spec-b p{margin:6px 0}
+.swatch{display:inline-block;width:12px;height:12px;border-radius:4px;vertical-align:-1px;margin-right:9px;border:1px solid var(--isl-border)}
+.spec-b code{font-family:var(--mono);font-size:11px;color:var(--txt-1)}
+.spec-b b{color:var(--txt-1);font-weight:600}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:66px;transform:translateX(-50%) translateY(8px);background:rgba(18,19,22,.94);color:#fff;font-size:12.5px;font-weight:500;padding:9px 17px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;visibility:hidden;transition:opacity .22s var(--ease),transform .22s var(--ease),visibility .22s;z-index:3200;pointer-events:none}
+#toast.show{opacity:1;visibility:visible;transform:translateX(-50%)}
+</style>
+</head>
+<body data-screen="vessel2">
+<!-- ============================================================
+     SVG LIBRARY: line icons (1.8px), item glyphs, isometric app
+     icons (3-tone, driven by CSS vars) and shared paint servers
+     ============================================================ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- ceramic shading -->
+    <radialGradient id="gCerTop" cx=".38" cy=".32" r=".95"><stop offset="0" stop-color="#FCFCFD"/><stop offset="1" stop-color="#E4E6EA"/></radialGradient>
+    <linearGradient id="gCerBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F1F2F4"/><stop offset="1" stop-color="#C7CAD1"/></linearGradient>
+    <linearGradient id="gCerSide" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#DFE1E5"/><stop offset="1" stop-color="#B7BBC3"/></linearGradient>
+    <radialGradient id="gCerIn" cx=".5" cy=".42" r=".85"><stop offset="0" stop-color="#C4C8CF"/><stop offset="1" stop-color="#E3E5E9"/></radialGradient>
+    <radialGradient id="gShadow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="rgba(25,28,34,.20)"/><stop offset="1" stop-color="rgba(25,28,34,0)"/></radialGradient>
+    <!-- plaster shading -->
+    <linearGradient id="gPlaTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7F8FA"/><stop offset="1" stop-color="#E7E9ED"/></linearGradient>
+    <linearGradient id="gPlaFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EFF1F4"/><stop offset="1" stop-color="#D0D3D9"/></linearGradient>
+    <linearGradient id="gPlaSide" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#DCDFE4"/><stop offset="1" stop-color="#C1C5CC"/></linearGradient>
+    <linearGradient id="gPlaIn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C5C9D0"/><stop offset="1" stop-color="#AFB3BB"/></linearGradient>
+    <!-- viewport grid -->
+    <pattern id="gridPat" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M60 0H0V60" fill="none" stroke="var(--grid)" stroke-width="1"/>
+    </pattern>
+
+    <!-- ============ line icons ============ -->
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.2V20a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.2"/></symbol>
+    <symbol id="i-caret" viewBox="0 0 24 24"><polyline points="6 9.5 12 15.5 18 9.5"/></symbol>
+    <symbol id="i-chevleft" viewBox="0 0 24 24"><polyline points="14.5 6 8.5 12 14.5 18"/></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 14V3.5"/><path d="M7.5 7.5 12 3l4.5 4.5"/><path d="M4 14.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.5"/></symbol>
+    <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 3v10.5"/><path d="M7.5 9.5 12 14l4.5-4.5"/><path d="M4 14.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.5"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3.5 21 8.5 12 13.5 3 8.5 12 3.5z"/><polyline points="4.2 12.6 12 17 19.8 12.6"/><polyline points="4.2 16.4 12 20.8 19.8 16.4"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+    <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M4 4.5 20 19.5"/><path d="M10.3 6.1a9.6 9.6 0 0 1 1.7-.3c6 0 9.5 6.2 9.5 6.2a17.3 17.3 0 0 1-2.8 3.5"/><path d="M6.6 7.1C4 8.9 2.5 12 2.5 12S6 18.2 12 18.2a9 9 0 0 0 3.5-.7"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.2 16.2 21 21"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/><circle cx="9.5" cy="7" r="2.1" fill="var(--isl-bg)"/><circle cx="15" cy="12" r="2.1" fill="var(--isl-bg)"/><circle cx="7.5" cy="17" r="2.1" fill="var(--isl-bg)"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></symbol>
+    <!-- point-editor tools (Vessel V2) -->
+    <symbol id="i-cursor" viewBox="0 0 24 24"><path d="M5 3.5 5 19l4-4 2.6 5.4 2.4-1.1L11.4 14 17 13.8z"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 3v3.2"/><circle cx="12" cy="9" r="2.6"/><path d="M9.6 10.6 5 20l7-3 7 3-4.6-9.4"/></symbol>
+    <symbol id="i-node" viewBox="0 0 24 24"><path d="M4 18 20 6"/><rect x="2.5" y="16.5" width="3" height="3" rx=".5" fill="currentColor" stroke="none"/><circle cx="20" cy="6" r="2.2" fill="var(--isl-bg)"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 6.5h16"/><path d="M9 6.5V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v1.5"/><path d="M6 6.5 6.7 19a1.5 1.5 0 0 0 1.5 1.4h7.6a1.5 1.5 0 0 0 1.5-1.4L18 6.5"/></symbol>
+    <symbol id="i-revolve" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3.5 8.5c1.8 1.4 5 2.3 8.5 2.3s6.7-.9 8.5-2.3"/><path d="M12 3v18"/></symbol>
+    <symbol id="i-curve" viewBox="0 0 24 24"><path d="M4 19c0-8 4-14 16-14"/><circle cx="4" cy="19" r="1.8" fill="currentColor" stroke="none"/><circle cx="20" cy="5" r="1.8" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-section" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" opacity=".18" stroke="none"/><path d="M12 2.5v19" stroke-dasharray="3 2.4"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1.6"/><path d="M3.5 9.2h17"/><path d="M3.5 14.8h17"/><path d="M9.2 3.5v17"/><path d="M14.8 3.5v17"/></symbol>
+    <symbol id="i-tone" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor" opacity=".22" stroke="none"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6L3.5 8.5"/><path d="M3.5 3.5v5h5"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11z"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/></symbol>
+    <symbol id="i-collapse" viewBox="0 0 24 24"><path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M10.3 3.9 2.1 18a2 2 0 0 0 1.7 3h16.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4.5"/><circle cx="12" cy="16.8" r=".4" fill="currentColor"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11.5" height="11.5" rx="2"/><path d="M5.5 15H4.8A1.8 1.8 0 0 1 3 13.2V4.8A1.8 1.8 0 0 1 4.8 3h8.4A1.8 1.8 0 0 1 15 4.8v.7"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/><path d="M12 11.2v5"/><circle cx="12" cy="8" r=".5" fill="currentColor"/></symbol>
+    <symbol id="i-boxes" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="6.8" height="6.8" rx="1.5"/><rect x="13.7" y="13.7" width="6.8" height="6.8" rx="1.5"/><path d="M14 10l4.5-4.5"/><path d="M18.5 9V5.5H15"/><path d="M10 14l-4.5 4.5"/><path d="M5.5 15v3.5H9"/></symbol>
+    <symbol id="i-casebox" viewBox="0 0 24 24"><path d="M12 3.2 20.5 7.6 12 12 3.5 7.6z"/><path d="M3.5 7.6V16.4L12 20.8"/><path d="M20.5 7.6V16.4L12 20.8"/><path d="M9 5.4v3.2"/><path d="M15 5.4v3.2"/></symbol>
+
+    <!-- ============ items-panel glyphs ============ -->
+    <symbol id="it-plate" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9.5" ry="3.8"/><ellipse cx="12" cy="12" rx="5" ry="2"/></symbol>
+    <symbol id="it-soup" viewBox="0 0 24 24"><path d="M4 10a8 8 0 0 0 16 0"/><ellipse cx="12" cy="10" rx="8" ry="2.9"/></symbol>
+    <symbol id="it-pasta" viewBox="0 0 24 24"><path d="M3.5 10.5c.6 4.4 4 6.8 8.5 6.8s7.9-2.4 8.5-6.8"/><ellipse cx="12" cy="10.5" rx="8.5" ry="3"/></symbol>
+    <symbol id="it-mug" viewBox="0 0 24 24"><rect x="5.5" y="5" width="9.5" height="13" rx="2.4"/><path d="M15 9.2h2.3a2.6 2.6 0 0 1 0 5.2H15"/></symbol>
+    <symbol id="it-tumbler" viewBox="0 0 24 24"><path d="M8 3.5h8L14.8 20.5H9.2z"/></symbol>
+    <symbol id="it-saucer" viewBox="0 0 24 24"><ellipse cx="12" cy="13.5" rx="9.5" ry="3.2"/><ellipse cx="12" cy="13.2" rx="4" ry="1.4"/></symbol>
+    <symbol id="it-serving" viewBox="0 0 24 24"><path d="M2.5 10a9.5 9.5 0 0 0 19 0"/><ellipse cx="12" cy="10" rx="9.5" ry="3.4"/></symbol>
+    <symbol id="it-foot" viewBox="0 0 24 24"><ellipse cx="12" cy="10" rx="8.5" ry="3.2"/><path d="M3.5 10v4c0 1.8 3.8 3.2 8.5 3.2s8.5-1.4 8.5-3.2v-4"/><ellipse cx="12" cy="10" rx="4" ry="1.5"/></symbol>
+    <symbol id="it-wall" viewBox="0 0 24 24"><path d="M5 5.5c4-2.6 10-2.6 14 0v12c-4-2.6-10-2.6-14 0z"/><path d="M5 5.5v12"/></symbol>
+    <symbol id="it-point" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v3.3M12 18.2v3.3M2.5 12h3.3M17.7 12h3.3"/></symbol>
+    <symbol id="it-case" viewBox="0 0 24 24"><path d="M4 8.5 12 4l8 4.5-8 4.5z"/><path d="M4 8.5v7L12 20v-7"/><path d="M20 8.5v7L12 20"/></symbol>
+    <symbol id="it-vessel" viewBox="0 0 24 24"><path d="M9.5 3.5h5c0 2.5 2 3.5 2 6.5 0 4-2.5 5.5-2.5 8.5v2h-4v-2c0-3-2.5-4.5-2.5-8.5 0-3 2-4 2-6.5z"/></symbol>
+
+    <!-- ============ isometric 3D app icons ============ -->
+    <symbol id="a3d-logo" viewBox="0 0 24 24">
+      <polygon points="12,2.5 21,7.5 12,12.5 3,7.5" fill="var(--ico-top)"/>
+      <polygon points="3,7.5 12,12.5 12,21.5 3,16.5" fill="var(--ico-mid)"/>
+      <polygon points="21,7.5 12,12.5 12,21.5 21,16.5" fill="var(--ico-side)"/>
+      <ellipse cx="12" cy="7.5" rx="3.4" ry="1.7" fill="var(--ico-deep)"/>
+    </symbol>
+    <symbol id="a3d-dinnerware" viewBox="0 0 48 48">
+      <path d="M9 32.5a15 6 0 0 0 30 0v3.4a15 6 0 0 1-30 0z" fill="var(--ico-side)"/>
+      <ellipse cx="24" cy="32.5" rx="15" ry="6" fill="var(--ico-top)"/>
+      <ellipse cx="24" cy="33" rx="9.6" ry="3.6" fill="var(--ico-mid)" opacity=".55"/>
+      <path d="M13.5 20.5c0 7 4.1 10.9 10.5 10.9s10.5-3.9 10.5-10.9a10.5 4.4 0 0 1-21 0z" fill="var(--ico-mid)" stroke="var(--ico-seam)" stroke-width="1.6"/>
+      <ellipse cx="24" cy="20.5" rx="10.5" ry="4.4" fill="var(--ico-top)" stroke="var(--ico-seam)" stroke-width="1.2"/>
+      <ellipse cx="24" cy="20.8" rx="7.6" ry="3" fill="var(--ico-deep)"/>
+    </symbol>
+    <symbol id="a3d-mug" viewBox="0 0 48 48">
+      <ellipse cx="23" cy="39.5" rx="12.5" ry="2.6" fill="var(--ico-deep)" opacity=".22"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M32 18.5h3a6.4 6.4 0 0 1 0 12.8h-3v-3.8h2.8a2.6 2.6 0 0 0 0-5.2H32z" fill="var(--ico-side)" stroke="var(--ico-seam)" stroke-width="1.6"/>
+      <path d="M13 14.5v18.3a9.6 4 0 0 0 19.2 0V14.5z" fill="var(--ico-mid)"/>
+      <ellipse cx="22.6" cy="14.5" rx="9.6" ry="4" fill="var(--ico-top)"/>
+      <ellipse cx="22.6" cy="14.8" rx="7" ry="2.9" fill="var(--ico-deep)"/>
+    </symbol>
+    <symbol id="a3d-vessel" viewBox="0 0 48 48">
+      <ellipse cx="24" cy="39.5" rx="10" ry="2.2" fill="var(--ico-deep)" opacity=".22"/>
+      <path d="M18.5 11c0 4-3 6.5-3 11.5 0 7 4 10 4 13.5h9c0-3.5 4-6.5 4-13.5 0-5-3-7.5-3-11.5z" fill="var(--ico-mid)"/>
+      <ellipse cx="24" cy="36" rx="4.5" ry="1.6" fill="var(--ico-side)"/>
+      <ellipse cx="24" cy="11" rx="5.5" ry="2.3" fill="var(--ico-top)"/>
+      <ellipse cx="24" cy="11.2" rx="3.9" ry="1.6" fill="var(--ico-deep)"/>
+      <path d="M19.6 16.5c-1.1 2.8-1.4 5.6-.9 8.5" fill="none" stroke="var(--ico-top)" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+    </symbol>
+    <symbol id="a3d-vessel2" viewBox="0 0 48 48">
+      <ellipse cx="27" cy="40.5" rx="9" ry="2" fill="var(--ico-deep)" opacity=".22"/>
+      <path d="M23 12c0 3.6-2.7 5.9-2.7 10.4 0 6.3 3.6 9 3.6 12.1h8.2c0-3.1 3.6-5.8 3.6-12.1 0-4.5-2.7-6.8-2.7-10.4z" fill="var(--ico-mid)"/>
+      <ellipse cx="27.5" cy="12" rx="5" ry="2.1" fill="var(--ico-top)"/>
+      <ellipse cx="27.5" cy="12.2" rx="3.5" ry="1.5" fill="var(--ico-deep)"/>
+      <path d="M14.5 10.5c0 4.5-3.4 7-3.4 12 0 6.5 4 9.5 4 13.5" fill="none" stroke="var(--ico-mid)" stroke-width="1.6" stroke-dasharray="3 3" stroke-linecap="round"/>
+      <path d="M5.5 20.5l10 5" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+      <rect x="4.2" y="19.2" width="2.6" height="2.6" rx=".6" fill="var(--accent)"/>
+      <rect x="14.2" y="24.2" width="2.6" height="2.6" rx=".6" fill="var(--accent)"/>
+      <circle cx="14.5" cy="10.5" r="2.2" fill="var(--accent)"/>
+      <circle cx="11.1" cy="22.5" r="2.2" fill="var(--accent)"/>
+      <circle cx="15.1" cy="36" r="2.2" fill="var(--accent)"/>
+    </symbol>
+    <symbol id="a3d-castform" viewBox="0 0 48 48">
+      <polygon points="24,7 40,15 24,23 8,15" fill="var(--ico-top)"/>
+      <polygon points="8,15 24,23 24,39 8,31" fill="var(--ico-mid)"/>
+      <polygon points="40,15 24,23 24,39 40,31" fill="var(--ico-side)"/>
+      <ellipse cx="24" cy="15" rx="6.5" ry="3.2" fill="var(--ico-deep)"/>
+      <path d="M24 7v16M24 23v16" stroke="var(--ico-seam)" stroke-width="1.6"/>
+      <polygon points="13,36 17,38 13,40 9,38" fill="var(--ico-top)" stroke="var(--ico-seam)" stroke-width="1.2"/>
+      <polygon points="9,38 13,40 13,44 9,42" fill="var(--ico-mid)" stroke="var(--ico-seam)" stroke-width="1.2"/>
+      <polygon points="17,38 13,40 13,44 17,42" fill="var(--ico-side)" stroke="var(--ico-seam)" stroke-width="1.2"/>
+    </symbol>
+    <symbol id="a3d-mold" viewBox="0 0 48 48">
+      <polygon points="24,14 38,21 24,28 10,21" fill="var(--ico-top)"/>
+      <polygon points="10,21 24,28 24,42 10,35" fill="var(--ico-mid)"/>
+      <polygon points="38,21 24,28 24,42 38,35" fill="var(--ico-side)"/>
+      <ellipse cx="24" cy="21" rx="5.6" ry="2.8" fill="var(--ico-deep)"/>
+      <polygon points="24,2.5 36,8.5 24,14.5 12,8.5" fill="var(--ico-top)" stroke="var(--ico-seam)" stroke-width="1.4"/>
+      <polygon points="12,8.5 24,14.5 24,18 12,12" fill="var(--ico-mid)" stroke="var(--ico-seam)" stroke-width="1.4"/>
+      <polygon points="36,8.5 24,14.5 24,18 36,12" fill="var(--ico-side)" stroke="var(--ico-seam)" stroke-width="1.4"/>
+    </symbol>
+  </defs>
+</svg>
+<!-- ============================================================
+     SCREEN: HOME
+     ============================================================ -->
+<div class="screen" id="screen-home">
+  <div class="home-wrap">
+    <header class="home-head">
+      <div class="brand">
+        <svg class="a3" viewBox="0 0 24 24"><use href="#a3d-logo"/></svg>
+        <b>Playground Ceramics</b>
+        <span>· Parametric ceramics studio</span>
+      </div>
+      <div class="search">
+        <svg class="ic"><use href="#i-search"/></svg>
+        <input type="text" placeholder="Search projects…">
+      </div>
+      <button class="btn-soft js-mock" data-mock="Import project (mock)">
+        <svg class="ic"><use href="#i-import"/></svg>Import
+      </button>
+      <button class="btn-primary" data-goto="selector">
+        <svg class="ic"><use href="#i-plus"/></svg>New Project
+      </button>
+    </header>
+
+    <div class="sec-row"><h2>Projects</h2><span>4 projects · stored locally</span></div>
+
+    <div class="grid">
+      <!-- Coastal Set → Dinnerware Studio -->
+      <button class="card" data-goto="dw">
+        <div class="thumb">
+          <svg viewBox="0 0 320 200" aria-hidden="true">
+            <ellipse cx="160" cy="152" rx="108" ry="15" fill="url(#gShadow)"/>
+            <path d="M70 118a90 26 0 0 0 180 0v6a90 26 0 0 1-180 0z" fill="url(#gCerSide)"/>
+            <ellipse cx="160" cy="118" rx="90" ry="26" fill="url(#gCerTop)" stroke="rgba(90,95,105,.28)"/>
+            <path d="M118 76c0 22 14 34 42 34s42-12 42-34a42 13 0 0 1-84 0z" fill="url(#gCerBody)"/>
+            <ellipse cx="160" cy="76" rx="42" ry="13" fill="url(#gCerTop)" stroke="rgba(90,95,105,.25)"/>
+            <ellipse cx="160" cy="77" rx="34" ry="10" fill="url(#gCerIn)"/>
+          </svg>
+        </div>
+        <div class="card-b">
+          <span class="a3"><svg viewBox="0 0 48 48"><use href="#a3d-dinnerware"/></svg></span>
+          <span class="grow"><b>Coastal Set</b><small>Dinnerware · edited 2 h ago</small></span>
+          <span class="card-dots js-mock" data-mock="Project menu (mock)"><svg class="ic"><use href="#i-dots"/></svg></span>
+        </div>
+      </button>
+
+      <!-- Tall Carafe (not wired) -->
+      <button class="card js-mock" data-mock="Vessel studio isn’t part of this preview">
+        <div class="thumb">
+          <svg viewBox="0 0 320 200" aria-hidden="true">
+            <ellipse cx="160" cy="168" rx="62" ry="10" fill="url(#gShadow)"/>
+            <path d="M146 36c0 20-18 28-18 58 0 38 14 54 14 66h36c0-12 14-28 14-66 0-30-18-38-18-58z" fill="url(#gCerBody)" stroke="rgba(90,95,105,.25)"/>
+            <ellipse cx="160" cy="36" rx="14" ry="5" fill="url(#gCerTop)" stroke="rgba(90,95,105,.28)"/>
+            <ellipse cx="160" cy="36.5" rx="10" ry="3.6" fill="url(#gCerIn)"/>
+          </svg>
+        </div>
+        <div class="card-b">
+          <span class="a3"><svg viewBox="0 0 48 48"><use href="#a3d-vessel2"/></svg></span>
+          <span class="grow"><b>Tall Carafe</b><small>Vessel V2 · edited yesterday</small></span>
+          <span class="card-dots"><svg class="ic"><use href="#i-dots"/></svg></span>
+        </div>
+      </button>
+
+      <!-- Hasami Handle (not wired) -->
+      <button class="card js-mock" data-mock="Handle studio isn’t part of this preview">
+        <div class="thumb">
+          <svg viewBox="0 0 320 200" aria-hidden="true">
+            <ellipse cx="152" cy="164" rx="72" ry="11" fill="url(#gShadow)"/>
+            <path d="M188 66c34-4 40 42 4 50" fill="none" stroke="url(#gCerBody)" stroke-width="15" stroke-linecap="round"/>
+            <path d="M112 46v84a44 16 0 0 0 88 0V46z" fill="url(#gCerBody)" stroke="rgba(90,95,105,.25)"/>
+            <ellipse cx="156" cy="46" rx="44" ry="16" fill="url(#gCerTop)" stroke="rgba(90,95,105,.28)"/>
+            <ellipse cx="156" cy="47.5" rx="36" ry="12.5" fill="url(#gCerIn)"/>
+          </svg>
+        </div>
+        <div class="card-b">
+          <span class="a3"><svg viewBox="0 0 48 48"><use href="#a3d-mug"/></svg></span>
+          <span class="grow"><b>Hasami Handle</b><small>Handle · edited 3 d ago</small></span>
+          <span class="card-dots"><svg class="ic"><use href="#i-dots"/></svg></span>
+        </div>
+      </button>
+
+      <!-- Coastal Mug Mold → Mold Studio -->
+      <button class="card" data-goto="mold">
+        <div class="thumb">
+          <svg viewBox="0 0 320 200" aria-hidden="true">
+            <ellipse cx="160" cy="162" rx="102" ry="13" fill="url(#gShadow)"/>
+            <path d="M62 74Q160 108 258 74v64Q160 172 62 138Z" fill="url(#gPlaFront)" stroke="rgba(90,95,105,.25)"/>
+            <path d="M62 74Q160 108 258 74L244 64Q160 94 76 64Z" fill="url(#gPlaTop)"/>
+            <polygon points="62,74 76,64 76,128 62,138" fill="url(#gPlaSide)"/>
+            <polygon points="258,74 244,64 244,128 258,138" fill="url(#gPlaSide)"/>
+            <rect x="64" y="96" width="7" height="14" rx="3" fill="#A259FF" opacity=".85"/>
+            <rect x="249" y="96" width="7" height="14" rx="3" fill="#A259FF" opacity=".85"/>
+          </svg>
+        </div>
+        <div class="card-b">
+          <span class="a3"><svg viewBox="0 0 48 48"><use href="#a3d-castform"/></svg></span>
+          <span class="grow"><b>Coastal Mug Mold</b><small>Cast Form · edited 1 w ago</small></span>
+          <span class="card-dots js-mock" data-mock="Project menu (mock)"><svg class="ic"><use href="#i-dots"/></svg></span>
+        </div>
+      </button>
+
+      <!-- New project -->
+      <button class="card-new" data-goto="selector">
+        <span class="plus"><svg class="ic"><use href="#i-plus"/></svg></span>
+        New project
+      </button>
+    </div>
+
+    <footer class="home-foot">
+      <span>Playground Ceramics v2.0 · All data stored locally</span>
+      <span class="hf-sp"></span>
+      <button class="ib js-mode" title="Toggle light / dark">
+        <svg class="ic m-sun"><use href="#i-sun"/></svg>
+        <svg class="ic m-moon"><use href="#i-moon"/></svg>
+      </button>
+      <button class="ib js-mock" data-mock="Settings (mock)"><svg class="ic"><use href="#i-gear"/></svg></button>
+    </footer>
+  </div>
+
+  <!-- ============ APP SELECTOR MODAL ============ -->
+  <div class="veil" id="appModal">
+    <div class="sheet">
+      <div class="sheet-h">
+        <div>
+          <h2>Create a new project</h2>
+          <p>Choose a tool — you can link projects together later.</p>
+        </div>
+        <button class="sheet-x" data-goto="home"><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="app-grid">
+        <button class="app-tile" data-goto="dw">
+          <span class="a3"><svg viewBox="0 0 48 48"><use href="#a3d-dinnerware"/></svg></span>
+          <b>Dinnerware Set</b>
+          <small>Plates, bowls, mugs and more from one set of global style parameters.</small>
+        </button>
+        <button class="app-tile js-mock" data-mock="Vessel studio isn’t part of this preview">
+          <span class="a3"><svg viewBox="0 0 48 48"><use href="#a3d-vessel"/></svg></span>
+          <b>Vessel</b>
+          <small>Six anatomical sections — lip, neck, shoulder, body, waist, foot.</small>
+        </button>
+        <button class="app-tile js-mock" data-mock="Vessel V2 isn’t part of this preview">
+          <span class="a3"><svg viewBox="0 0 48 48"><use href="#a3d-vessel2"/></svg></span>
+          <b>Vessel V2</b>
+          <small>Draw a profile with pen points and bezier handles, then revolve it.</small>
+        </button>
+        <button class="app-tile js-mock" data-mock="Handle studio isn’t part of this preview">
+          <span class="a3"><svg viewBox="0 0 48 48"><use href="#a3d-mug"/></svg></span>
+          <b>Mug Handle</b>
+          <small>Squared Hasami-style handles with swept cross-section profiles.</small>
+        </button>
+        <button class="app-tile" data-goto="mold">
+          <span class="a3"><svg viewBox="0 0 48 48"><use href="#a3d-castform"/></svg></span>
+          <b>Cast Form</b>
+          <small>4-part slip casting molds with registration keys and slip well.</small>
+        </button>
+        <button class="app-tile js-mock" data-mock="Master Mold isn’t part of this preview">
+          <span class="a3"><svg viewBox="0 0 48 48"><use href="#a3d-mold"/></svg></span>
+          <b>Master Mold</b>
+          <small>Case molds for reproducing plaster working molds in production.</small>
+        </button>
+      </div>
+      <div class="sheet-f">
+        <span>Projects are saved to your browser — no account needed.</span>
+        <button class="btn-soft" data-goto="home">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ============================================================
+     SCREEN: DINNERWARE STUDIO
+     ============================================================ -->
+<div class="screen studio" id="screen-dw">
+  <!-- canvas -->
+  <div class="canvas">
+    <svg viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid meet" aria-label="Dinnerware set">
+      <rect class="cv-grid" x="40" y="20" width="1120" height="580" fill="url(#gridPat)" opacity=".4"/>
+      <g class="cv-scene">
+        <!-- serving bowl -->
+        <g class="cv-item" id="cv-serving" transform="translate(248,330) scale(.95)">
+          <ellipse cy="88" rx="112" ry="18" fill="url(#gShadow)"/>
+          <ellipse cy="82" rx="40" ry="10" fill="url(#gCerSide)"/>
+          <path d="M-105 0C-98 55-60 78 0 78S98 55 105 0A105 33 0 0 1-105 0Z" fill="url(#gCerBody)" stroke="rgba(90,95,105,.25)"/>
+          <ellipse rx="105" ry="33" fill="url(#gCerTop)" stroke="rgba(90,95,105,.28)"/>
+          <ellipse cy="2" rx="93" ry="28" fill="url(#gCerIn)"/>
+        </g>
+        <!-- plate -->
+        <g class="cv-item" id="cv-plate" transform="translate(600,330)">
+          <ellipse cy="24" rx="158" ry="26" fill="url(#gShadow)"/>
+          <path d="M-150 0A150 46 0 0 0 150 0L150 9A150 46 0 0 1-150 9Z" fill="url(#gCerSide)"/>
+          <ellipse rx="150" ry="46" fill="url(#gCerTop)" stroke="rgba(90,95,105,.28)"/>
+          <ellipse cy="4" rx="100" ry="30" fill="url(#gCerIn)" opacity=".85"/>
+          <ellipse cy="4" rx="100" ry="30" fill="none" stroke="rgba(255,255,255,.55)"/>
+        </g>
+        <!-- pasta bowl -->
+        <g class="cv-item" id="cv-pasta" transform="translate(952,328) scale(.95)">
+          <ellipse cy="54" rx="115" ry="17" fill="url(#gShadow)"/>
+          <path d="M-110 0C-103 27-68 42 0 42S103 27 110 0A110 34 0 0 1-110 0Z" fill="url(#gCerBody)" stroke="rgba(90,95,105,.25)"/>
+          <ellipse rx="110" ry="34" fill="url(#gCerTop)" stroke="rgba(90,95,105,.28)"/>
+          <ellipse cy="5" rx="80" ry="24" fill="url(#gCerIn)"/>
+        </g>
+        <!-- soup bowl -->
+        <g class="cv-item" id="cv-soup" transform="translate(438,442) scale(.85)">
+          <ellipse cy="70" rx="92" ry="15" fill="url(#gShadow)"/>
+          <ellipse cy="62" rx="32" ry="9" fill="url(#gCerSide)"/>
+          <path d="M-85 0C-80 38-48 60 0 60S80 38 85 0A85 28 0 0 1-85 0Z" fill="url(#gCerBody)" stroke="rgba(90,95,105,.25)"/>
+          <ellipse rx="85" ry="28" fill="url(#gCerTop)" stroke="rgba(90,95,105,.28)"/>
+          <ellipse cy="2" rx="75" ry="23" fill="url(#gCerIn)"/>
+        </g>
+        <!-- saucer -->
+        <g class="cv-item" id="cv-saucer" transform="translate(612,468) scale(.9)">
+          <ellipse cy="16" rx="76" ry="13" fill="url(#gShadow)"/>
+          <path d="M-70 0A70 22 0 0 0 70 0L70 6A70 22 0 0 1-70 6Z" fill="url(#gCerSide)"/>
+          <ellipse rx="70" ry="22" fill="url(#gCerTop)" stroke="rgba(90,95,105,.28)"/>
+          <ellipse cy="2" rx="32" ry="10" fill="url(#gCerIn)" opacity=".9"/>
+        </g>
+        <!-- mug -->
+        <g class="cv-item" id="cv-mug" transform="translate(766,436) scale(.9)">
+          <ellipse cy="102" rx="62" ry="12" fill="url(#gShadow)"/>
+          <path d="M45 22C76 18 82 56 48 64" fill="none" stroke="url(#gCerBody)" stroke-width="14" stroke-linecap="round"/>
+          <path d="M-45 0V85A45 17 0 0 0 45 85V0A45 17 0 0 1-45 0Z" fill="url(#gCerBody)" stroke="rgba(90,95,105,.25)"/>
+          <ellipse rx="45" ry="17" fill="url(#gCerTop)" stroke="rgba(90,95,105,.28)"/>
+          <ellipse cy="1.5" rx="37" ry="13.5" fill="url(#gCerIn)"/>
+        </g>
+        <!-- tumbler -->
+        <g class="cv-item" id="cv-tumbler" transform="translate(922,442) scale(.85)">
+          <ellipse cy="112" rx="46" ry="9" fill="url(#gShadow)"/>
+          <path d="M-38 0L-30 100A30 11 0 0 0 30 100L38 0A38 14 0 0 1-38 0Z" fill="url(#gCerBody)" stroke="rgba(90,95,105,.25)"/>
+          <ellipse rx="38" ry="14" fill="url(#gCerTop)" stroke="rgba(90,95,105,.28)"/>
+          <ellipse cy="1" rx="31" ry="11" fill="url(#gCerIn)"/>
+        </g>
+      </g>
+      <line id="cv-cut" x1="600" y1="60" x2="600" y2="580" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="7 6"/>
+    </svg>
+  </div>
+
+  <!-- view cube -->
+  <div class="vc-wrap" data-hide="left">
+    <div class="vc-scene">
+      <div class="viewcube">
+        <div class="vc-face vc-front" data-view="Front">Front</div>
+        <div class="vc-face vc-back" data-view="Back">Back</div>
+        <div class="vc-face vc-right" data-view="Right">Right</div>
+        <div class="vc-face vc-left" data-view="Left">Left</div>
+        <div class="vc-face vc-top" data-view="Top">Top</div>
+        <div class="vc-face vc-bottom" data-view="Bottom">Bottom</div>
+      </div>
+    </div>
+    <svg class="vc-axes" width="62" height="25" viewBox="0 0 86 34">
+      <path d="M30 6v18" stroke="#4A7DFF" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M30 24 52 31" stroke="#E2604A" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M30 24 8 31" stroke="#53B36A" stroke-width="1.5" stroke-linecap="round"/>
+      <text x="30" y="4.5" font-family="JetBrains Mono,monospace" font-size="7" fill="#4A7DFF" text-anchor="middle" dominant-baseline="auto">Z</text>
+      <text x="58" y="33" font-family="JetBrains Mono,monospace" font-size="7" fill="#E2604A">X</text>
+      <text x="0" y="33" font-family="JetBrains Mono,monospace" font-size="7" fill="#53B36A">Y</text>
+    </svg>
+    <button class="vc-reset" title="Reset to 3/4 view"><svg class="ic"><use href="#i-reset"/></svg></button>
+  </div>
+
+  <!-- top-center project bar -->
+  <div class="isl topbar" data-hide="up">
+    <button class="ib" data-goto="home" data-tip-b="Home"><svg class="ic"><use href="#i-home"/></svg></button>
+    <button class="tb-name js-mock" data-mock="Project menu (mock)">
+      <span class="save-dot" title="All changes saved locally"></span>
+      Coastal Set
+      <svg class="ic"><use href="#i-caret"/></svg>
+    </button>
+    <span class="tb-div"></span>
+    <button class="btn-primary js-mock" data-mock="Exported 7 STL files (mock)">
+      <svg class="ic"><use href="#i-export"/></svg>Export STL
+    </button>
+    <button class="ib js-mock" data-mock="More actions (mock)"><svg class="ic"><use href="#i-dots"/></svg></button>
+  </div>
+
+  <!-- top-right corner: focus + layers -->
+  <button class="corner-btn js-focus" data-hide="up" data-tip-b="Focus on model — F"><svg class="ic"><use href="#i-expand"/></svg></button>
+  <button class="corner-btn js-layers" data-hide="up" data-tip-b="Items"><svg class="ic"><use href="#i-layers"/></svg></button>
+  <button class="corner-handle" data-hide="up" title="Show / hide items"></button>
+
+  <!-- left tool rail: parameters + real view toggles only -->
+  <div class="isl left-rail" data-hide="left">
+    <button class="ib tip-r js-params" data-tip="Parameters"><svg class="ic"><use href="#i-sliders"/></svg></button>
+    <div class="rail-div"></div>
+    <button class="ib tip-r js-section" data-tip="Cross-section"><svg class="ic"><use href="#i-section"/></svg></button>
+    <button class="ib tip-r js-grid on" data-tip="Grid"><svg class="ic"><use href="#i-grid"/></svg></button>
+    <button class="ib tip-r js-tone" data-tip="Canvas tone"><svg class="ic"><use href="#i-tone"/></svg></button>
+  </div>
+
+  <!-- parameters panel -->
+  <div class="isl params">
+    <div class="pan-head">
+      <svg class="ic ph-ic"><use href="#i-sliders"/></svg>
+      <span class="ph-t">Parameters</span>
+      <button class="ib js-params-close" data-tip-b="Collapse"><svg class="ic"><use href="#i-chevleft"/></svg></button>
+    </div>
+    <div class="pan-body">
+      <section class="acc open">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Global Scaling</span><em>2</em></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="prow"><label>Height Scale</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="50" max="200" value="100" step="5">
+            <div class="num"><input type="number" min="50" max="200" value="100" step="5"><span>%</span></div>
+          </div></div>
+          <div class="prow"><label>Width Scale</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="50" max="200" value="100" step="5">
+            <div class="num"><input type="number" min="50" max="200" value="100" step="5"><span>%</span></div>
+          </div></div>
+        </div></div>
+      </section>
+      <section class="acc open">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Global Style</span><em>6</em></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="prow"><label>Wall Angle</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="-30" max="45" value="15" step="1">
+            <div class="num"><input type="number" min="-30" max="45" value="15" step="1"><span>°</span></div>
+          </div></div>
+          <div class="prow"><label>Wall Curve</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="-50" max="50" value="0" step="1">
+            <div class="num"><input type="number" min="-50" max="50" value="0" step="1"><span>mm</span></div>
+          </div></div>
+          <div class="prow"><label>Wall Thickness</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="0.8" max="10" value="2.5" step="0.1">
+            <div class="num"><input type="number" min="0.8" max="10" value="2.5" step="0.1"><span>mm</span></div>
+          </div></div>
+          <div class="prow"><label>Bottom Corner Radius</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="0" max="50" value="12" step="1">
+            <div class="num"><input type="number" min="0" max="50" value="12" step="1"><span>mm</span></div>
+          </div></div>
+          <div class="prow"><label>Footring Height</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="0" max="50" value="8" step="0.5">
+            <div class="num"><input type="number" min="0" max="50" value="8" step="0.5"><span>mm</span></div>
+          </div></div>
+          <div class="prow"><label>Footring Width</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="2" max="30" value="8" step="0.5">
+            <div class="num"><input type="number" min="2" max="30" value="8" step="0.5"><span>mm</span></div>
+          </div></div>
+        </div></div>
+      </section>
+      <section class="acc open">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Surface Pattern</span><em>3</em></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="prow"><label>Style</label>
+            <select class="psel"><option>None</option><option selected>Fluted</option><option>Ribbed</option><option>Faceted</option></select>
+          </div>
+          <div class="prow"><label>Depth</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="0" max="4" value="1.2" step="0.1">
+            <div class="num"><input type="number" min="0" max="4" value="1.2" step="0.1"><span>mm</span></div>
+          </div></div>
+          <div class="prow"><label>Repeats</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="8" max="96" value="36" step="1">
+            <div class="num"><input type="number" min="8" max="96" value="36" step="1"><span></span></div>
+          </div></div>
+          <button class="btn-ghost js-mock" data-mock="Wall pattern copied to footring (mock)">
+            <svg class="ic"><use href="#i-copy"/></svg>Copy wall pattern to footring
+          </button>
+        </div></div>
+      </section>
+      <section class="acc">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Item Proportions</span><em>7</em></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="prow"><label>Plate</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="0.5" max="1.5" value="1" step="0.05">
+            <div class="num"><input type="number" min="0.5" max="1.5" value="1.00" step="0.05"><span>×</span></div>
+          </div></div>
+          <div class="prow"><label>Soup Bowl</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="0.5" max="1.5" value="0.85" step="0.05">
+            <div class="num"><input type="number" min="0.5" max="1.5" value="0.85" step="0.05"><span>×</span></div>
+          </div></div>
+          <div class="prow"><label>Mug</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="0.5" max="1.5" value="0.9" step="0.05">
+            <div class="num"><input type="number" min="0.5" max="1.5" value="0.90" step="0.05"><span>×</span></div>
+          </div></div>
+          <div class="prow"><label>Tumbler</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="0.5" max="1.5" value="0.8" step="0.05">
+            <div class="num"><input type="number" min="0.5" max="1.5" value="0.80" step="0.05"><span>×</span></div>
+          </div></div>
+        </div></div>
+      </section>
+      <section class="acc">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Per-Item Overrides</span><em>Mug</em></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="prow"><label>Item</label>
+            <select class="psel"><option>Plate</option><option>Soup Bowl</option><option>Pasta Bowl</option><option selected>Mug</option><option>Tumbler</option><option>Saucer</option><option>Serving Bowl</option></select>
+          </div>
+          <div class="prow"><label>Wall Angle Override</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="-30" max="45" value="4" step="1">
+            <div class="num"><input type="number" min="-30" max="45" value="4" step="1"><span>°</span></div>
+          </div></div>
+          <div class="prow"><label>Height Override</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="60" max="140" value="95" step="1">
+            <div class="num"><input type="number" min="60" max="140" value="95" step="1"><span>mm</span></div>
+          </div></div>
+        </div></div>
+      </section>
+    </div>
+    <div class="pan-status">
+      <span class="dot ok"></span>
+      <span class="mono js-status-items">7 of 7 items</span>
+    </div>
+  </div>
+
+  <!-- items panel -->
+  <div class="isl items">
+    <div class="pan-head">
+      <span class="ph-t">Items</span>
+      <button class="ib js-items-close" data-tip-b="Collapse"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="items-list">
+      <div class="item-row" data-target="cv-plate">
+        <svg class="ic it"><use href="#it-plate"/></svg><span class="it-name">Plate</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+      <div class="item-row" data-target="cv-soup">
+        <svg class="ic it"><use href="#it-soup"/></svg><span class="it-name">Soup Bowl</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+      <div class="item-row" data-target="cv-pasta">
+        <svg class="ic it"><use href="#it-pasta"/></svg><span class="it-name">Pasta Bowl</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+      <div class="item-row" data-target="cv-mug">
+        <svg class="ic it"><use href="#it-mug"/></svg><span class="it-name">Mug</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+      <div class="item-row" data-target="cv-tumbler">
+        <svg class="ic it"><use href="#it-tumbler"/></svg><span class="it-name">Tumbler</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+      <div class="item-row" data-target="cv-saucer">
+        <svg class="ic it"><use href="#it-saucer"/></svg><span class="it-name">Saucer</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+      <div class="item-row" data-target="cv-serving">
+        <svg class="ic it"><use href="#it-serving"/></svg><span class="it-name">Serving Bowl</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+    </div>
+    <div class="items-foot">
+      <span class="js-count">7 of 7 shown</span>
+      <span class="if-spacer"></span>
+      <button class="if-link js-all">All</button>
+      <button class="if-link js-none">None</button>
+    </div>
+  </div>
+
+  <!-- Dinnerware has no right-side action tools: parametric editing lives in the
+       Parameters panel, camera in the cube, visibility in the Items panel, and
+       status/warnings in the panel footer. The bottom of the canvas stays clear. -->
+
+  <!-- focus exit -->
+  <button class="focus-exit js-unfocus"><svg class="ic"><use href="#i-collapse"/></svg>Exit focus<kbd>F</kbd></button>
+</div>
+<!-- ============================================================
+     SCREEN: MOLD STUDIO (Cast Form)
+     ============================================================ -->
+<div class="screen studio" id="screen-mold">
+  <!-- canvas -->
+  <div class="canvas">
+    <svg viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid meet" aria-label="4-part slip casting mold">
+      <rect class="cv-grid" x="40" y="20" width="1120" height="580" fill="url(#gridPat)" opacity=".4"/>
+
+      <!-- ============ CASE-BOX EDITOR VIEW (shown in case-mode) ============ -->
+      <g class="case-view">
+        <ellipse cx="600" cy="512" rx="250" ry="30" fill="url(#gShadow)"/>
+        <!-- outer top rim -->
+        <polygon points="406,224 706,224 800,300 500,300" fill="url(#gPlaTop)" stroke="rgba(90,95,105,.28)"/>
+        <!-- pour spout notch on the back rim -->
+        <path d="M540,224 566,196 592,224" fill="var(--cv-hi)" stroke="rgba(90,95,105,.32)"/>
+        <!-- inner opening -->
+        <polygon points="436,236 676,236 762,296 522,296" fill="url(#gPlaIn)"/>
+        <!-- ghost plaster mold sitting inside -->
+        <path d="M540,292 Q600,272 686,292 L686,300 Q600,282 540,300 Z" fill="#8B9099" opacity=".28"/>
+        <ellipse cx="613" cy="290" rx="70" ry="10" fill="#8B9099" opacity=".18"/>
+        <!-- left / right outer walls -->
+        <polygon points="406,224 500,300 500,472 406,404" fill="url(#gPlaSide)" stroke="rgba(90,95,105,.24)"/>
+        <polygon points="706,224 800,300 800,472 706,404" fill="url(#gPlaSide)" stroke="rgba(90,95,105,.24)"/>
+        <!-- front wall (semi-transparent to reveal cavity) -->
+        <polygon points="500,300 800,300 800,472 500,472" fill="url(#gPlaFront)" opacity=".9" stroke="rgba(90,95,105,.26)"/>
+        <!-- registration channels (accent) -->
+        <rect x="556" y="316" width="9" height="150" rx="4.5" fill="var(--accent)" opacity=".85"/>
+        <rect x="735" y="316" width="9" height="150" rx="4.5" fill="var(--accent)" opacity=".85"/>
+        <!-- alignment tab notches on rim -->
+        <rect x="470" y="286" width="20" height="8" rx="3" fill="var(--accent)" opacity=".7"/>
+        <rect x="710" y="286" width="20" height="8" rx="3" fill="var(--accent)" opacity=".7"/>
+        <!-- dimension hints -->
+        <path d="M500,486 H800" stroke="var(--txt-3)" stroke-width="1" opacity=".5"/>
+        <path d="M500,481v10M800,481v10" stroke="var(--txt-3)" stroke-width="1" opacity=".5"/>
+        <text x="650" y="503" font-family="JetBrains Mono,monospace" font-size="11" fill="var(--txt-3)" text-anchor="middle">210 mm</text>
+        <path d="M814,300 V472" stroke="var(--txt-3)" stroke-width="1" opacity=".5"/>
+        <path d="M809,300h10M809,472h10" stroke="var(--txt-3)" stroke-width="1" opacity=".5"/>
+        <text x="828" y="390" font-family="JetBrains Mono,monospace" font-size="11" fill="var(--txt-3)">120</text>
+      </g>
+
+      <!-- ============ MOLD ASSEMBLY VIEW (default) ============ -->
+      <g class="mv-view">
+      <!-- polymer case box (back) -->
+      <g class="mv-part" id="mv-case" data-dx="0" data-dy="-48">
+        <g transform="translate(0,0)">
+          <ellipse cx="600" cy="264" rx="195" ry="18" fill="url(#gShadow)"/>
+          <polygon points="446,96 754,96 792,148 408,148" fill="url(#gPlaTop)" stroke="rgba(90,95,105,.22)"/>
+          <polygon points="466,104 734,104 762,142 438,142" fill="url(#gPlaIn)"/>
+          <rect x="408" y="148" width="384" height="108" rx="6" fill="url(#gPlaFront)" stroke="rgba(90,95,105,.22)"/>
+          <rect x="474" y="190" width="34" height="12" rx="6" fill="url(#gPlaIn)"/>
+          <rect x="692" y="190" width="34" height="12" rx="6" fill="url(#gPlaIn)"/>
+        </g>
+      </g>
+      <!-- back-left wall segment -->
+      <g class="mv-part" id="mv-wallB" data-dx="-118" data-dy="-54">
+        <g transform="translate(452,262)">
+          <ellipse cy="112" rx="100" ry="13" fill="url(#gShadow)"/>
+          <path d="M-95 -15Q0 -48 95 -15L95 76Q0 43 -95 76Z" fill="url(#gPlaSide)" stroke="rgba(90,95,105,.22)"/>
+          <path d="M-95 -15Q0 -48 95 -15L86 -5Q0 -36 -86 -5Z" fill="url(#gPlaTop)"/>
+        </g>
+      </g>
+      <!-- back-right wall segment -->
+      <g class="mv-part" id="mv-wallC" data-dx="118" data-dy="-54">
+        <g transform="translate(748,262)">
+          <ellipse cy="112" rx="100" ry="13" fill="url(#gShadow)"/>
+          <path d="M-95 -15Q0 -48 95 -15L95 76Q0 43 -95 76Z" fill="url(#gPlaSide)" stroke="rgba(90,95,105,.22)"/>
+          <path d="M-95 -15Q0 -48 95 -15L86 -5Q0 -36 -86 -5Z" fill="url(#gPlaTop)"/>
+        </g>
+      </g>
+      <!-- source vessel ghost -->
+      <g class="cv-item" id="mv-source">
+        <g transform="translate(600,296)">
+          <ellipse cy="-88" rx="58" ry="19" fill="none" stroke="#8B9099" stroke-width="2" stroke-dasharray="6 6" opacity=".7"/>
+          <path d="M-58 -88C-58 -60 -76 -42 -76 -2C-76 58 -44 92 -44 116L44 116C44 92 76 58 76 -2C76 -42 58 -60 58 -88" fill="none" stroke="#8B9099" stroke-width="2" stroke-dasharray="6 6" opacity=".7"/>
+        </g>
+      </g>
+      <!-- foot mold -->
+      <g class="mv-part" id="mv-foot" data-dx="0" data-dy="126">
+        <g transform="translate(600,466)">
+          <ellipse cy="36" rx="128" ry="17" fill="url(#gShadow)"/>
+          <path d="M-115 0A115 34 0 0 0 115 0L115 20A115 34 0 0 1-115 20Z" fill="url(#gPlaSide)" stroke="rgba(90,95,105,.22)"/>
+          <ellipse rx="115" ry="34" fill="url(#gPlaTop)" stroke="rgba(90,95,105,.25)"/>
+          <ellipse cy="1" rx="64" ry="18" fill="url(#gPlaIn)"/>
+          <ellipse cy="1" rx="46" ry="13" fill="url(#gPlaFront)"/>
+          <circle cx="-88" cy="-9" r="5" fill="var(--accent)" opacity=".85"/>
+          <circle cx="88" cy="-9" r="5" fill="var(--accent)" opacity=".85"/>
+          <circle cy="27" r="5" fill="var(--accent)" opacity=".85"/>
+        </g>
+      </g>
+      <!-- front wall segment -->
+      <g class="mv-part" id="mv-wallA" data-dx="0" data-dy="94">
+        <g transform="translate(600,298)">
+          <ellipse cy="150" rx="152" ry="15" fill="url(#gShadow)"/>
+          <path d="M-150 -25Q0 35 150 -25L150 112Q0 172 -150 112Z" fill="url(#gPlaFront)" stroke="rgba(90,95,105,.25)"/>
+          <path d="M-150 -25Q0 35 150 -25L128 -42Q0 12 -128 -42Z" fill="url(#gPlaTop)"/>
+          <polygon points="-150,-25 -128,-42 -128,95 -150,112" fill="url(#gPlaSide)"/>
+          <polygon points="150,-25 128,-42 128,95 150,112" fill="url(#gPlaSide)"/>
+          <path d="M-128 -42Q0 12 128 -42" fill="none" stroke="rgba(90,95,105,.28)"/>
+          <rect x="-147" y="16" width="10" height="18" rx="4" fill="var(--accent)" opacity=".85"/>
+          <rect x="137" y="16" width="10" height="18" rx="4" fill="var(--accent)" opacity=".85"/>
+        </g>
+      </g>
+      </g><!-- /.mv-view -->
+    </svg>
+  </div>
+
+  <!-- view cube -->
+  <div class="vc-wrap" data-hide="left">
+    <div class="vc-scene">
+      <div class="viewcube">
+        <div class="vc-face vc-front" data-view="Front">Front</div>
+        <div class="vc-face vc-back" data-view="Back">Back</div>
+        <div class="vc-face vc-right" data-view="Right">Right</div>
+        <div class="vc-face vc-left" data-view="Left">Left</div>
+        <div class="vc-face vc-top" data-view="Top">Top</div>
+        <div class="vc-face vc-bottom" data-view="Bottom">Bottom</div>
+      </div>
+    </div>
+    <svg class="vc-axes" width="62" height="25" viewBox="0 0 86 34">
+      <path d="M30 6v18" stroke="#4A7DFF" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M30 24 52 31" stroke="#E2604A" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M30 24 8 31" stroke="#53B36A" stroke-width="1.5" stroke-linecap="round"/>
+      <text x="30" y="4.5" font-family="JetBrains Mono,monospace" font-size="7" fill="#4A7DFF" text-anchor="middle">Z</text>
+      <text x="58" y="33" font-family="JetBrains Mono,monospace" font-size="7" fill="#E2604A">X</text>
+      <text x="0" y="33" font-family="JetBrains Mono,monospace" font-size="7" fill="#53B36A">Y</text>
+    </svg>
+    <button class="vc-reset" title="Reset to 3/4 view"><svg class="ic"><use href="#i-reset"/></svg></button>
+  </div>
+
+  <!-- top-center project bar -->
+  <div class="isl topbar" data-hide="up">
+    <button class="ib" data-goto="home" data-tip-b="Home"><svg class="ic"><use href="#i-home"/></svg></button>
+    <button class="tb-name js-mock" data-mock="Project menu (mock)">
+      <span class="save-dot" title="All changes saved locally"></span>
+      Coastal Mug Mold
+      <svg class="ic"><use href="#i-caret"/></svg>
+    </button>
+    <span class="tb-div"></span>
+    <button class="btn-primary js-mock" data-mock="Exported 4 mold parts + case box (mock)">
+      <svg class="ic"><use href="#i-export"/></svg>Export Parts
+    </button>
+    <button class="ib js-mock" data-mock="More actions (mock)"><svg class="ic"><use href="#i-dots"/></svg></button>
+  </div>
+
+  <!-- top-right corner: focus + layers -->
+  <button class="corner-btn js-focus" data-hide="up" data-tip-b="Focus on model — F"><svg class="ic"><use href="#i-expand"/></svg></button>
+  <button class="corner-btn js-layers" data-hide="up" data-tip-b="Parts"><svg class="ic"><use href="#i-layers"/></svg></button>
+  <button class="corner-handle" data-hide="up" title="Show / hide parts"></button>
+
+  <!-- left tool rail: parameters, view toggles, + Case Box editor mode -->
+  <div class="isl left-rail" data-hide="left">
+    <button class="ib tip-r js-params" data-tip="Parameters"><svg class="ic"><use href="#i-sliders"/></svg></button>
+    <button class="ib tip-r js-casebox" data-tip="Case box editor"><svg class="ic"><use href="#i-casebox"/></svg></button>
+    <div class="rail-div"></div>
+    <button class="ib tip-r js-section" data-tip="Cross-section"><svg class="ic"><use href="#i-section"/></svg></button>
+    <button class="ib tip-r js-grid on" data-tip="Grid"><svg class="ic"><use href="#i-grid"/></svg></button>
+    <button class="ib tip-r js-tone" data-tip="Canvas tone"><svg class="ic"><use href="#i-tone"/></svg></button>
+  </div>
+
+  <!-- parameters panel — swaps between Mold Setup and Case Box by mode -->
+  <div class="isl params">
+    <div class="pan-head">
+      <svg class="ic ph-ic"><use href="#i-sliders"/></svg>
+      <span class="ph-t js-panel-title">Mold Setup</span>
+      <button class="ib js-params-close" data-tip-b="Collapse"><svg class="ic"><use href="#i-chevleft"/></svg></button>
+    </div>
+
+    <!-- MOLD body (default) -->
+    <div class="pan-body js-mold-body">
+      <section class="acc open">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Input Source</span></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="src-card">
+            <span class="a3"><svg viewBox="0 0 48 48"><use href="#a3d-mug"/></svg></span>
+            <span class="grow"><b>Coastal Set — Mug</b><small>linked · 84k tris</small></span>
+            <button class="btn-ghost js-mock" data-mock="Replace source (mock)">Replace</button>
+          </div>
+          <div class="prow"><label>Shrinkage Compensation</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="8" max="16" value="12" step="0.5">
+            <div class="num"><input type="number" min="8" max="16" value="12" step="0.5"><span>%</span></div>
+          </div></div>
+        </div></div>
+      </section>
+      <section class="acc open">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Mold Configuration</span><em>5</em></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="prow"><label>Plaster Wall</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="25" max="60" value="40" step="1">
+            <div class="num"><input type="number" min="25" max="60" value="40" step="1"><span>mm</span></div>
+          </div></div>
+          <div class="prow"><label>Draft Angle</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="0" max="8" value="3" step="0.5">
+            <div class="num"><input type="number" min="0" max="8" value="3" step="0.5"><span>°</span></div>
+          </div></div>
+          <div class="srow"><label>Registration Keys</label><span class="sw on"></span></div>
+          <div class="prow"><label>Key Depth</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="4" max="12" value="6" step="0.5">
+            <div class="num"><input type="number" min="4" max="12" value="6" step="0.5"><span>mm</span></div>
+          </div></div>
+          <div class="prow"><label>Slip Well Height</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="20" max="60" value="35" step="1">
+            <div class="num"><input type="number" min="20" max="60" value="35" step="1"><span>mm</span></div>
+          </div></div>
+        </div></div>
+      </section>
+      <section class="acc open">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Assembly</span></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="srow"><label>Exploded view</label><span class="sw js-explode-tog"></span></div>
+          <div class="prow"><label>Separation</label><div class="exp-row">
+            <input class="param-slider js-explode-range" type="range" min="0" max="1" value="0" step="0.01">
+          </div></div>
+        </div></div>
+      </section>
+    </div>
+
+    <!-- CASE BOX body (case-mode) -->
+    <div class="pan-body js-case-body">
+      <section class="acc open">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Case Box</span></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="srow"><label>Generate case box</label><span class="sw on"></span></div>
+          <div class="prow"><label>Material</label>
+            <select class="psel"><option selected>Polymer (printed)</option><option>Cottle boards</option><option>Silicone</option></select>
+          </div>
+        </div></div>
+      </section>
+      <section class="acc open">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Dimensions</span><em>3</em></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="prow"><label>Case Wall</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="3" max="8" value="4" step="0.5">
+            <div class="num"><input type="number" min="3" max="8" value="4" step="0.5"><span>mm</span></div>
+          </div></div>
+          <div class="prow"><label>Clearance</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="10" max="30" value="15" step="1">
+            <div class="num"><input type="number" min="10" max="30" value="15" step="1"><span>mm</span></div>
+          </div></div>
+          <div class="prow"><label>Base Thickness</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="4" max="20" value="10" step="1">
+            <div class="num"><input type="number" min="4" max="20" value="10" step="1"><span>mm</span></div>
+          </div></div>
+        </div></div>
+      </section>
+      <section class="acc open">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Features</span><em>3</em></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="srow"><label>Pour spout</label><span class="sw on"></span></div>
+          <div class="srow"><label>Registration channels</label><span class="sw on"></span></div>
+          <div class="srow"><label>Alignment tabs</label><span class="sw on"></span></div>
+          <div class="prow"><label>Channel Depth</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="2" max="10" value="5" step="0.5">
+            <div class="num"><input type="number" min="2" max="10" value="5" step="0.5"><span>mm</span></div>
+          </div></div>
+        </div></div>
+      </section>
+    </div>
+
+    <div class="pan-status">
+      <span class="dot ok"></span>
+      <span class="mono js-mold-count">4 parts + case</span>
+    </div>
+  </div>
+
+  <!-- parts panel -->
+  <div class="isl items">
+    <div class="pan-head">
+      <span class="ph-t">Mold Parts</span>
+      <button class="ib js-items-close" data-tip-b="Collapse"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="items-list">
+      <div class="item-row" data-target="mv-foot">
+        <svg class="ic it"><use href="#it-foot"/></svg><span class="it-name">Foot Mold</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+      <div class="item-row" data-target="mv-wallA">
+        <svg class="ic it"><use href="#it-wall"/></svg><span class="it-name">Wall Section A</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+      <div class="item-row" data-target="mv-wallB">
+        <svg class="ic it"><use href="#it-wall"/></svg><span class="it-name">Wall Section B</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+      <div class="item-row" data-target="mv-wallC">
+        <svg class="ic it"><use href="#it-wall"/></svg><span class="it-name">Wall Section C</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+      <div class="item-row" data-target="mv-case">
+        <svg class="ic it"><use href="#it-case"/></svg><span class="it-name">Case Box</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+      <div class="item-row" data-target="mv-source">
+        <svg class="ic it"><use href="#it-vessel"/></svg><span class="it-name">Source Vessel</span>
+        <button class="eye"><svg class="ic e-on"><use href="#i-eye"/></svg><svg class="ic e-off"><use href="#i-eyeoff"/></svg></button>
+      </div>
+    </div>
+    <div class="items-foot">
+      <span class="js-count">6 of 6 shown</span>
+      <span class="if-spacer"></span>
+      <button class="if-link js-all">All</button>
+      <button class="if-link js-none">None</button>
+    </div>
+  </div>
+
+  <!-- right dock: Cast Form's one real right-side action — import geometry. -->
+  <div class="right-dock">
+    <div class="isl isl--static tools-rail" data-hide="right" style="position:absolute">
+      <button class="ib tip-l js-mock" data-tip="Import STL / OBJ" data-mock="Import model (mock)"><svg class="ic"><use href="#i-import"/></svg></button>
+    </div>
+  </div>
+
+  <!-- warnings UI (lower-left) -->
+  <div class="isl warnings" data-hide="down">
+    <button class="warn-btn js-warn">
+      <svg class="ic"><use href="#i-warn"/></svg>2 warnings
+    </button>
+    <div class="warn-pop">
+      <div class="warn-pop-head">2 print warnings</div>
+      <div class="warn-row">
+        <svg class="ic"><use href="#i-warn"/></svg>
+        <span><b>Plaster wall below 40 mm</b><small>Wall Section B thins to 32 mm near the slip well. Consider raising Plaster Wall.</small></span>
+      </div>
+      <div class="warn-row">
+        <svg class="ic"><use href="#i-warn"/></svg>
+        <span><b>Low draft angle</b><small>3° draft on the foot mold may lock on deep footrings. 5°+ recommended.</small></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- focus exit -->
+  <button class="focus-exit js-unfocus"><svg class="ic"><use href="#i-collapse"/></svg>Exit focus<kbd>F</kbd></button>
+</div>
+
+<!-- ============================================================
+     SCREEN: VESSEL V2 — profile point editor + revolve
+     ============================================================ -->
+<div class="screen studio node-sel params-open" id="screen-vessel2">
+  <!-- canvas: 2D profile editor (nodes + bezier handles) with revolve axis -->
+  <div class="canvas">
+    <svg viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid meet" aria-label="Vessel profile editor">
+      <rect class="cv-grid" x="40" y="20" width="1120" height="580" fill="url(#gridPat)" opacity=".4"/>
+
+      <!-- revolved solid preview (hidden until Revolved view) -->
+      <g class="pe-solid">
+        <ellipse cx="600" cy="556" rx="150" ry="20" fill="url(#gShadow)"/>
+        <path d="M508 132 C508 176 552 196 532 250 C516 296 488 330 488 408 C488 470 540 512 600 512 C660 512 712 470 712 408 C712 330 684 296 668 250 C648 196 692 176 692 132 Z"
+              fill="url(#gCerBody)" stroke="rgba(90,95,105,.25)"/>
+        <ellipse cx="600" cy="132" rx="92" ry="17" fill="url(#gCerTop)" stroke="rgba(90,95,105,.28)"/>
+        <ellipse cx="600" cy="133" rx="74" ry="12" fill="url(#gCerIn)"/>
+        <path d="M527 250 C512 300 560 300 545 360" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width="6" stroke-linecap="round"/>
+      </g>
+
+      <!-- revolve axis -->
+      <circle class="pe-axis-cap" cx="600" cy="98" r="3"/>
+      <line class="pe-axis" x1="600" y1="98" x2="600" y2="556"/>
+      <text x="608" y="112" font-family="JetBrains Mono,monospace" font-size="10" fill="var(--accent)" opacity=".7">axis</text>
+
+      <!-- mirrored profile (faint, hints the revolve) -->
+      <path class="pe-mirror" d="M600 522 L506 508 C468 494 474 458 488 430 C502 388 548 368 532 316 C520 268 470 250 476 206 C480 168 500 150 510 132"/>
+
+      <!-- filled cross-section + profile curve -->
+      <path class="pe-fill" d="M600 522 L694 508 C726 494 720 458 712 430 C698 388 652 368 668 316 C680 268 730 250 724 206 C720 168 700 150 690 132 L600 132 Z"/>
+      <path class="pe-curve" d="M600 522 L694 508 C726 494 720 458 712 430 C698 388 652 368 668 316 C680 268 730 250 724 206 C720 168 700 150 690 132"/>
+
+      <!-- bezier handles for the selected node (N4 waist) -->
+      <g class="pe-node-g" id="pe-handles">
+        <line class="pe-hline" x1="668" y1="316" x2="642" y2="366"/>
+        <line class="pe-hline" x1="668" y1="316" x2="700" y2="256"/>
+        <circle class="phandle" cx="642" cy="366" r="5"/>
+        <circle class="phandle" cx="700" cy="256" r="5"/>
+      </g>
+
+      <!-- profile nodes -->
+      <g class="pe-node-g">
+        <circle class="pnode" data-node="1" data-name="Foot Center" data-type="Corner" cx="600" cy="522" r="6.5"/>
+        <circle class="pnode" data-node="2" data-name="Foot Rim" data-type="Corner" cx="694" cy="508" r="6.5"/>
+        <circle class="pnode" data-node="3" data-name="Lower Belly" data-type="Smooth" cx="712" cy="430" r="6.5"/>
+        <circle class="pnode sel" data-node="4" data-name="Waist" data-type="Symmetric" cx="668" cy="316" r="7.5"/>
+        <circle class="pnode" data-node="5" data-name="Shoulder" data-type="Smooth" cx="724" cy="206" r="6.5"/>
+        <circle class="pnode" data-node="6" data-name="Lip" data-type="Smooth" cx="690" cy="132" r="6.5"/>
+      </g>
+    </svg>
+  </div>
+
+  <!-- view cube -->
+  <div class="vc-wrap" data-hide="left">
+    <div class="vc-scene">
+      <div class="viewcube">
+        <div class="vc-face vc-front" data-view="Front">Front</div>
+        <div class="vc-face vc-back" data-view="Back">Back</div>
+        <div class="vc-face vc-right" data-view="Right">Right</div>
+        <div class="vc-face vc-left" data-view="Left">Left</div>
+        <div class="vc-face vc-top" data-view="Top">Top</div>
+        <div class="vc-face vc-bottom" data-view="Bottom">Bottom</div>
+      </div>
+    </div>
+    <svg class="vc-axes" width="62" height="25" viewBox="0 0 86 34">
+      <path d="M30 6v18" stroke="#4A7DFF" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M30 24 52 31" stroke="#E2604A" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M30 24 8 31" stroke="#53B36A" stroke-width="1.5" stroke-linecap="round"/>
+      <text x="30" y="4.5" font-family="JetBrains Mono,monospace" font-size="7" fill="#4A7DFF" text-anchor="middle">Z</text>
+      <text x="58" y="33" font-family="JetBrains Mono,monospace" font-size="7" fill="#E2604A">X</text>
+      <text x="0" y="33" font-family="JetBrains Mono,monospace" font-size="7" fill="#53B36A">Y</text>
+    </svg>
+    <button class="vc-reset" title="Reset to 3/4 view"><svg class="ic"><use href="#i-reset"/></svg></button>
+  </div>
+
+  <!-- top-center project bar -->
+  <div class="isl topbar" data-hide="up">
+    <button class="ib" data-goto="home" data-tip-b="Home"><svg class="ic"><use href="#i-home"/></svg></button>
+    <button class="tb-name js-mock" data-mock="Project menu (mock)">
+      <span class="save-dot" title="All changes saved locally"></span>
+      Tall Carafe
+      <svg class="ic"><use href="#i-caret"/></svg>
+    </button>
+    <span class="tb-div"></span>
+    <button class="btn-primary js-mock" data-mock="Exported carafe.stl (mock)">
+      <svg class="ic"><use href="#i-export"/></svg>Export STL
+    </button>
+    <button class="ib js-mock" data-mock="More actions (mock)"><svg class="ic"><use href="#i-dots"/></svg></button>
+  </div>
+
+  <!-- top-right corner: focus + points panel -->
+  <button class="corner-btn js-focus" data-hide="up" data-tip-b="Focus on model — F"><svg class="ic"><use href="#i-expand"/></svg></button>
+  <button class="corner-btn js-layers" data-hide="up" data-tip-b="Points"><svg class="ic"><use href="#i-layers"/></svg></button>
+  <button class="corner-handle" data-hide="up" title="Show / hide points"></button>
+
+  <!-- left tool rail -->
+  <div class="isl left-rail" data-hide="left">
+    <button class="ib tip-r js-params" data-tip="Parameters"><svg class="ic"><use href="#i-sliders"/></svg></button>
+    <div class="rail-div"></div>
+    <button class="ib tip-r js-section" data-tip="Cross-section"><svg class="ic"><use href="#i-section"/></svg></button>
+    <button class="ib tip-r js-grid on" data-tip="Grid"><svg class="ic"><use href="#i-grid"/></svg></button>
+    <button class="ib tip-r js-tone" data-tip="Canvas tone"><svg class="ic"><use href="#i-tone"/></svg></button>
+  </div>
+
+  <!-- parameters panel -->
+  <div class="isl params">
+    <div class="pan-head">
+      <svg class="ic ph-ic"><use href="#i-sliders"/></svg>
+      <span class="ph-t">Profile</span>
+      <button class="ib js-params-close" data-tip-b="Collapse"><svg class="ic"><use href="#i-chevleft"/></svg></button>
+    </div>
+    <!-- Selected Point editor (folds the contextual bottom bar into the panel) -->
+    <div class="point-sec">
+      <div class="ps-head">
+        <span class="ps-dot"></span>
+        <span class="ps-name js-pc-name">Waist</span>
+        <span class="ps-tag">point 4 / 6</span>
+      </div>
+      <div class="seg js-nodetype">
+        <button class="seg-opt" data-type="Corner">Corner</button>
+        <button class="seg-opt" data-type="Smooth">Smooth</button>
+        <button class="seg-opt on" data-type="Symmetric">Symmetric</button>
+      </div>
+      <div class="pc-grid">
+        <div class="pc-cell"><span class="pc-lab">Radius</span><div class="num"><input type="number" value="34.0" step="0.5"><span>mm</span></div></div>
+        <div class="pc-cell"><span class="pc-lab">Height</span><div class="num"><input type="number" value="102.0" step="0.5"><span>mm</span></div></div>
+        <div class="pc-cell"><span class="pc-lab">Handle Length</span><div class="num"><input type="number" value="42.0" step="1"><span>mm</span></div></div>
+        <div class="pc-cell"><span class="pc-lab">Handle Angle</span><div class="num"><input type="number" value="18" step="1"><span>°</span></div></div>
+      </div>
+    </div>
+    <div class="pan-body">
+      <div class="pan-field">
+        <label>View mode</label>
+        <div class="seg js-viewmode">
+          <button class="seg-opt on" data-view-mode="profile"><svg class="ic"><use href="#i-curve"/></svg>Profile</button>
+          <button class="seg-opt" data-view-mode="solid"><svg class="ic"><use href="#i-revolve"/></svg>Revolved</button>
+        </div>
+      </div>
+      <section class="acc open">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Revolve</span><em>2</em></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="prow"><label>Sweep Angle</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="30" max="360" value="360" step="5">
+            <div class="num"><input type="number" min="30" max="360" value="360" step="5"><span>°</span></div>
+          </div></div>
+          <div class="prow"><label>Radial Segments</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="24" max="256" value="128" step="1">
+            <div class="num"><input type="number" min="24" max="256" value="128" step="1"><span></span></div>
+          </div></div>
+        </div></div>
+      </section>
+      <section class="acc open">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Profile Curve</span><em>3</em></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="prow"><label>Curve Resolution</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="20" max="400" value="180" step="10">
+            <div class="num"><input type="number" min="20" max="400" value="180" step="10"><span></span></div>
+          </div></div>
+          <div class="prow"><label>Default Tension</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="0" max="100" value="55" step="1">
+            <div class="num"><input type="number" min="0" max="100" value="55" step="1"><span>%</span></div>
+          </div></div>
+          <div class="srow"><label>Snap to grid</label><span class="sw on"></span></div>
+        </div></div>
+      </section>
+      <section class="acc open">
+        <button class="acc-head"><svg class="ic"><use href="#i-caret"/></svg><span>Wall &amp; Foot</span><em>3</em></button>
+        <div class="acc-body"><div class="acc-inner">
+          <div class="prow"><label>Wall Thickness</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="0.8" max="10" value="3" step="0.1">
+            <div class="num"><input type="number" min="0.8" max="10" value="3.0" step="0.1"><span>mm</span></div>
+          </div></div>
+          <div class="prow"><label>Base Thickness</label><div class="param-ctrl">
+            <input class="param-slider" type="range" min="1" max="14" value="5" step="0.5">
+            <div class="num"><input type="number" min="1" max="14" value="5.0" step="0.5"><span>mm</span></div>
+          </div></div>
+          <div class="srow"><label>Close base</label><span class="sw on"></span></div>
+        </div></div>
+      </section>
+    </div>
+    <div class="pan-status">
+      <span class="dot ok"></span>
+      <span class="mono">6 points · 360°</span>
+      <span class="ps-div"></span>
+      <span class="mono" style="color:var(--txt-3)">manifold</span>
+    </div>
+  </div>
+
+  <!-- points panel (list of profile nodes) -->
+  <div class="isl items">
+    <div class="pan-head">
+      <span class="ph-t">Profile Points</span>
+      <button class="ib js-items-close" data-tip-b="Collapse"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="items-list js-point-list">
+      <div class="item-row" data-node="6"><svg class="ic it"><use href="#it-point"/></svg><span class="it-name">Lip</span><span class="pt-badge">Smooth</span></div>
+      <div class="item-row" data-node="5"><svg class="ic it"><use href="#it-point"/></svg><span class="it-name">Shoulder</span><span class="pt-badge">Smooth</span></div>
+      <div class="item-row is-sel" data-node="4"><svg class="ic it"><use href="#it-point"/></svg><span class="it-name">Waist</span><span class="pt-badge">Symmetric</span></div>
+      <div class="item-row" data-node="3"><svg class="ic it"><use href="#it-point"/></svg><span class="it-name">Lower Belly</span><span class="pt-badge">Smooth</span></div>
+      <div class="item-row" data-node="2"><svg class="ic it"><use href="#it-point"/></svg><span class="it-name">Foot Rim</span><span class="pt-badge">Corner</span></div>
+      <div class="item-row" data-node="1"><svg class="ic it"><use href="#it-point"/></svg><span class="it-name">Foot Center</span><span class="pt-badge">Corner</span></div>
+    </div>
+    <div class="items-foot">
+      <span class="js-count">6 points</span>
+      <span class="if-spacer"></span>
+      <button class="if-link js-mock" data-mock="Reverse profile direction (mock)">Reverse</button>
+    </div>
+  </div>
+
+  <!-- right dock: pen-tool rail. View mode, the point editor, and status now
+       live in the left panel; the canvas bottom stays clear. -->
+  <div class="right-dock">
+    <div class="isl isl--static tools-rail" data-hide="right" style="position:absolute">
+      <button class="ib tip-l js-pen on" data-pen="select" data-tip="Select"><svg class="ic"><use href="#i-cursor"/></svg></button>
+      <button class="ib tip-l js-pen" data-pen="add" data-tip="Add point"><svg class="ic"><use href="#i-pen"/></svg></button>
+      <button class="ib tip-l js-pen" data-pen="convert" data-tip="Convert node"><svg class="ic"><use href="#i-node"/></svg></button>
+      <div class="rail-div"></div>
+      <button class="ib tip-l js-mock" data-tip="Delete point" data-mock="Delete point (mock)"><svg class="ic"><use href="#i-trash"/></svg></button>
+    </div>
+  </div>
+
+  <!-- focus exit -->
+  <button class="focus-exit js-unfocus"><svg class="ic"><use href="#i-collapse"/></svg>Exit focus<kbd>F</kbd></button>
+</div>
+
+<!-- ============================================================
+     PREVIEW CHROME (meta — not part of the proposed design)
+     ============================================================ -->
+<nav id="previewBar">
+  <span class="pb-label">Preview harness</span>
+  <button class="tab" data-goto="home">Home</button>
+  <button class="tab" data-goto="dw">Dinnerware</button>
+  <button class="tab" data-goto="vessel2">Vessel V2</button>
+  <button class="tab" data-goto="mold">Mold Studio</button>
+  <span class="pb-sp"></span>
+  <button class="pb-ic js-mode" title="Toggle light / dark">
+    <svg class="ic m-sun"><use href="#i-sun"/></svg>
+    <svg class="ic m-moon"><use href="#i-moon"/></svg>
+  </button>
+  <button class="pb-ic js-spec" title="Design spec"><svg class="ic"><use href="#i-info"/></svg></button>
+</nav>
+
+<aside id="spec">
+  <div class="spec-h">
+    <b>Studio Shell — design spec v4</b>
+    <button class="sheet-x js-spec"><svg class="ic"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="spec-b">
+    <h4>Concept</h4>
+    <p>The viewport <b>is</b> the app. The docked header and footer are gone; every control floats over the canvas as a translucent <b>island</b> (blur 24px, radius 14, hairline border) and can get out of the way.</p>
+
+    <h4>v4 changes from your feedback</h4>
+    <ul>
+      <li><b>Warnings → lower-left UI</b> — pulled back out of the panel into a dedicated bottom-left chip ("⚠ N warnings") that expands a popover. Only shown when warnings exist (Cast Form here; Dinnerware/Vessel V2 have none). The panel footer keeps just the item/part/point count.</li>
+      <li><b>Case Box is its own mode</b> — the Polymer Case Box moved out of the Mold panel into a dedicated toolbar icon. Clicking it switches the app to a <b>case-box editor</b>: the canvas shows the open polymer box (pour spout, registration channels, alignment tabs, dimensions) and the panel swaps to Case Box / Dimensions / Features. The Parameters icon returns to Mold Setup.</li>
+    </ul>
+
+    <h4>v3 changes</h4>
+    <ul>
+      <li><b>No bottom chrome</b> — the black bar was the preview-only screen switcher; it's now a slim <b>harness strip at the very top</b>, visually distinct so it never reads as product header/footer. The product's own header (top-center pill) owns home / filename / global actions.</li>
+      <li><b>Everything folds into the left panel</b> — the floating status chip, warnings popover, exploded control, view-mode toggle, and point editor are gone from the canvas; they now live inside the left panel (with a status footer). The canvas bottom stays clear.</li>
+      <li><b>Left panel is app-specific</b> — Dinnerware: Scaling / Style / Pattern / Proportions / Overrides. Cast Form: Input / Configuration / Case Box / Assembly (exploded) / Warnings. Vessel V2: Selected Point / View mode / Revolve / Curve / Wall.</li>
+    </ul>
+
+    <h4>v2 changes</h4>
+    <ul>
+      <li><b>Tool rail docking</b> — the right tool rail is a persistent right-edge island. When the panel opens it <b>animates 284px left</b> (panel 272 + 12 gap) to sit just left of the panel, and never overlaps it. Panel is always to the rail's right.</li>
+      <li><b>Left cluster order</b> — toolbar pinned to the top-left corner; the Parameters panel opens to its right (x72); the <b>view cube docks to the right of the cluster</b> and slides right (+312px) to stay right of the panel when it opens. Order: toolbar → panel → cube.</li>
+      <li><b>Icons pruned to real features</b> — removed invented tools (search/add/transform/move/scale/align/mirror/wrench/display/screenshot/history/undo/redo/new-group). What's left maps 1:1 to the codebase.</li>
+      <li><b>View cube enlarged</b> (80px) and grouped tight above the axis gizmo, matching your close-up.</li>
+    </ul>
+
+    <h4>Real control inventory (per tool)</h4>
+    <ul>
+      <li><b>Shared left rail</b> — Parameters, Cross-section, Grid, Canvas-tone. (all exist today)</li>
+      <li><b>Camera</b> — view cube + reset (maps to Top/Side/¾/Bottom/Reset in <code>viewport.js</code>).</li>
+      <li><b>Top bar</b> — Home, project name, Export, ⋯.</li>
+      <li><b>Dinnerware</b> — no right rail; editing is the Parameters panel, visibility is the Items panel. Nothing floats without a job.</li>
+      <li><b>Cast Form</b> — right rail = Import (STL/OBJ); bottom-right = Exploded island (switch + separation slider).</li>
+      <li><b>Vessel V2</b> — right rail = pen tools (Select / Add point / Convert node / Delete); bottom-right = Profile ↔ Revolved view toggle.</li>
+    </ul>
+
+    <h4>Vessel V2 point configurator</h4>
+    <ul>
+      <li><b>Canvas</b> is the 2D profile editor: dashed revolve axis, the profile curve, draggable nodes, and a faint mirror of the curve to read the revolve.</li>
+      <li><b>Bezier handle UI</b> — the selected node shows two accent handle arms with round grips; drag to shape tangents.</li>
+      <li><b>Point configurator</b> (bottom-center island, appears on selection): node <b>Type</b> (Corner / Smooth / Symmetric), <b>R/H</b> position, and <b>handle Len/∠</b>. This is the bezier "handle" panel.</li>
+      <li><b>Points panel</b> (right) lists every node with its type badge; selecting a row selects the node and vice-versa.</li>
+    </ul>
+
+    <h4>Tokens (light / dark)</h4>
+    <ul>
+      <li><span class="swatch" style="background:#F3F4F6"></span><code>canvas</code> radial #F3F4F6→#E1E3E7 / #2C2D31→#1C1D20</li>
+      <li><span class="swatch" style="background:rgba(255,255,255,.9)"></span><code>island</code> rgba(255,255,255,.88) / rgba(42,43,47,.88) + blur 24</li>
+      <li><span class="swatch" style="background:#1B1D21"></span><code>text</code> #1B1D21 · #5F646C · #9AA0A8</li>
+      <li><span class="swatch" style="background:#A259FF"></span><code>accent</code> #A259FF (unchanged from current theme)</li>
+      <li><span class="swatch" style="background:#E8A13B"></span><code>warning</code> #E8A13B — dot + popover instead of footer list</li>
+    </ul>
+
+    <h4>Migration notes</h4>
+    <ul>
+      <li>Islands are plain divs over the existing Three.js viewport; the cube maps to camera presets in <code>scripts/ui/viewport.js</code>.</li>
+      <li>Items panel replaces the footer Items menu (checkboxes → eyes); warnings become the status popover.</li>
+      <li>Vessel V2 point editor drives the existing profile/point state; the configurator writes the same node model that <code>vessel-v2</code> revolves.</li>
+      <li>Theme vars extend <code>styles/themes.css</code>; localStorage schema untouched. Focus mode is a body class + ~20 lines of JS.</li>
+    </ul>
+
+    <h4>Try in this preview</h4>
+    <ul>
+      <li><code>F</code> focus mode · <code>Esc</code> exit/close</li>
+      <li>Open a panel, watch the right rail slide left of it (Vessel V2 / Mold)</li>
+      <li>Vessel V2: click nodes or point rows; toggle Profile ↔ Revolved; switch node Type</li>
+      <li>Cast Form: Exploded switch/slider pulls the parts apart</li>
+    </ul>
+  </div>
+</aside>
+
+<div id="toast" role="status"></div>
+<script>
+(function(){
+'use strict';
+var $=function(s,r){return (r||document).querySelector(s)};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+
+/* toast */
+var toastEl=$('#toast'),toastT;
+function toast(m){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){toastEl.classList.remove('show')},1700)}
+
+/* screen switching */
+function go(s){
+  document.body.dataset.screen=s;
+  $$('#previewBar .tab').forEach(function(b){b.classList.toggle('active',b.dataset.goto===s)});
+}
+$$('[data-goto]').forEach(function(b){
+  b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();go(b.dataset.goto)});
+});
+
+/* light / dark */
+$$('.js-mode').forEach(function(b){
+  b.addEventListener('click',function(){
+    var h=document.documentElement;
+    h.dataset.mode=h.dataset.mode==='light'?'dark':'light';
+  });
+});
+
+/* spec sheet */
+$$('.js-spec').forEach(function(b){
+  b.addEventListener('click',function(){$('#spec').classList.toggle('open')});
+});
+
+/* mock actions */
+$$('.js-mock').forEach(function(b){
+  b.addEventListener('click',function(e){
+    if(b.hasAttribute('data-goto'))return;
+    e.stopPropagation();
+    toast(b.dataset.mock||'Not wired in this preview');
+  });
+});
+
+/* view-cube presets (rotation state, deg). In the real implementation these
+   angles come from OrbitControls azimuth/polar and drag drives the camera. */
+var CUBE_VIEWS={
+  threequarter:{x:-24,y:-38},
+  Front:{x:-10,y:0},
+  Back:{x:-10,y:180},
+  Right:{x:-10,y:-90},
+  Left:{x:-10,y:90},
+  Top:{x:-86,y:0},
+  Bottom:{x:86,y:0}
+};
+function setCubeRot(cube,x,y,animate){
+  cube.dataset.rx=x;cube.dataset.ry=y;
+  cube.classList.toggle('no-anim',!animate);
+  cube.style.transform='rotateX('+x+'deg) rotateY('+y+'deg)';
+}
+
+function initStudio(root){
+  if(!root)return;
+
+  /* items/points panel toggle (layers button + handle + in-panel close) */
+  var layers=$('.js-layers',root);
+  function togglePanel(){
+    var on=root.classList.toggle('items-open');
+    layers.classList.toggle('on',on);
+  }
+  layers.addEventListener('click',togglePanel);
+  var handle=$('.corner-handle',root);
+  if(handle)handle.addEventListener('click',togglePanel);
+  var iClose=$('.js-items-close',root);
+  if(iClose)iClose.addEventListener('click',function(){root.classList.remove('items-open');layers.classList.remove('on')});
+
+  /* item rows: eye toggles + selection (only rows with an eye — Vessel V2's
+     point rows have no eye and are handled by the point-editor block below) */
+  var eyeRows=$$('.item-row',root).filter(function(r){return !!$('.eye',r)});
+  function updateCount(){
+    if(!eyeRows.length)return;
+    var shown=eyeRows.filter(function(r){return !r.classList.contains('is-off')}).length;
+    var c=$('.js-count',root);
+    if(c)c.textContent=shown+' of '+eyeRows.length+' shown';
+    var s=$('.js-status-items',root);
+    if(s)s.textContent=shown+' of '+eyeRows.length+' items';
+  }
+  eyeRows.forEach(function(row){
+    var t=row.dataset.target?document.getElementById(row.dataset.target):null;
+    function setOff(off){
+      row.classList.toggle('is-off',off);
+      if(t)t.classList.toggle('cv-off',off);
+    }
+    row._setOff=setOff;
+    $('.eye',row).addEventListener('click',function(e){
+      e.stopPropagation();
+      setOff(!row.classList.contains('is-off'));
+      updateCount();
+    });
+    row.addEventListener('click',function(){
+      var was=row.classList.contains('is-sel');
+      eyeRows.forEach(function(r){
+        r.classList.remove('is-sel');
+        var rt=r.dataset.target?document.getElementById(r.dataset.target):null;
+        if(rt)rt.classList.remove('cv-sel');
+      });
+      if(!was){
+        row.classList.add('is-sel');
+        if(t)t.classList.add('cv-sel');
+      }
+    });
+  });
+  var all=$('.js-all',root),none=$('.js-none',root);
+  if(all)all.addEventListener('click',function(){eyeRows.forEach(function(r){r._setOff(false)});updateCount()});
+  if(none)none.addEventListener('click',function(){eyeRows.forEach(function(r){r._setOff(true)});updateCount()});
+  updateCount();
+
+  /* parameters panel */
+  var pOpen=$('.js-params',root),pClose=$('.js-params-close',root);
+  if(pOpen)pOpen.addEventListener('click',function(){root.classList.add('params-open')});
+  if(pClose)pClose.addEventListener('click',function(){root.classList.remove('params-open')});
+
+  /* accordions */
+  $$('.acc-head',root).forEach(function(h){
+    h.addEventListener('click',function(){h.parentElement.classList.toggle('open')});
+  });
+
+  /* sliders: fill paint + numeric sync */
+  $$('.param-slider',root).forEach(function(sl){
+    var wrap=sl.closest('.param-ctrl');
+    var num=wrap?$('input[type=number]',wrap):null;
+    function paint(){
+      var min=parseFloat(sl.min)||0,max=parseFloat(sl.max)||100,v=parseFloat(sl.value);
+      sl.style.setProperty('--val',((v-min)/(max-min)*100)+'%');
+    }
+    sl.addEventListener('input',function(){if(num)num.value=sl.value;paint()});
+    if(num)num.addEventListener('input',function(){sl.value=num.value;paint()});
+    paint();
+  });
+
+  /* view cube: drag-to-rotate + face-click snap.
+     Prototype rotates the cube itself; production syncs these angles
+     bidirectionally with each app's OrbitControls camera. */
+  var cube=$('.viewcube',root);
+  var scene=$('.vc-scene',root);
+  if(cube&&scene){
+    setCubeRot(cube,-24,-38,false);
+    var drag=null;
+    scene.addEventListener('pointerdown',function(e){
+      drag={x0:e.clientX,y0:e.clientY,
+            rx:parseFloat(cube.dataset.rx),ry:parseFloat(cube.dataset.ry),
+            moved:false};
+      scene.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    scene.addEventListener('pointermove',function(e){
+      if(!drag)return;
+      var dx=e.clientX-drag.x0,dy=e.clientY-drag.y0;
+      if(Math.abs(dx)+Math.abs(dy)>4)drag.moved=true;
+      if(!drag.moved)return;
+      var rx=Math.max(-90,Math.min(90,drag.rx-dy*0.6));
+      setCubeRot(cube,rx,drag.ry+dx*0.6,false);
+    });
+    var endDrag=function(){
+      if(drag&&drag.moved){
+        cube._suppressClick=true;
+        setTimeout(function(){cube._suppressClick=false},0);
+      }
+      drag=null;
+    };
+    scene.addEventListener('pointerup',endDrag);
+    scene.addEventListener('pointercancel',endDrag);
+  }
+  $$('.vc-face',root).forEach(function(f){
+    f.addEventListener('click',function(){
+      if(cube._suppressClick)return;
+      var v=CUBE_VIEWS[f.dataset.view];
+      setCubeRot(cube,v.x,v.y,true);
+      toast(f.dataset.view+' view');
+    });
+  });
+  var vr=$('.vc-reset',root);
+  if(vr)vr.addEventListener('click',function(){setCubeRot(cube,-24,-38,true);toast('3/4 view')});
+
+  /* focus mode */
+  var fBtn=$('.js-focus',root);
+  if(fBtn)fBtn.addEventListener('click',function(){root.classList.add('focus')});
+  var uBtn=$('.js-unfocus',root);
+  if(uBtn)uBtn.addEventListener('click',function(){root.classList.remove('focus')});
+
+  /* warnings popover (lower-left) */
+  var warnBtn=$('.js-warn',root);
+  if(warnBtn)warnBtn.addEventListener('click',function(e){e.stopPropagation();warnBtn.closest('.warnings').classList.toggle('open')});
+
+  /* Cast Form: case-box editor mode (toolbar icon swaps view + panel body) */
+  var caseBtn=$('.js-casebox',root);
+  if(caseBtn){
+    var pTitle=$('.js-panel-title',root);
+    function setCaseMode(on){
+      root.classList.toggle('case-mode',on);
+      root.classList.add('params-open');
+      caseBtn.classList.toggle('on',on);
+      if(pTitle)pTitle.textContent=on?'Case Box':'Mold Setup';
+    }
+    caseBtn.addEventListener('click',function(){setCaseMode(!root.classList.contains('case-mode'))});
+    var mpBtn=$('.js-params',root);
+    if(mpBtn)mpBtn.addEventListener('click',function(){setCaseMode(false)});
+  }
+
+  /* generic switches */
+  $$('.sw',root).forEach(function(sw){
+    if(sw.classList.contains('js-explode-tog'))return;
+    sw.addEventListener('click',function(){sw.classList.toggle('on')});
+  });
+
+  /* cross-section + grid + canvas tone (all real viewport toggles) */
+  var sec=$('.js-section',root);
+  if(sec)sec.addEventListener('click',function(){
+    var on=root.classList.toggle('section-on');
+    sec.classList.toggle('on',on);
+    toast(on?'Cross-section on':'Cross-section off');
+  });
+  var gr=$('.js-grid',root);
+  if(gr)gr.addEventListener('click',function(){
+    var off=root.classList.toggle('grid-off');
+    gr.classList.toggle('on',!off);
+  });
+  var tn=$('.js-tone',root);
+  if(tn)tn.addEventListener('click',function(){
+    var on=root.classList.toggle('tone-alt');
+    tn.classList.toggle('on',on);
+  });
+
+  /* Vessel V2: pen tools, view mode, node selection + configurator */
+  var penBtns=$$('.js-pen',root);
+  penBtns.forEach(function(b){
+    b.addEventListener('click',function(){
+      penBtns.forEach(function(x){x.classList.remove('on')});
+      b.classList.add('on');
+      toast(b.dataset.pen.charAt(0).toUpperCase()+b.dataset.pen.slice(1)+' tool');
+    });
+  });
+  var vmSeg=$('.js-viewmode',root);
+  if(vmSeg){
+    $$('.seg-opt',vmSeg).forEach(function(o){
+      o.addEventListener('click',function(){
+        $$('.seg-opt',vmSeg).forEach(function(x){x.classList.remove('on')});
+        o.classList.add('on');
+        root.classList.toggle('solid-view',o.dataset.viewMode==='solid');
+      });
+    });
+  }
+  var nodes=$$('.pnode',root),ptRows=$$('.js-point-list .item-row',root);
+  var pcName=$('.js-pc-name',root),psTag=$('.ps-tag',root),handles=$('#pe-handles');
+  var typeSeg=$('.js-nodetype',root);
+  function placeHandles(node){
+    if(!handles)return;
+    var cx=+node.getAttribute('cx'),cy=+node.getAttribute('cy');
+    var type=node.dataset.type;
+    if(type==='Corner'){handles.style.opacity='0';return}
+    handles.style.opacity='';
+    var lines=$$('.pe-hline',handles),grips=$$('.phandle',handles);
+    var inP=[cx-30,cy+44],outP=[cx+32,cy-52];
+    lines[0].setAttribute('x1',cx);lines[0].setAttribute('y1',cy);lines[0].setAttribute('x2',inP[0]);lines[0].setAttribute('y2',inP[1]);
+    lines[1].setAttribute('x1',cx);lines[1].setAttribute('y1',cy);lines[1].setAttribute('x2',outP[0]);lines[1].setAttribute('y2',outP[1]);
+    grips[0].setAttribute('cx',inP[0]);grips[0].setAttribute('cy',inP[1]);
+    grips[1].setAttribute('cx',outP[0]);grips[1].setAttribute('cy',outP[1]);
+  }
+  function selectNode(n){
+    var node=nodes.filter(function(x){return x.dataset.node===String(n)})[0];
+    if(!node)return;
+    nodes.forEach(function(x){x.classList.remove('sel')});
+    node.classList.add('sel');
+    ptRows.forEach(function(r){r.classList.toggle('is-sel',r.dataset.node===String(n))});
+    if(pcName)pcName.textContent=node.dataset.name;
+    if(psTag)psTag.textContent='point '+n+' / '+nodes.length;
+    if(typeSeg)$$('.seg-opt',typeSeg).forEach(function(o){o.classList.toggle('on',o.dataset.type===node.dataset.type)});
+    root.classList.add('node-sel');
+    root.classList.add('params-open'); /* the point editor lives in the left panel */
+    placeHandles(node);
+  }
+  nodes.forEach(function(node){
+    node.addEventListener('click',function(e){e.stopPropagation();selectNode(node.dataset.node)});
+  });
+  ptRows.forEach(function(r){
+    r.addEventListener('click',function(){selectNode(r.dataset.node)});
+  });
+  if(typeSeg){
+    $$('.seg-opt',typeSeg).forEach(function(o){
+      o.addEventListener('click',function(){
+        $$('.seg-opt',typeSeg).forEach(function(x){x.classList.remove('on')});
+        o.classList.add('on');
+        var sel=nodes.filter(function(x){return x.classList.contains('sel')})[0];
+        if(sel){
+          sel.dataset.type=o.dataset.type;
+          var row=ptRows.filter(function(r){return r.dataset.node===sel.dataset.node})[0];
+          if(row){var bd=$('.pt-badge',row);if(bd)bd.textContent=o.dataset.type}
+          placeHandles(sel);
+        }
+      });
+    });
+  }
+  var nDe=$('.js-node-deselect',root);
+  if(nDe)nDe.addEventListener('click',function(){
+    root.classList.remove('node-sel');
+    nodes.forEach(function(x){x.classList.remove('sel')});
+    ptRows.forEach(function(r){r.classList.remove('is-sel')});
+  });
+  if(nodes.length){var pre=nodes.filter(function(x){return x.classList.contains('sel')})[0];if(pre)placeHandles(pre)}
+
+  /* exploded view (mold) */
+  var ex=$('.js-explode-range',root);
+  if(ex){
+    var parts=$$('.mv-part',root);
+    var tog=$('.js-explode-tog',root);
+    function apply(t){
+      parts.forEach(function(p){
+        p.style.transform='translate('+(p.dataset.dx*t)+'px,'+(p.dataset.dy*t)+'px)';
+      });
+    }
+    ex.addEventListener('input',function(){
+      apply(parseFloat(ex.value));
+      tog.classList.toggle('on',parseFloat(ex.value)>0.02);
+    });
+    tog.addEventListener('click',function(){
+      var on=!tog.classList.contains('on');
+      root.classList.add('anim-parts');
+      ex.value=on?0.85:0;
+      ex.dispatchEvent(new Event('input'));
+      setTimeout(function(){root.classList.remove('anim-parts')},640);
+    });
+  }
+}
+
+initStudio($('#screen-dw'));
+initStudio($('#screen-mold'));
+initStudio($('#screen-vessel2'));
+
+/* dismiss popovers on outside click */
+document.addEventListener('click',function(e){
+  $$('.warnings.open').forEach(function(w){
+    if(!w.contains(e.target))w.classList.remove('open');
+  });
+});
+
+/* keyboard: F = focus, Esc = back out */
+document.addEventListener('keydown',function(e){
+  var tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='select'||tag==='textarea')return;
+  var scr=document.body.dataset.screen;
+  var root=scr==='dw'?$('#screen-dw'):scr==='mold'?$('#screen-mold'):scr==='vessel2'?$('#screen-vessel2'):null;
+  if((e.key==='f'||e.key==='F')&&root){
+    root.classList.toggle('focus');
+    e.preventDefault();
+  }
+  if(e.key==='Escape'){
+    var spec=$('#spec');
+    if(spec.classList.contains('open')){spec.classList.remove('open');return}
+    if(root&&root.classList.contains('focus')){root.classList.remove('focus');return}
+    if(root&&root.classList.contains('node-sel')){
+      root.classList.remove('node-sel');
+      $$('.pnode.sel, .item-row.is-sel',root).forEach(function(x){x.classList.remove('sel','is-sel')});
+      return;
+    }
+    if(scr==='selector'){go('home');return}
+    $$('.warnings.open').forEach(function(w){w.classList.remove('open')});
+  }
+});
+
+go('vessel2');
+})();
+</script>
+</body>
+</html>

@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { DEFAULT_PARAMS, deepClone } from './castFormDefaults.js';
 
-class CastFormStateManager {
+export class CastFormStateManager {
     constructor() {
         this.state = this.createInitialState();
         this.listeners = new Map();
@@ -27,8 +27,10 @@ class CastFormStateManager {
                 source: 'platform',        // 'platform' | 'file'
                 geometry: null,            // THREE.BufferGeometry
                 fileName: '',
+                validationSourceUrl: '',
                 sourceApp: null,           // 'vessel' | 'dinnerware' | null
                 sourceProjectId: null,
+                patternMeta: null,         // Surface pattern metadata from source generator (Tier 1)
                 isValid: false,
                 bounds: null,              // { min, max, size }
                 validationErrors: []
@@ -44,7 +46,7 @@ class CastFormStateManager {
             
             output: {
                 footShell: null,           // THREE.BufferGeometry
-                wallShells: [null, null, null],
+                wallShells: [],
                 inputPreview: null,        // Scaled input for preview
                 isGenerating: false,
                 lastGenerated: null
@@ -54,11 +56,14 @@ class CastFormStateManager {
                 mode: 'exploded',          // 'exploded' | 'assembly' | 'crossSection'
                 explosionDistance: 40,     // mm - distance mold pieces pull back from center
                 crossSectionAngle: 0,
-                showNatches: true,
                 showGrid: true,
                 showDimensions: true,
-                selectedPart: null,        // 'foot' | 'wall1' | 'wall2' | 'wall3'
-                cameraPreset: 'threeQuarter'
+                selectedPart: null,        // 'foot' | 'wall1'...'wall4'
+                cameraPreset: 'threeQuarter',
+                caseBoxPreview: {
+                    enabled: false,        // swaps the viewport to the case box scene
+                    target: 'wall'         // 'wall' | 'foot'
+                }
             },
             
             warnings: [],
@@ -99,35 +104,50 @@ class CastFormStateManager {
         const { silent = false } = options;
         
         const oldValue = this.getNestedValue(this.state, path);
-        if (this.isEqual(oldValue, value)) return;
+        if (this.isEqual(oldValue, value)) return false;
         
         this.setNestedValue(this.state, path, value);
         
         // Mark dirty for parameter changes
-        if (!path.startsWith('project.') && !path.startsWith('view.') && !path.startsWith('output.')) {
+        const changedPaths = [path];
+        if (path === 'project.name' || path === 'params' || path.startsWith('params.')
+            || path === 'input' || path.startsWith('input.')) {
             this.state.project.isDirty = true;
             this.state.project.lastModified = new Date().toISOString();
+            changedPaths.push('project.isDirty', 'project.lastModified');
         }
         
         if (!silent) {
-            this.notifyListeners(path);
+            this.notifyListeners(changedPaths);
         }
+        return true;
     }
 
     /**
      * Batch multiple state updates
      */
     batchUpdate(updates) {
+        const changedPaths = [];
         updates.forEach(({ path, value }) => {
-            this.setState(path, value, { silent: true });
+            if (this.setState(path, value, { silent: true })) changedPaths.push(path);
         });
-        this.notifyListeners('*');
+        if (changedPaths.length) {
+            this.notifyListeners([...changedPaths, 'project.isDirty', 'project.lastModified']);
+        }
     }
 
     /**
      * Set input geometry
      */
-    setInputGeometry(geometry, fileName = '', sourceApp = null, sourceProjectId = null) {
+    setInputGeometry(geometry, fileName = '', sourceApp = null, sourceProjectId = null, patternMeta = null) {
+        const previousGeometry = this.state.input.geometry;
+        if (previousGeometry && previousGeometry !== geometry) {
+            previousGeometry.dispose();
+            if (this.state.output.inputPreview === previousGeometry) {
+                this.state.output.inputPreview = null;
+            }
+        }
+
         if (geometry) {
             geometry.computeBoundingBox();
             const box = geometry.boundingBox;
@@ -137,8 +157,10 @@ class CastFormStateManager {
                 ...this.state.input,
                 geometry,
                 fileName,
+                validationSourceUrl: '',
                 sourceApp,
                 sourceProjectId,
+                patternMeta,
                 isValid: true,
                 bounds: { min: box.min.clone(), max: box.max.clone(), size },
                 validationErrors: []
@@ -154,22 +176,31 @@ class CastFormStateManager {
                 ...this.state.input,
                 geometry: null,
                 fileName: '',
+                validationSourceUrl: '',
                 sourceApp: null,
                 sourceProjectId: null,
+                patternMeta: null,
                 isValid: false,
                 bounds: null,
                 validationErrors: []
             };
+            this.state.computed.inputHeight = 0;
+            this.state.computed.inputMaxRadius = 0;
         }
         
+        this.disposeOutputGeometries();
+        this.state.output.lastGenerated = null;
+        this.state.output.isGenerating = false;
         this.state.project.isDirty = true;
-        this.notifyListeners('input');
+        this.state.project.lastModified = new Date().toISOString();
+        this.notifyListeners(['input', 'computed', 'output', 'project.isDirty', 'project.lastModified']);
     }
 
     /**
      * Set output geometry
      */
     setOutputGeometry(foot, walls, inputPreview = null) {
+        this.disposeOutputGeometries();
         this.state.output.footShell = foot;
         this.state.output.wallShells = walls;
         this.state.output.inputPreview = inputPreview;
@@ -226,11 +257,12 @@ class CastFormStateManager {
                 fileName: this.state.input.fileName,
                 sourceApp: this.state.input.sourceApp,
                 sourceProjectId: this.state.input.sourceProjectId,
+                patternMeta: this.state.input.patternMeta || null,
                 geometryData: geometryData,  // Serialized geometry
                 bounds: this.state.input.bounds,
                 isValid: this.state.input.isValid
             },
-            view: { ...this.state.view }
+            view: deepClone(this.state.view)
         };
     }
 
@@ -238,14 +270,39 @@ class CastFormStateManager {
      * Load state from saved data
      */
     loadState(data) {
-        this.disposeGeometries();
-        this.state = this.createInitialState();
+        // Construct the replacement completely before publishing it. Parsing a
+        // bad geometry must not discard the project the user already has open.
+        const replacement = new CastFormStateManager();
+        const next = replacement.state;
 
         if (data.project) {
-            Object.assign(this.state.project, data.project);
+            Object.assign(next.project, data.project);
         }
         if (data.params) {
-            this.state.params = deepClone(data.params);
+            next.params = {
+                ...deepClone(DEFAULT_PARAMS),
+                ...deepClone(data.params),
+                mold: {
+                    ...deepClone(DEFAULT_PARAMS.mold),
+                    ...(data.params.mold || {})
+                },
+                natches: {
+                    ...deepClone(DEFAULT_PARAMS.natches),
+                    ...(data.params.natches || {})
+                },
+                shell: {
+                    ...deepClone(DEFAULT_PARAMS.shell),
+                    ...(data.params.shell || {})
+                },
+                caseBox: {
+                    ...deepClone(DEFAULT_PARAMS.caseBox),
+                    ...(data.params.caseBox || {})
+                },
+                experimental: {
+                    ...deepClone(DEFAULT_PARAMS.experimental),
+                    ...(data.params.experimental || {})
+                }
+            };
         }
 
         // Deserialize and set input geometry properly
@@ -254,18 +311,20 @@ class CastFormStateManager {
             const geometry = loader.parseGeometries([data.input.geometryData])[data.input.geometryData.uuid];
 
             // Use setInputGeometry to properly initialize bounds and computed values
-            this.setInputGeometry(
+            if (!geometry?.getAttribute('position')) throw new Error('Saved input geometry has no positions');
+            replacement.setInputGeometry(
                 geometry,
                 data.input.fileName || '',
                 data.input.sourceApp || null,
-                data.input.sourceProjectId || null
+                data.input.sourceProjectId || null,
+                data.input.patternMeta || null
             );
 
             // Restore the source field
-            this.state.input.source = data.input.source || 'file';
+            next.input.source = data.input.source || 'file';
         } else if (data.input) {
             // No geometry data, just set metadata
-            Object.assign(this.state.input, {
+            Object.assign(next.input, {
                 source: data.input.source,
                 fileName: data.input.fileName,
                 sourceApp: data.input.sourceApp,
@@ -275,19 +334,26 @@ class CastFormStateManager {
         }
 
         if (data.view) {
-            Object.assign(this.state.view, data.view);
+            Object.assign(next.view, deepClone(data.view));
+            next.view.caseBoxPreview = {
+                ...replacement.createInitialState().view.caseBoxPreview,
+                ...data.view.caseBoxPreview
+            };
         }
 
-        this.state.project.isDirty = false;
+        next.project.isDirty = false;
+        if (data.project?.lastModified) next.project.lastModified = data.project.lastModified;
+        this.disposeGeometries();
+        this.state = next;
         this.notifyListeners('*');
     }
 
     /**
      * Mark project as saved
      */
-    markSaved() {
+    markSaved(lastModified = new Date().toISOString()) {
         this.state.project.isDirty = false;
-        this.state.project.lastModified = new Date().toISOString();
+        this.state.project.lastModified = lastModified;
         this.notifyListeners('project');
     }
 
@@ -298,15 +364,22 @@ class CastFormStateManager {
         if (this.state.input.geometry) {
             this.state.input.geometry.dispose();
         }
+        this.disposeOutputGeometries();
+    }
+
+    disposeOutputGeometries() {
         if (this.state.output.footShell) {
             this.state.output.footShell.dispose();
         }
         this.state.output.wallShells.forEach(wall => {
             if (wall) wall.dispose();
         });
-        if (this.state.output.inputPreview) {
+        if (this.state.output.inputPreview && this.state.output.inputPreview !== this.state.input.geometry) {
             this.state.output.inputPreview.dispose();
         }
+        this.state.output.footShell = null;
+        this.state.output.wallShells = [];
+        this.state.output.inputPreview = null;
     }
 
     // Utility methods
@@ -337,44 +410,22 @@ class CastFormStateManager {
     }
 
     notifyListeners(changedPath) {
-        // Notify specific path listeners
-        if (this.listeners.has(changedPath)) {
-            const value = this.getNestedValue(this.state, changedPath);
-            this.listeners.get(changedPath).forEach(cb => {
+        const changedPaths = [...new Set(Array.isArray(changedPath) ? changedPath : [changedPath])];
+        const fullReplacement = changedPaths.includes('*');
+        // A replaced parent invalidates its children too. Each named subscription
+        // fires once per transaction; '*' always receives (state, changedPaths).
+        for (const [path, callbacks] of this.listeners) {
+            const affected = path === '*' || fullReplacement || changedPaths.some(changed =>
+                path === changed || path.startsWith(`${changed}.`) || changed.startsWith(`${path}.`));
+            if (!affected) continue;
+            const value = path === '*' ? this.state : this.getNestedValue(this.state, path);
+            for (const callback of callbacks) {
                 try {
-                    cb(value, changedPath);
-                } catch (e) {
-                    console.error('State listener error:', e);
+                    callback(value, path === '*' ? changedPaths : path);
+                } catch (error) {
+                    console.error('State listener error:', error);
                 }
-            });
-        }
-        
-        // Notify parent path listeners
-        const parts = changedPath.split('.');
-        while (parts.length > 1) {
-            parts.pop();
-            const parentPath = parts.join('.');
-            if (this.listeners.has(parentPath)) {
-                const value = this.getNestedValue(this.state, parentPath);
-                this.listeners.get(parentPath).forEach(cb => {
-                    try {
-                        cb(value, parentPath);
-                    } catch (e) {
-                        console.error('State listener error:', e);
-                    }
-                });
             }
-        }
-        
-        // Notify wildcard listeners
-        if (this.listeners.has('*')) {
-            this.listeners.get('*').forEach(cb => {
-                try {
-                    cb(this.state, [changedPath]);
-                } catch (e) {
-                    console.error('State wildcard listener error:', e);
-                }
-            });
         }
     }
 }
@@ -382,4 +433,3 @@ class CastFormStateManager {
 // Singleton instance
 export const castFormState = new CastFormStateManager();
 export default castFormState;
-

@@ -9,6 +9,7 @@ export class ParameterPanel {
     constructor() {
         this.panel = document.getElementById('parameterPanel');
         this.unsubscribers = [];
+        this.pendingParamUpdates = new Map();
         
         this.init();
     }
@@ -61,7 +62,7 @@ export class ParameterPanel {
                 // Sync range to number
                 range.addEventListener('input', () => {
                     number.value = range.value;
-                    this.updateStateFromParam(paramPath, parseFloat(range.value));
+                    this.scheduleParamUpdate(paramPath, parseFloat(range.value));
                 });
 
                 // Sync number to range
@@ -69,7 +70,7 @@ export class ParameterPanel {
                     const val = parseFloat(number.value);
                     if (!isNaN(val) && val >= parseFloat(range.min) && val <= parseFloat(range.max)) {
                         range.value = val;
-                        this.updateStateFromParam(paramPath, val);
+                        this.scheduleParamUpdate(paramPath, val);
                     }
                 });
 
@@ -84,7 +85,7 @@ export class ParameterPanel {
                     
                     number.value = val;
                     range.value = val;
-                    this.updateStateFromParam(paramPath, val);
+                    this.flushParamUpdate(paramPath, val);
                 });
             }
         });
@@ -288,6 +289,29 @@ export class ParameterPanel {
         if (section && prop) {
             vesselState.setState(`sections.${section}.${prop}`, value);
         }
+    }
+
+    scheduleParamUpdate(paramPath, value, delayMs = 24) {
+        const pending = this.pendingParamUpdates.get(paramPath);
+        if (pending) {
+            clearTimeout(pending.timer);
+        }
+
+        const timer = setTimeout(() => {
+            this.pendingParamUpdates.delete(paramPath);
+            this.updateStateFromParam(paramPath, value);
+        }, delayMs);
+
+        this.pendingParamUpdates.set(paramPath, { timer, value });
+    }
+
+    flushParamUpdate(paramPath, value) {
+        const pending = this.pendingParamUpdates.get(paramPath);
+        if (pending) {
+            clearTimeout(pending.timer);
+            this.pendingParamUpdates.delete(paramPath);
+        }
+        this.updateStateFromParam(paramPath, value);
     }
 
     /**
@@ -506,4 +530,3 @@ export class ParameterPanel {
 }
 
 export default ParameterPanel;
-

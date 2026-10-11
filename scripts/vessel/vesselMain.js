@@ -7,9 +7,17 @@ import vesselState from './state/vesselState.js';
 import { VesselViewport } from './ui/vesselViewport.js';
 import { ParameterPanel } from './ui/parameterPanel.js';
 import { VesselMeshGenerator } from './geometry/vesselMeshGenerator.js';
-import { VesselSTLExporter } from './geometry/vesselSTLExporter.js';
 import { VesselStorage } from './vesselStorage.js';
 import { init as initThemeManager } from '../ui/themeManager.js';
+
+let vesselExporterPromise = null;
+
+function loadVesselExporter() {
+    if (!vesselExporterPromise) {
+        vesselExporterPromise = import('./geometry/vesselSTLExporter.js');
+    }
+    return vesselExporterPromise;
+}
 
 class VesselGeneratorApp {
     constructor() {
@@ -17,20 +25,22 @@ class VesselGeneratorApp {
         this.parameterPanel = null;
         this.autosaveInterval = null;
         this.editingProjectId = null;
-        
+        this.pendingViewportUpdate = null;
+        this.viewportUpdateDelayMs = 40;
+
         this.init();
     }
 
     async init() {
         console.log('Vessel Generator initializing...');
-        
+
         // Initialize theme manager for settings menu
         initThemeManager();
-        
+
         // Check URL params for project to load
         const urlParams = new URLSearchParams(window.location.search);
         const projectId = urlParams.get('project');
-        
+
         if (projectId) {
             // Load project from dashboard storage
             this.loadProjectById(projectId);
@@ -38,7 +48,7 @@ class VesselGeneratorApp {
             // Check for autosave for new projects
             await this.checkAutosave();
         }
-        
+
         // Initialize components
         this.initViewport();
         this.initParameterPanel();
@@ -46,19 +56,19 @@ class VesselGeneratorApp {
         this.initFooterControls();
         this.initModals();
         this.initKeyboardShortcuts();
-        
+
         // Subscribe to state changes
         this.subscribeToState();
-        
+
         // Setup autosave
         this.autosaveInterval = VesselStorage.setupAutosave(30000);
-        
+
         // Initial render
         this.updateAll();
-        
+
         // Update status
         this.setStatus('Ready');
-        
+
         console.log('Vessel Generator ready');
     }
 
@@ -92,7 +102,7 @@ class VesselGeneratorApp {
             console.error('Viewport container not found');
             return;
         }
-        
+
         this.viewport = new VesselViewport(container, vesselState.getState());
     }
 
@@ -126,7 +136,7 @@ class VesselGeneratorApp {
         // View menu toggle
         const viewMenuContainer = document.getElementById('viewMenuContainer');
         const btnViewMenu = document.getElementById('btnViewMenu');
-        
+
         btnViewMenu?.addEventListener('click', (e) => {
             e.stopPropagation();
             viewMenuContainer?.classList.toggle('open');
@@ -144,7 +154,7 @@ class VesselGeneratorApp {
             btn.addEventListener('click', (e) => {
                 const view = e.currentTarget.dataset.view;
                 this.viewport?.setCameraPreset(view);
-                
+
                 // Update active state
                 document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
                 e.currentTarget.classList.add('active');
@@ -169,7 +179,7 @@ class VesselGeneratorApp {
     initModals() {
         // Save modal
         const saveModal = document.getElementById('saveModal');
-        
+
         document.getElementById('btnCloseSaveModal')?.addEventListener('click', () => {
             saveModal.style.display = 'none';
         });
@@ -192,7 +202,7 @@ class VesselGeneratorApp {
 
         // Confirm modal
         const confirmModal = document.getElementById('confirmModal');
-        
+
         document.getElementById('btnCloseConfirmModal')?.addEventListener('click', () => {
             confirmModal.style.display = 'none';
         });
@@ -213,19 +223,19 @@ class VesselGeneratorApp {
                 e.preventDefault();
                 this.showSaveModal();
             }
-            
+
             // Ctrl/Cmd + O = Load
             if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
                 e.preventDefault();
                 this.loadProject();
             }
-            
+
             // Ctrl/Cmd + N = New
             if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
                 e.preventDefault();
                 this.newProject();
             }
-            
+
             // Ctrl/Cmd + E = Export STL
             if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
                 e.preventDefault();
@@ -236,25 +246,65 @@ class VesselGeneratorApp {
 
     subscribeToState() {
         vesselState.subscribe('*', (state, changedPaths) => {
-            // Update viewport
-            if (this.viewport) {
-                this.viewport.state = state;
-                this.viewport.updateVessel();
+            if (this.shouldRegenerateVessel(changedPaths)) {
+                this.scheduleViewportUpdate(state);
             }
-            
+
             // Update unsaved indicator
             this.updateUnsavedIndicator();
+
+            if (changedPaths.some((path) => path === 'project.name')) {
+                this.updateProjectName();
+            }
         });
+    }
+
+    shouldRegenerateVessel(changedPaths) {
+        if (!Array.isArray(changedPaths) || changedPaths.length === 0) {
+            return false;
+        }
+
+        if (changedPaths.includes('*')) {
+            return true;
+        }
+
+        return changedPaths.some((path) =>
+            path.startsWith('sections.') ||
+            path.startsWith('global.') ||
+            path.startsWith('transitions.')
+        );
+    }
+
+    scheduleViewportUpdate(state, immediate = false) {
+        if (!this.viewport) return;
+
+        const runUpdate = () => {
+            this.pendingViewportUpdate = null;
+            this.viewport.state = state;
+            this.viewport.updateVessel();
+        };
+
+        if (immediate) {
+            if (this.pendingViewportUpdate) {
+                clearTimeout(this.pendingViewportUpdate);
+                this.pendingViewportUpdate = null;
+            }
+            runUpdate();
+            return;
+        }
+
+        if (this.pendingViewportUpdate) {
+            clearTimeout(this.pendingViewportUpdate);
+        }
+
+        this.pendingViewportUpdate = setTimeout(runUpdate, this.viewportUpdateDelayMs);
     }
 
     updateAll() {
         const state = vesselState.getState();
-        
-        if (this.viewport) {
-            this.viewport.state = state;
-            this.viewport.updateVessel();
-        }
-        
+
+        this.scheduleViewportUpdate(state, true);
+
         this.updateProjectName();
         this.updateUnsavedIndicator();
     }
@@ -262,23 +312,23 @@ class VesselGeneratorApp {
     // Actions
     newProject() {
         const isDirty = vesselState.getState('project.isDirty');
-        
+
         const doCreate = () => {
             // Clear editing project ID
             this.editingProjectId = null;
-            
+
             // Reset state
             vesselState.reset();
-            
+
             // Remove project param from URL
             const url = new URL(window.location);
             url.searchParams.delete('project');
             window.history.replaceState({}, '', url);
-            
+
             this.updateAll();
             this.setStatus('New project created');
         };
-        
+
         if (isDirty) {
             this.showConfirmModal(
                 'New Project',
@@ -292,7 +342,7 @@ class VesselGeneratorApp {
 
     async loadProject() {
         const isDirty = vesselState.getState('project.isDirty');
-        
+
         const doLoad = async () => {
             try {
                 await VesselStorage.loadFromFile();
@@ -303,7 +353,7 @@ class VesselGeneratorApp {
                 this.setStatus('Failed to load project');
             }
         };
-        
+
         if (isDirty) {
             this.showConfirmModal(
                 'Load Project',
@@ -318,25 +368,36 @@ class VesselGeneratorApp {
     showSaveModal() {
         const modal = document.getElementById('saveModal');
         const nameInput = document.getElementById('saveProjectName');
-        
+
         if (nameInput) {
             nameInput.value = vesselState.getState('project.name') || 'vessel';
         }
-        
+
         modal.style.display = 'flex';
         nameInput?.focus();
         nameInput?.select();
     }
 
-    exportSTL() {
-        if (!this.viewport?.vesselGroup) {
+    async exportSTL() {
+        if (!this.viewport) {
             this.setStatus('No vessel to export');
             return;
         }
-        
+
         const projectName = vesselState.getState('project.name') || 'vessel';
-        VesselSTLExporter.exportBinary(this.viewport.vesselGroup, `${projectName}.stl`);
-        this.setStatus('STL exported');
+        const exportGroup = new VesselMeshGenerator(vesselState.getState()).generate();
+
+        try {
+            const { VesselSTLExporter } = await loadVesselExporter();
+            await VesselSTLExporter.exportBinary(exportGroup, `${projectName}.stl`);
+            this.setStatus('STL exported');
+        } catch (error) {
+            console.error('STL export blocked:', error);
+            this.setStatus('Export blocked: mesh validation failed');
+            alert(`Export blocked by mesh validation: ${error.message}`);
+        } finally {
+            this.viewport.disposeObject(exportGroup, { disposeMaterial: false });
+        }
     }
 
     /**
@@ -395,15 +456,15 @@ class VesselGeneratorApp {
             `;
             document.body.appendChild(toast);
         }
-        
+
         toast.textContent = `✓ "${projectName}" saved successfully`;
-        
+
         // Show toast
         requestAnimationFrame(() => {
             toast.style.transform = 'translateX(-50%) translateY(0)';
             toast.style.opacity = '1';
         });
-        
+
         // Hide after 3 seconds
         setTimeout(() => {
             toast.style.transform = 'translateX(-50%) translateY(100px)';
@@ -415,16 +476,16 @@ class VesselGeneratorApp {
         const modal = document.getElementById('confirmModal');
         document.getElementById('confirmTitle').textContent = title;
         document.getElementById('confirmMessage').textContent = message;
-        
+
         const okBtn = document.getElementById('btnConfirmOk');
         const newOkBtn = okBtn.cloneNode(true);
         okBtn.parentNode.replaceChild(newOkBtn, okBtn);
-        
+
         newOkBtn.addEventListener('click', () => {
             modal.style.display = 'none';
             onConfirm();
         });
-        
+
         modal.style.display = 'flex';
     }
 
@@ -438,7 +499,7 @@ class VesselGeneratorApp {
     updateUnsavedIndicator() {
         const indicator = document.getElementById('unsavedIndicator');
         const isDirty = vesselState.getState('project.isDirty');
-        
+
         if (indicator) {
             indicator.style.display = isDirty ? 'inline' : 'none';
         }
@@ -455,7 +516,7 @@ class VesselGeneratorApp {
         if (this.autosaveInterval) {
             clearInterval(this.autosaveInterval);
         }
-        
+
         this.viewport?.dispose();
         this.parameterPanel?.dispose();
     }
@@ -467,4 +528,3 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 export default VesselGeneratorApp;
-

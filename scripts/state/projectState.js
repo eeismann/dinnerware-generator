@@ -4,6 +4,8 @@
  */
 
 // Item types
+import { saveDinnerwareDraft } from '../storage/dinnerwareDrafts.js';
+
 export const ITEM_TYPES = ['plate', 'soup_bowl', 'pasta_bowl', 'mug', 'tumbler', 'saucer', 'serving_bowl'];
 
 // Item display names
@@ -20,34 +22,135 @@ export const ITEM_NAMES = {
 // Default parameter values
 export const DEFAULT_PARAMETERS = {
     wallAngle: 15,
+    positiveWallAngleAnchor: 'base',
     wallCurveAmount: 0,
     wallCurvePosition: 0.5,
+    wallInsetEnabled: false,
+    wallInsetHeight: 50,
+    wallInsetDepth: 8,
     bottomCornerRadius: 0,
     footringOriginHeight: 8,
     outerFootringAngle: 15,
     footringBaseWidth: 8,
+    footringWidthProportional: false,
+    footringWidthReduction: 100,
     innerFootringAngle: -15,
     wallThickness: 2.5,
-    baseRecessDepth: 1,
+    footCavityDepth: 100,
+    rimStyle: 'flat',
     globalHeightScale: 100,
-    globalWidthScale: 100
+    globalWidthScale: 100,
+    // Surface pattern - outer wall
+    wallPatternType: 'none',
+    wallPatternDepth: 0.4,
+    wallPatternRelief: 'raised',
+    wallPatternCount: 48,
+    wallPatternPitch: 4,
+    wallPatternLineWidth: 50,
+    wallPatternProfile: 'rounded',
+    wallPatternAngle: 45,
+    wallPatternDirection: 'right',
+    wallPatternInsetRegion: 'both',
+    // Surface pattern - outer footring
+    footringPatternType: 'none',
+    footringPatternDepth: 0.3,
+    footringPatternRelief: 'raised',
+    footringPatternCount: 36,
+    footringPatternPitch: 2.5,
+    footringPatternLineWidth: 50,
+    footringPatternProfile: 'rounded',
+    footringPatternAngle: 30,
+    footringPatternDirection: 'right'
 };
+
+// Shared option lists for surface pattern enum parameters
+export const PATTERN_TYPE_OPTIONS = [
+    { value: 'none', label: 'Smooth' },
+    { value: 'vertical', label: 'Vertical Lines' },
+    { value: 'horizontal', label: 'Horizontal Lines' },
+    { value: 'diagonal', label: 'Diagonal Lines' },
+    { value: 'crosshatch', label: 'Cross-Hatch' },
+    { value: 'knurl', label: 'Knurling' }
+];
+
+export const PATTERN_RELIEF_OPTIONS = [
+    { value: 'raised', label: 'Raised' },
+    { value: 'recessed', label: 'Recessed' }
+];
+
+export const PATTERN_PROFILE_OPTIONS = [
+    { value: 'rounded', label: 'Rounded' },
+    { value: 'v', label: 'V-Groove' },
+    { value: 'square', label: 'Square' }
+];
+
+export const PATTERN_DIRECTION_OPTIONS = [
+    { value: 'right', label: 'Right' },
+    { value: 'left', label: 'Left' }
+];
 
 // Parameter constraints
 export const PARAMETER_CONSTRAINTS = {
     wallAngle: { min: -30, max: 45, step: 1, unit: '°', default: 15 },
+    positiveWallAngleAnchor: {
+        options: [
+            { value: 'base', label: 'Base — Keep Base Width' },
+            { value: 'rim', label: 'Rim — Keep Rim Width' }
+        ],
+        default: 'base'
+    },
     wallCurveAmount: { min: -50, max: 50, step: 1, unit: 'mm', default: 0 },
     wallCurvePosition: { min: 0.1, max: 0.9, step: 0.05, unit: '', default: 0.5 },
+    wallInsetEnabled: { type: 'boolean', default: false },
+    wallInsetHeight: { min: 10, max: 90, step: 5, unit: '%', default: 50 },
+    wallInsetDepth: { min: 1, max: 25, step: 1, unit: '%', default: 8 },
     bottomCornerRadius: { min: 0, max: 50, step: 1, unit: 'mm', default: 0 },
     footringOriginHeight: { min: 0, max: 50, step: 0.5, unit: 'mm', default: 8 },
     outerFootringAngle: { min: -45, max: 45, step: 1, unit: '°', default: 15 },
     footringBaseWidth: { min: 2, max: 30, step: 0.5, unit: 'mm', default: 8 },
+    footringWidthProportional: { type: 'boolean', default: false },
+    footringWidthReduction: { min: 0, max: 100, step: 1, unit: '%', default: 100 },
     innerFootringAngle: { min: -45, max: 45, step: 1, unit: '°', default: -15 },
     wallThickness: { min: 0.8, max: 10, step: 0.1, unit: 'mm', default: 2.5 },
-    baseRecessDepth: { min: -10, max: 10, step: 0.5, unit: 'mm', default: 1 },
+    footCavityDepth: { min: 0, max: 100, step: 5, unit: '%', default: 100 },
+    rimStyle: {
+        options: [
+            { value: 'flat', label: 'Flat' },
+            { value: 'rounded', label: 'Rounded' },
+            { value: 'tapered', label: 'Tapered' }
+        ],
+        default: 'flat'
+    },
     globalHeightScale: { min: 50, max: 200, step: 5, unit: '%', default: 100 },
     globalWidthScale: { min: 50, max: 200, step: 5, unit: '%', default: 100 },
-    cupRingDepth: { min: 0, max: 10, step: 0.5, unit: 'mm', default: 2 }
+    // Surface pattern - outer wall
+    wallPatternType: { options: PATTERN_TYPE_OPTIONS, default: 'none' },
+    wallPatternDepth: { min: 0.1, max: 1.5, step: 0.05, unit: 'mm', default: 0.4 },
+    wallPatternRelief: { options: PATTERN_RELIEF_OPTIONS, default: 'raised' },
+    wallPatternCount: { min: 8, max: 160, step: 1, unit: '', default: 48 },
+    wallPatternPitch: { min: 1, max: 20, step: 0.5, unit: 'mm', default: 4 },
+    wallPatternLineWidth: { min: 10, max: 90, step: 5, unit: '%', default: 50 },
+    wallPatternProfile: { options: PATTERN_PROFILE_OPTIONS, default: 'rounded' },
+    wallPatternAngle: { min: 15, max: 75, step: 5, unit: '°', default: 45 },
+    wallPatternDirection: { options: PATTERN_DIRECTION_OPTIONS, default: 'right' },
+    wallPatternInsetRegion: {
+        options: [
+            { value: 'upper', label: 'Upper Portion' },
+            { value: 'lower', label: 'Lower Portion' },
+            { value: 'both', label: 'Both Portions' }
+        ],
+        default: 'both'
+    },
+    // Surface pattern - outer footring
+    footringPatternType: { options: PATTERN_TYPE_OPTIONS, default: 'none' },
+    footringPatternDepth: { min: 0.1, max: 1.5, step: 0.05, unit: 'mm', default: 0.3 },
+    footringPatternRelief: { options: PATTERN_RELIEF_OPTIONS, default: 'raised' },
+    footringPatternCount: { min: 8, max: 160, step: 1, unit: '', default: 36 },
+    footringPatternPitch: { min: 1, max: 20, step: 0.5, unit: 'mm', default: 2.5 },
+    footringPatternLineWidth: { min: 10, max: 90, step: 5, unit: '%', default: 50 },
+    footringPatternProfile: { options: PATTERN_PROFILE_OPTIONS, default: 'rounded' },
+    footringPatternAngle: { min: 15, max: 75, step: 5, unit: '°', default: 30 },
+    footringPatternDirection: { options: PATTERN_DIRECTION_OPTIONS, default: 'right' }
 };
 
 // Base dimensions (at 100% scale)
@@ -73,6 +176,56 @@ export const DEFAULT_RATIOS = {
 };
 
 /**
+ * Projects saved before the foot cavity rework stored `baseRecessDepth` in mm,
+ * where positive values pushed the base *below* the foot ring (the piece
+ * rested on its centre) and negative values raised it into the foot. Convert
+ * to `footCavityDepth`, a percentage of the foot ring height: deliberate
+ * raised bases keep their depth, a flush base stays solid, and the old
+ * default/protruding values become the full cavity.
+ */
+function legacyRecessToCavity(recess, footringHeight) {
+    if (!Number.isFinite(recess)) return undefined;
+    if (recess > 0) return DEFAULT_PARAMETERS.footCavityDepth;
+    if (recess === 0) return 0;
+    if (!(footringHeight > 0)) return DEFAULT_PARAMETERS.footCavityDepth;
+    const percent = Math.min(100, (-recess / footringHeight) * 100);
+    return Math.round(percent / 5) * 5;
+}
+
+function migrateBaseRecess(globalParameters, loadedOverrides) {
+    const itemOverrides = loadedOverrides ? JSON.parse(JSON.stringify(loadedOverrides)) : {};
+    const globalFootHeight = globalParameters.footringOriginHeight;
+    if ('baseRecessDepth' in globalParameters) {
+        if (globalParameters.footCavityDepth === undefined
+            || globalParameters.footCavityDepth === DEFAULT_PARAMETERS.footCavityDepth) {
+            globalParameters.footCavityDepth = legacyRecessToCavity(
+                Number(globalParameters.baseRecessDepth), globalFootHeight
+            ) ?? DEFAULT_PARAMETERS.footCavityDepth;
+        }
+        delete globalParameters.baseRecessDepth;
+    }
+    Object.values(itemOverrides).forEach(overrides => {
+        if (!overrides || !('baseRecessDepth' in overrides)) return;
+        const cavity = legacyRecessToCavity(
+            Number(overrides.baseRecessDepth),
+            overrides.footringOriginHeight ?? globalFootHeight
+        );
+        if (cavity !== undefined && overrides.footCavityDepth === undefined) {
+            overrides.footCavityDepth = cavity;
+        }
+        delete overrides.baseRecessDepth;
+    });
+    return itemOverrides;
+}
+
+// Primitive slider values compare directly; objects fall back to JSON.
+function valuesEqual(a, b) {
+    if (a === b) return true;
+    if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+    return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
  * State Manager Class
  * Provides reactive state management with subscriptions
  */
@@ -90,17 +243,16 @@ export class StateManager {
             itemRatios: JSON.parse(JSON.stringify(DEFAULT_RATIOS)),
             itemMultipliers: this.getDefaultMultipliers(),
             itemOverrides: {},
-            saucerSettings: {
-                cupRingDepth: 2
-            },
             ui: {
                 visibleItems: [...ITEM_TYPES],
                 layoutMode: 'row',
                 crossSectionEnabled: false,
                 expandedPanels: ['global-scaling'],
-                cameraPreset: 'three-quarter'
+                cameraPreset: 'three-quarter',
+                exportUpAxis: 'z'
             },
             project: {
+                id: null,
                 name: 'Untitled',
                 dateCreated: null,
                 lastModified: null,
@@ -142,13 +294,17 @@ export class StateManager {
     // Set state value by path
     setState(path, value) {
         const oldValue = this.getState(path);
-        if (JSON.stringify(oldValue) === JSON.stringify(value)) return;
+        if (valuesEqual(oldValue, value)) return;
 
+        const wasDirty = this.state.project.isDirty;
         this.setNestedValue(this.state, path, value);
-        this.state.project.isDirty = true;
-        this.state.project.lastModified = new Date().toISOString();
+        if (path !== 'project.isDirty') {
+            this.state.project.isDirty = true;
+            this.state.project.lastModified = new Date().toISOString();
+        }
 
         this.notifyListeners(path, value, oldValue);
+        if (path !== 'project.isDirty' && !wasDirty) this.notifyListeners('project.isDirty', true, false);
         this.scheduleAutoSave();
     }
 
@@ -158,19 +314,21 @@ export class StateManager {
         
         for (const [path, value] of Object.entries(updates)) {
             const oldValue = this.getState(path);
-            if (JSON.stringify(oldValue) !== JSON.stringify(value)) {
+            if (!valuesEqual(oldValue, value)) {
                 this.setNestedValue(this.state, path, value);
                 changedPaths.push({ path, value, oldValue });
             }
         }
 
         if (changedPaths.length > 0) {
+            const wasDirty = this.state.project.isDirty;
             this.state.project.isDirty = true;
             this.state.project.lastModified = new Date().toISOString();
 
             changedPaths.forEach(({ path, value, oldValue }) => {
                 this.notifyListeners(path, value, oldValue);
             });
+            if (!wasDirty) this.notifyListeners('project.isDirty', true, false);
             
             this.scheduleAutoSave();
         }
@@ -236,14 +394,28 @@ export class StateManager {
     // Auto-save to localStorage
     autoSave() {
         try {
-            const data = {
-                state: this.state,
-                timestamp: new Date().toISOString()
-            };
-            localStorage.setItem('dinnerware_current_project', JSON.stringify(data));
+            saveDinnerwareDraft(this.state);
+            this.lastStorageError = null;
+            this.notifyListeners('storage.error', null, null);
+            return true;
         } catch (e) {
             console.warn('Auto-save failed:', e);
+            this.lastStorageError = e.message;
+            this.notifyListeners('storage.error', e.message, null);
+            return false;
         }
+    }
+
+    markSaved(project) {
+        clearTimeout(this.autoSaveTimeout);
+        Object.assign(this.state.project, {
+            id: project.id,
+            dateCreated: project.dateCreated,
+            lastModified: project.lastModified,
+            isDirty: false
+        });
+        this.notifyListeners('project.isDirty', false, true);
+        this.autoSave();
     }
 
     // Load from localStorage
@@ -288,15 +460,17 @@ export class StateManager {
             });
         }
         
-        // Merge visible items - add any new item types
-        let visibleItems = loadedState.ui?.visibleItems || [...ITEM_TYPES];
-        ITEM_TYPES.forEach(itemType => {
-            if (!visibleItems.includes(itemType)) {
-                visibleItems.push(itemType);
-            }
-        });
-        // Remove any items that no longer exist
-        visibleItems = visibleItems.filter(item => ITEM_TYPES.includes(item));
+        // An absent field uses defaults; an intentionally hidden item stays hidden.
+        const visibleItems = Array.isArray(loadedState.ui?.visibleItems)
+            ? loadedState.ui.visibleItems.filter(item => ITEM_TYPES.includes(item))
+            : [...ITEM_TYPES];
+
+        const globalParameters = { ...defaultState.globalParameters, ...loadedState.globalParameters };
+        // Keep the authored plate width as the reference. The superseded
+        // diameter percentage is not a degree of reduction.
+        delete globalParameters.footringWidthRatio;
+        globalParameters.footringWidthReduction ??= DEFAULT_PARAMETERS.footringWidthReduction;
+        const itemOverrides = migrateBaseRecess(globalParameters, loadedState.itemOverrides);
         
         return {
             ...defaultState,
@@ -304,7 +478,8 @@ export class StateManager {
             baseDimensions,
             itemRatios,
             itemMultipliers,
-            globalParameters: { ...defaultState.globalParameters, ...loadedState.globalParameters },
+            globalParameters,
+            itemOverrides,
             ui: { ...defaultState.ui, ...loadedState.ui, visibleItems },
             project: { ...defaultState.project, ...loadedState.project }
         };
@@ -312,6 +487,7 @@ export class StateManager {
 
     // Reset to initial state
     reset() {
+        clearTimeout(this.autoSaveTimeout);
         this.state = this.getInitialState();
         this.notifyListeners('*', this.state, null);
     }
@@ -327,30 +503,27 @@ export class StateManager {
             itemRatios: this.state.itemRatios,
             itemMultipliers: this.state.itemMultipliers,
             itemOverrides: this.state.itemOverrides,
-            saucerSettings: this.state.saucerSettings
+            ui: this.state.ui
         };
     }
 
     // Import state from file
     importState(data) {
-        if (!data.version) {
+        if (!data || !data.globalParameters || typeof data.globalParameters !== 'object') {
             throw new Error('Invalid project file format');
         }
 
-        this.state = {
-            ...this.getInitialState(),
-            globalParameters: { ...DEFAULT_PARAMETERS, ...data.globalParameters },
-            itemRatios: data.itemRatios || JSON.parse(JSON.stringify(DEFAULT_RATIOS)),
-            itemMultipliers: data.itemMultipliers || this.getDefaultMultipliers(),
-            itemOverrides: data.itemOverrides || {},
-            saucerSettings: data.saucerSettings || { cupRingDepth: 2 },
+        clearTimeout(this.autoSaveTimeout);
+        this.state = this.mergeWithDefaults({
+            ...data,
             project: {
-                name: data.projectName || 'Imported Project',
-                dateCreated: data.dateCreated,
-                lastModified: data.lastModified,
-                isDirty: false
+                id: null,
+                name: data.projectName || data.project?.name || 'Imported Project',
+                dateCreated: data.dateCreated || data.project?.dateCreated,
+                lastModified: data.lastModified || data.project?.lastModified,
+                isDirty: true
             }
-        };
+        });
 
         this.notifyListeners('*', this.state, null);
     }
@@ -400,10 +573,18 @@ export class ParameterResolver {
     // Get all effective parameters for an item
     getAllParameters(itemType) {
         const parameterNames = [
-            'wallAngle', 'wallCurveAmount', 'wallCurvePosition',
+            'wallAngle', 'positiveWallAngleAnchor', 'wallCurveAmount', 'wallCurvePosition',
+            'wallInsetEnabled', 'wallInsetHeight', 'wallInsetDepth',
             'bottomCornerRadius', 'footringOriginHeight', 'outerFootringAngle',
             'footringBaseWidth', 'innerFootringAngle', 'wallThickness',
-            'baseRecessDepth'
+            'footCavityDepth', 'rimStyle',
+            'wallPatternType', 'wallPatternDepth', 'wallPatternRelief',
+            'wallPatternCount', 'wallPatternPitch', 'wallPatternLineWidth',
+            'wallPatternProfile', 'wallPatternAngle', 'wallPatternDirection',
+            'wallPatternInsetRegion',
+            'footringPatternType', 'footringPatternDepth', 'footringPatternRelief',
+            'footringPatternCount', 'footringPatternPitch', 'footringPatternLineWidth',
+            'footringPatternProfile', 'footringPatternAngle', 'footringPatternDirection'
         ];
 
         const parameters = {};
@@ -412,14 +593,24 @@ export class ParameterResolver {
         }
 
         parameters.dimensions = this.getFinalDimensions(itemType);
-
-        // Add saucer-specific parameters
-        if (itemType === 'saucer') {
-            parameters.cupRingDepth = this.state.getState('saucerSettings.cupRingDepth');
-            // Get mug base dimensions for cup ring diameter
-            const mugDims = this.getFinalDimensions('mug');
-            parameters.cupRingDiameter = mugDims.diameter * 0.6 + 4; // Base diameter + clearance
+        // Blend from the plate's effective footring width (no reduction) to
+        // full baseline-diameter proportions. The plate stays at the maximum;
+        // size/angle edits do not change these canonical baseline proportions.
+        // Explicit item widths remain absolute mm in either mode.
+        if (this.state.getState('globalParameters.footringWidthProportional')
+            && !this.hasOverride(itemType, 'footringBaseWidth')) {
+            const baseline = BASE_DIMENSIONS[itemType] || BASE_DIMENSIONS.plate;
+            const plateWidth = this.getEffectiveParameter('plate', 'footringBaseWidth');
+            const reduction = Math.max(0, Math.min(100,
+                this.state.getState('globalParameters.footringWidthReduction')
+                    ?? DEFAULT_PARAMETERS.footringWidthReduction)) / 100;
+            const baselineRatio = Math.min(1, baseline.diameter / BASE_DIMENSIONS.plate.diameter);
+            parameters.footringBaseWidth = plateWidth * (1 - reduction * (1 - baselineRatio));
         }
+        // Wall-pattern count is authored against the plate, then resolved per
+        // item by diameter so physical ridge spacing stays uniform as the set
+        // changes size. Using the final plate diameter preserves global scale.
+        parameters.patternReferenceDiameter = this.getFinalDimensions('plate').diameter;
 
         return parameters;
     }
@@ -428,4 +619,3 @@ export class ParameterResolver {
 // Create singleton instances
 export const stateManager = new StateManager();
 export const parameterResolver = new ParameterResolver(stateManager);
-

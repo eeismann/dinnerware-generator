@@ -7,41 +7,53 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VesselMeshGenerator } from '../geometry/vesselMeshGenerator.js';
 import { getMode } from '../../ui/themeManager.js';
+import { RenderScheduler } from '../../ui/renderScheduler.js';
+import { createWorldAxes } from '../../ui/studio/worldAxes.js';
+import { createOrbitPanMode } from '../../ui/orbitPanMode.js';
 
 export class VesselViewport {
-    constructor(container, state) {
+    constructor(container, state, options = {}) {
         this.container = container;
         this.state = state;
-        this.meshGenerator = new VesselMeshGenerator(state);
-        
+        this.MeshGenerator = options.MeshGenerator || VesselMeshGenerator;
+        this.meshGenerator = new this.MeshGenerator(state);
+
         // Three.js components
         this.scene = null;
         this.camera = null;
         this.renderer = null;
         this.controls = null;
-        
+
         // Scene objects
         this.vesselGroup = null;
         this.gridHelper = null;
-        
+
+        // Named secondary objects (e.g. Vessel V3's independent lid preview)
+        // added directly to the scene, outside vesselGroup, so they survive
+        // updateVessel()'s full rebuild of the vessel body. Additive-only:
+        // does not change any existing method's behavior, so V1/V2 usage of
+        // this shared viewport is unaffected when nothing calls these.
+        this.secondaryObjects = new Map();
+
         // Cross-section clipping
         this.clippingPlane = null;
         this.clippingPlaneHelper = null;
         this.vesselMaterial = null;
         this.vesselMaterialClipped = null;
-        
+
         // Settings
         this.showGrid = true;
         this.showCrossSection = false;
         this.currentView = 'threeQuarter';
-        
-        // Animation
-        this.animationFrame = null;
-        this.needsRender = true;
-        
+
+        this.renderScheduler = null;
+        this.resizeHandler = null;
+        this.resizeObserver = null;
+        this.panController = null;
+
         // Theme observer
         this.themeObserver = null;
-        
+
         this.init();
     }
 
@@ -55,69 +67,67 @@ export class VesselViewport {
         this.setupClippingPlane();
         this.setupHelpers();
         this.setupEventListeners();
-        
+        this.setupRenderScheduler();
+
         // Initial vessel
         this.updateVessel();
-        
-        // Start render loop
-        this.animate();
     }
 
     setupScene() {
         this.scene = new THREE.Scene();
-        
+
         // Set initial colors based on theme
         this.updateSceneColors();
     }
-    
+
     /**
      * Update scene colors based on current theme mode
      */
     updateSceneColors() {
         const mode = getMode();
         const isDark = mode === 'dark';
-        
+
         // Background and fog colors
         const bgColor = isDark ? 0x1E1E1E : 0xF5F5F5;
-        
+
         this.scene.background = new THREE.Color(bgColor);
         this.scene.fog = new THREE.Fog(bgColor, 500, 1500);
-        
+
         // Update grid colors if it exists
         if (this.gridHelper) {
             const gridColor = isDark ? 0x444444 : 0xCCCCCC;
             const gridCenterColor = isDark ? 0x333333 : 0xDDDDDD;
-            
+
             // Remove old grid and create new one with updated colors
             this.scene.remove(this.gridHelper);
             this.gridHelper.geometry.dispose();
             this.gridHelper.material.dispose();
-            
+
             this.gridHelper = new THREE.GridHelper(600, 30, gridColor, gridCenterColor);
             this.gridHelper.material.opacity = 0.5;
             this.gridHelper.material.transparent = true;
             this.gridHelper.visible = this.showGrid;
             this.scene.add(this.gridHelper);
         }
-        
-        this.needsRender = true;
+
+        this.requestRender();
     }
 
     setupCamera() {
         const aspect = this.container.clientWidth / this.container.clientHeight;
         this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 5000);
-        
+
         // Default 3/4 view position
         this.setCameraPreset('threeQuarter');
     }
 
     setupRenderer() {
-        this.renderer = new THREE.WebGLRenderer({ 
+        this.renderer = new THREE.WebGLRenderer({
             antialias: true,
             alpha: true,
             powerPreference: 'high-performance'
         });
-        
+
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
@@ -125,7 +135,7 @@ export class VesselViewport {
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.2;
         this.renderer.localClippingEnabled = true;
-        
+
         this.container.appendChild(this.renderer.domElement);
     }
 
@@ -139,12 +149,47 @@ export class VesselViewport {
         this.controls.zoomSpeed = 1.0;
         this.controls.minDistance = 50;
         this.controls.maxDistance = 2000;
-        
+
         // Set target to center of typical vessel
         this.controls.target.set(0, 125, 0);
-        
+
         this.controls.addEventListener('change', () => {
-            this.needsRender = true;
+            this.requestRender({ settle: true });
+        });
+
+        this.panController = createOrbitPanMode({
+            THREE,
+            controls: this.controls,
+            element: this.renderer.domElement,
+            root: this.container,
+            requestRender: (options) => this.requestRender(options)
+        });
+    }
+
+    setPanMode(active) {
+        return this.panController?.setPanMode(active) || false;
+    }
+
+    togglePanMode() {
+        return this.panController?.togglePanMode() || false;
+    }
+
+    setTemporaryPan(active) {
+        this.panController?.setSpacePanning(active);
+    }
+
+    isPanMode() {
+        return this.panController?.isPanMode() || false;
+    }
+
+    onPanModeChange(listener) {
+        return this.panController?.onPanModeChange(listener) || (() => {});
+    }
+
+    setupRenderScheduler() {
+        this.renderScheduler = new RenderScheduler({
+            controls: this.controls,
+            render: () => this.renderer.render(this.scene, this.camera)
         });
     }
 
@@ -193,7 +238,7 @@ export class VesselViewport {
             side: THREE.DoubleSide,
             flatShading: false
         });
-        
+
         // Vessel material with clipping for cross-section view
         this.vesselMaterialClipped = new THREE.MeshStandardMaterial({
             color: 0xfafafa,
@@ -209,10 +254,10 @@ export class VesselViewport {
     setupClippingPlane() {
         // Create clipping plane for cross-section view (cuts along X axis)
         this.clippingPlane = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0);
-        
+
         // Update the clipped material with the clipping plane
         this.vesselMaterialClipped.clippingPlanes = [this.clippingPlane];
-        
+
         // Visual representation of the clipping plane (semi-transparent)
         const planeGeometry = new THREE.PlaneGeometry(400, 500);
         const planeMaterial = new THREE.MeshBasicMaterial({
@@ -222,7 +267,7 @@ export class VesselViewport {
             side: THREE.DoubleSide,
             depthWrite: false
         });
-        
+
         this.clippingPlaneHelper = new THREE.Mesh(planeGeometry, planeMaterial);
         this.clippingPlaneHelper.rotation.y = Math.PI / 2; // Rotate to be perpendicular to X axis
         this.clippingPlaneHelper.position.set(0, 125, 0); // Center on vessel
@@ -236,7 +281,7 @@ export class VesselViewport {
         const isDark = mode === 'dark';
         const gridColor = isDark ? 0x444444 : 0xCCCCCC;
         const gridCenterColor = isDark ? 0x333333 : 0xDDDDDD;
-        
+
         this.gridHelper = new THREE.GridHelper(600, 30, gridColor, gridCenterColor);
         this.gridHelper.material.opacity = 0.5;
         this.gridHelper.material.transparent = true;
@@ -249,14 +294,15 @@ export class VesselViewport {
 
     setupEventListeners() {
         // Resize handler
-        window.addEventListener('resize', () => this.onResize());
+        this.resizeHandler = () => this.onResize();
+        window.addEventListener('resize', this.resizeHandler);
 
         // Observe container size changes
         if (typeof ResizeObserver !== 'undefined') {
-            const resizeObserver = new ResizeObserver(() => this.onResize());
-            resizeObserver.observe(this.container);
+            this.resizeObserver = new ResizeObserver(() => this.onResize());
+            this.resizeObserver.observe(this.container);
         }
-        
+
         // Observe theme changes
         this.themeObserver = new MutationObserver((mutations) => {
             for (const mutation of mutations) {
@@ -265,7 +311,7 @@ export class VesselViewport {
                 }
             }
         });
-        
+
         this.themeObserver.observe(document.documentElement, {
             attributes: true,
             attributeFilter: ['data-mode']
@@ -281,18 +327,23 @@ export class VesselViewport {
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(width, height);
-        this.needsRender = true;
+        this.requestRender();
     }
 
-    animate() {
-        this.animationFrame = requestAnimationFrame(() => this.animate());
-        
-        this.controls.update();
-        
-        if (this.needsRender) {
-            this.renderer.render(this.scene, this.camera);
-            this.needsRender = false;
-        }
+    requestRender(options = {}) {
+        this.renderScheduler?.request(options);
+    }
+
+    // Camera access for the Studio Shell view cube (additive; no behavior change)
+    getCameraRig() {
+        if (!this.camera || !this.controls) return null;
+        return {
+            camera: this.camera,
+            controls: this.controls,
+            scene: this.scene,
+            createWorldAxes: () => createWorldAxes(THREE, this.scene, 600),
+            requestRender: (options) => this.requestRender(options)
+        };
     }
 
     /**
@@ -302,18 +353,20 @@ export class VesselViewport {
         // Clear existing vessel
         while (this.vesselGroup.children.length > 0) {
             const child = this.vesselGroup.children[0];
-            this.disposeObject(child);
+            this.disposeObject(child, { disposeMaterial: false });
             this.vesselGroup.remove(child);
         }
 
         // Generate new vessel
-        this.meshGenerator = new VesselMeshGenerator(this.state);
+        this.meshGenerator = new this.MeshGenerator(this.state);
         const newVessel = this.meshGenerator.generate();
-        
+
         // Use appropriate material based on cross-section state
         const material = this.showCrossSection ? this.vesselMaterialClipped : this.vesselMaterial;
-        
-        newVessel.children.forEach(child => {
+
+        // add() reparents children and removes them from newVessel.children.
+        // Iterate a snapshot so the inner surface and other alternate children survive.
+        [...newVessel.children].forEach(child => {
             // Replace material with our controlled material
             if (child.isMesh) {
                 child.material = material;
@@ -332,7 +385,7 @@ export class VesselViewport {
             this.controls.target.copy(center);
         }
 
-        this.needsRender = true;
+        this.requestRender();
     }
 
     /**
@@ -345,10 +398,10 @@ export class VesselViewport {
             const size = new THREE.Vector3();
             bounds.getCenter(center);
             bounds.getSize(size);
-            
+
             // Position the helper plane at the center of the vessel
             this.clippingPlaneHelper.position.set(0, center.y, 0);
-            
+
             // Scale the plane to cover the vessel
             const maxDim = Math.max(size.x, size.y, size.z) * 1.2;
             this.clippingPlaneHelper.scale.set(maxDim / 400, maxDim / 500, 1);
@@ -356,17 +409,53 @@ export class VesselViewport {
     }
 
     /**
+     * Add/replace a named secondary object in the scene (outside the main
+     * vessel group), e.g. Vessel V3's independently-generated lid preview.
+     * Additive API — does not touch updateVessel()'s single-vessel-mesh path.
+     * @param {string} name
+     * @param {THREE.Object3D} object3D
+     */
+    setSecondaryMesh(name, object3D) {
+        this.clearSecondaryMesh(name);
+        if (!object3D) return;
+        this.secondaryObjects.set(name, object3D);
+        this.scene.add(object3D);
+        this.requestRender();
+    }
+
+    /**
+     * Remove and dispose a named secondary object added via setSecondaryMesh().
+     * @param {string} name
+     */
+    clearSecondaryMesh(name) {
+        const existing = this.secondaryObjects.get(name);
+        if (!existing) return;
+        this.disposeObject(existing, { disposeMaterial: false });
+        this.scene.remove(existing);
+        this.secondaryObjects.delete(name);
+        this.requestRender();
+    }
+
+    /**
+     * @param {string} name
+     * @returns {THREE.Object3D|null}
+     */
+    getSecondaryMesh(name) {
+        return this.secondaryObjects.get(name) || null;
+    }
+
+    /**
      * Toggle cross-section view
-     * @param {boolean} show 
+     * @param {boolean} show
      */
     toggleCrossSection(show) {
         this.showCrossSection = show;
-        
+
         // Show/hide the clipping plane helper
         if (this.clippingPlaneHelper) {
             this.clippingPlaneHelper.visible = show;
         }
-        
+
         // Update all vessel meshes with appropriate material
         const material = show ? this.vesselMaterialClipped : this.vesselMaterial;
         this.vesselGroup.traverse(child => {
@@ -374,18 +463,18 @@ export class VesselViewport {
                 child.material = material;
             }
         });
-        
-        this.needsRender = true;
+
+        this.requestRender();
     }
 
     /**
      * Toggle grid visibility
-     * @param {boolean} show 
+     * @param {boolean} show
      */
     toggleGrid(show) {
         this.showGrid = show;
         this.gridHelper.visible = show;
-        this.needsRender = true;
+        this.requestRender();
     }
 
     /**
@@ -394,10 +483,10 @@ export class VesselViewport {
      */
     setCameraPreset(preset) {
         this.currentView = preset;
-        
+
         const distance = 500;
         const target = new THREE.Vector3(0, 125, 0); // Center of typical vessel
-        
+
         switch (preset) {
             case 'top':
                 this.camera.position.set(0, distance, 0.01);
@@ -413,14 +502,14 @@ export class VesselViewport {
                 this.camera.position.set(distance * 0.6, 200, distance * 0.6);
                 break;
         }
-        
+
         this.camera.lookAt(target);
         if (this.controls) {
             this.controls.target.copy(target);
             this.controls.update();
         }
-        
-        this.needsRender = true;
+
+        this.requestRender({ settle: true });
     }
 
     /**
@@ -436,7 +525,7 @@ export class VesselViewport {
      */
     getBoundingBox() {
         if (this.vesselGroup.children.length === 0) return null;
-        
+
         const box = new THREE.Box3();
         this.vesselGroup.traverse(child => {
             if (child.geometry) {
@@ -446,7 +535,7 @@ export class VesselViewport {
                 box.union(childBox);
             }
         });
-        
+
         return box;
     }
 
@@ -473,10 +562,10 @@ export class VesselViewport {
             center.y + distance * 0.4,
             center.z + distance * 0.8 * Math.cos(angle)
         );
-        
+
         this.controls.target.copy(center);
         this.controls.update();
-        this.needsRender = true;
+        this.requestRender({ settle: true });
     }
 
     /**
@@ -489,7 +578,7 @@ export class VesselViewport {
                 child.material.color.setHex(color);
             }
         });
-        this.needsRender = true;
+        this.requestRender();
     }
 
     /**
@@ -532,28 +621,36 @@ export class VesselViewport {
         // Restore pixel ratio
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-        this.needsRender = true;
+        this.requestRender();
 
         return dataUrl;
     }
 
     /**
      * Dispose of Three.js object
-     * @param {THREE.Object3D} obj 
+     * @param {THREE.Object3D} obj
      */
-    disposeObject(obj) {
+    disposeObject(obj, options = {}) {
+        const { disposeMaterial = true } = options;
+
         if (obj.geometry) {
             obj.geometry.dispose();
         }
-        if (obj.material) {
+        if (disposeMaterial && obj.material) {
             if (Array.isArray(obj.material)) {
-                obj.material.forEach(m => m.dispose());
+                obj.material.forEach((material) => {
+                    if (material !== this.vesselMaterial && material !== this.vesselMaterialClipped) {
+                        material.dispose();
+                    }
+                });
             } else {
-                obj.material.dispose();
+                if (obj.material !== this.vesselMaterial && obj.material !== this.vesselMaterialClipped) {
+                    obj.material.dispose();
+                }
             }
         }
         if (obj.children) {
-            obj.children.forEach(child => this.disposeObject(child));
+            obj.children.forEach(child => this.disposeObject(child, options));
         }
     }
 
@@ -561,37 +658,32 @@ export class VesselViewport {
      * Clean up viewport
      */
     dispose() {
-        if (this.animationFrame) {
-            cancelAnimationFrame(this.animationFrame);
+        this.renderScheduler?.dispose();
+        this.resizeObserver?.disconnect();
+        if (this.resizeHandler) {
+            window.removeEventListener('resize', this.resizeHandler);
         }
-        
+
         if (this.themeObserver) {
             this.themeObserver.disconnect();
         }
-        
-        // Dispose materials
+
+        this.panController?.dispose();
+        this.controls.dispose();
+
+        this.scene.traverse(obj => this.disposeObject(obj, { disposeMaterial: false }));
+        this.secondaryObjects.clear();
+
         if (this.vesselMaterial) {
             this.vesselMaterial.dispose();
         }
         if (this.vesselMaterialClipped) {
             this.vesselMaterialClipped.dispose();
         }
-        
-        // Dispose clipping plane helper
-        if (this.clippingPlaneHelper) {
-            this.clippingPlaneHelper.geometry.dispose();
-            this.clippingPlaneHelper.material.dispose();
-        }
-        
-        this.controls.dispose();
-        
-        this.scene.traverse(obj => this.disposeObject(obj));
-        
+
         this.renderer.dispose();
         this.renderer.domElement.remove();
     }
 }
 
 export default VesselViewport;
-
-

@@ -30,3 +30,11 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.gstack/
+
+# Page review comments (dev only)
+/feedback/
+
+# Local tool/run artifacts
+/.playwright-cli/
+/output/

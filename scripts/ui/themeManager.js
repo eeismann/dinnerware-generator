@@ -28,6 +28,33 @@ const FONT_FAMILIES = {
     'source-sans': '"Source Sans 3", -apple-system, sans-serif'
 };
 
+// Google Fonts families behind each selectable font (system needs none)
+const FONT_SOURCES = {
+    'inter': 'Inter:wght@300;400;500;600',
+    'lato': 'Lato:wght@300;400;700',
+    'dm-sans': 'DM+Sans:wght@300;400;500;600',
+    'source-sans': 'Source+Sans+3:wght@300;400;500;600'
+};
+
+/**
+ * Load only the selected typeface. Pages that already link a family (or
+ * the full font set) are left alone.
+ */
+export function loadFontFamily(fontKey) {
+    const source = FONT_SOURCES[fontKey];
+    // Headless gates stub a minimal document without querySelectorAll/head
+    if (!source || typeof document?.querySelectorAll !== 'function' || !document.head) return;
+    const family = source.split(':')[0];
+    const linked = Array.from(document.querySelectorAll('link[href*="fonts.googleapis.com"]'))
+        .some(link => link.href.includes(`family=${family}`));
+    if (linked) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${source}&display=swap`;
+    link.dataset.font = fontKey;
+    document.head.appendChild(link);
+}
+
 /**
  * Get current mode from localStorage
  */
@@ -102,6 +129,7 @@ export function setZoomLevel(zoom) {
  * Set font family
  */
 export function setFont(fontKey) {
+    loadFontFamily(FONT_FAMILIES[fontKey] ? fontKey : DEFAULT_FONT);
     const fontFamily = FONT_FAMILIES[fontKey] || FONT_FAMILIES[DEFAULT_FONT];
     document.documentElement.style.setProperty('--th-font-primary', fontFamily);
     document.documentElement.style.setProperty('--th-font-display', fontFamily);
@@ -129,6 +157,7 @@ export function initTheme() {
     setAccentColor(accent);
     
     // Apply font immediately (without updating UI since it may not exist yet)
+    loadFontFamily(FONT_FAMILIES[font] ? font : DEFAULT_FONT);
     const fontFamily = FONT_FAMILIES[font] || FONT_FAMILIES[DEFAULT_FONT];
     document.documentElement.style.setProperty('--th-font-primary', fontFamily);
     document.documentElement.style.setProperty('--th-font-display', fontFamily);
@@ -226,14 +255,22 @@ export function initSettingsMenu() {
     
     // Set initial states
     updateModeToggle(getMode());
-    
+
     // Apply initial zoom level
     const savedZoom = getZoomLevel();
     setZoomLevel(savedZoom);
-    
+
     // Apply initial font
     const savedFont = getFont();
     setFont(savedFont);
+
+    // Interface (Classic / Studio) toggle — lazy import keeps classic pages lean
+    const menu = document.getElementById('settingsMenu');
+    if (menu && !menu.querySelector('.ui-mode-row')) {
+        import('./studio/studioShell.js')
+            .then(m => m.injectClassicToggle('#settingsMenu'))
+            .catch(() => { /* studio modules unavailable — toggle omitted */ });
+    }
 }
 
 /**

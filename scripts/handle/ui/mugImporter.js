@@ -4,9 +4,14 @@
  */
 
 import { handleStateManager } from '../state/handleState.js';
+import { compileVesselContactProfile, getOuterContactRadius } from '../geometry/vesselContactProfile.js';
 
 // Storage key for dinnerware projects
 const DINNERWARE_STORAGE_KEY = 'playground_ceramics_projects';
+
+// Storage keys for Vessel Designer V2 / V3 projects (see scripts/dashboard/projectStorage.js)
+const VESSEL_V2_STORAGE_KEY = 'playground_ceramics_vessel_v2_projects';
+const VESSEL_V3_STORAGE_KEY = 'playground_ceramics_vessel_v3_projects';
 
 /**
  * Get all available dinnerware projects
@@ -144,6 +149,163 @@ function extractFromLegacy(project) {
     };
 }
 
+// ---------------------------------------------------------------------------
+// Vessel Designer V2 / V3 import
+//
+// Vessel V2/V3 projects describe an arbitrary revolved profile (a freeform
+// point list `{ r, h }`, r = radius, h = height, both mm, measured from the
+// vessel base) rather than a fixed two-diameter mug shape. The handle
+// attachment geometry (scripts/handle/geometry/handlePathGenerator.js
+// `getMugRadiusAtHeight`) already supports an arbitrary `mugData.radiusProfile`
+// array (`{ y, radius }`, sampled points) ahead of falling back to
+// `topDiameter`/`bottomDiameter` - so importing a vessel just means building a
+// `mugData`-shaped object populated with that profile, no geometry changes
+// needed.
+// ---------------------------------------------------------------------------
+
+/**
+ * Read raw vessel project entries from a given storage key.
+ * Vessel V2/V3 store an array of project objects shaped like:
+ * { id, project: { id, name, lastModified, ... }, global: { wallThickness, ... }, profile: { points: [...] }, ... }
+ */
+function readVesselProjectsFromStorage(storageKey) {
+    try {
+        const stored = localStorage.getItem(storageKey);
+        if (!stored) return [];
+
+        const projects = JSON.parse(stored);
+        if (!Array.isArray(projects)) return [];
+
+        return projects.filter(p => p && Array.isArray(p?.profile?.points) && p.profile.points.length > 0);
+    } catch (e) {
+        console.error(`Error loading vessel projects from ${storageKey}:`, e);
+        return [];
+    }
+}
+
+/**
+ * Extract { radius, wallThickness } from a Vessel V2/V3 project at a given
+ * attach height (mm from the vessel base). If attachHeight is omitted,
+ * defaults to the profile's vertical midpoint - a sensible band so Vessel
+ * imports behave consistently with Dinnerware mug imports in the picker UI
+ * (mug imports similarly default to smart mid-height attachment points, see
+ * `applySmartDefaults` in handleState.js).
+ * @param {Object} project - Vessel V2 or V3 project object (raw storage shape)
+ * @param {number} [attachHeight] - mm from vessel base
+ * @returns {{ radius: number, wallThickness: number, height: number, bounds: {min:number,max:number} }|null}
+ */
+export function extractVesselDimensions(project, attachHeight, sourceType = project?.appType || 'vessel-v2') {
+    try {
+        const { radiusProfile, bounds } = compileVesselContactProfile(project, sourceType);
+        const height = Number.isFinite(attachHeight) ? attachHeight : (bounds.min + bounds.max) / 2;
+        return {
+            radius: getOuterContactRadius(radiusProfile, height),
+            wallThickness: Math.max(0.5, Number(project?.global?.wallThickness) || 3),
+            height,
+            bounds
+        };
+    } catch {
+        return null;
+    }
+}
+
+function getVesselProjectMeta(project, sourceType) {
+    let dimensions = null;
+    let incompatibilityReason = null;
+    try {
+        const { radiusProfile, bounds } = compileVesselContactProfile(project, sourceType);
+        const height = (bounds.min + bounds.max) / 2;
+        dimensions = { radius: getOuterContactRadius(radiusProfile, height), height, bounds };
+    } catch (error) {
+        incompatibilityReason = error.message;
+    }
+    return {
+        id: project.id || project.project?.id,
+        name: project.project?.name || (sourceType === 'vessel-v3' ? 'Untitled Vessel V3' : 'Untitled Vessel V2'),
+        modifiedAt: project.project?.lastModified,
+        compatible: dimensions !== null,
+        incompatibilityReason,
+        dimensions,
+        sourceType,
+    };
+}
+
+/**
+ * Get all available Vessel Designer V2 projects, in the same metadata shape
+ * as `getDinnerwareProjects()` (id, name, modifiedAt, a compatibility flag,
+ * and dimensions).
+ * @returns {Array}
+ */
+export function getVesselV2Projects() {
+    return readVesselProjectsFromStorage(VESSEL_V2_STORAGE_KEY)
+        .map(p => getVesselProjectMeta(p, 'vessel-v2'))
+        .sort((a, b) => new Date(b.modifiedAt) - new Date(a.modifiedAt));
+}
+
+/**
+ * Get all available Vessel Designer V3 projects. See getVesselV2Projects().
+ * @returns {Array}
+ */
+export function getVesselV3Projects() {
+    return readVesselProjectsFromStorage(VESSEL_V3_STORAGE_KEY)
+        .map(p => getVesselProjectMeta(p, 'vessel-v3'))
+        .sort((a, b) => new Date(b.modifiedAt) - new Date(a.modifiedAt));
+}
+
+/**
+ * Import handle-attachment data from a Vessel V2 or V3 project, feeding it
+ * into the same `handleStateManager.setMugData()` path used by Dinnerware
+ * mug imports.
+ * @param {'vessel-v2'|'vessel-v3'} sourceType
+ * @param {string} projectId
+ * @param {number} [attachHeight] - mm from vessel base; defaults to profile midpoint
+ * @returns {Object|null} The imported mug-shaped data
+ */
+export function importVesselFromProject(sourceType, projectId, attachHeight) {
+    try {
+        const storageKey = sourceType === 'vessel-v3' ? VESSEL_V3_STORAGE_KEY : VESSEL_V2_STORAGE_KEY;
+        const stored = localStorage.getItem(storageKey);
+        if (!stored) return null;
+
+        const projects = JSON.parse(stored);
+        const project = projects.find(p => (p.id || p.project?.id) === projectId);
+
+        if (!project) {
+            console.error('Vessel project not found:', projectId);
+            return null;
+        }
+
+        const { radiusProfile, bounds, policy } = compileVesselContactProfile(project, sourceType);
+        const topRadius = getOuterContactRadius(radiusProfile, bounds.max);
+        const bottomRadius = getOuterContactRadius(radiusProfile, bounds.min);
+
+        const mugData = {
+            loaded: true,
+            projectName: project.project?.name || 'Imported Vessel',
+            projectId: project.id || project.project?.id,
+            sourceType,
+            // Heights remain in the source vessel's world coordinates.
+            height: bounds.max,
+            topDiameter: topRadius * 2,
+            bottomDiameter: bottomRadius * 2,
+            wallThickness: Math.max(0.5, Number(project?.global?.wallThickness) || 3),
+            wallAngle: 0,
+            radiusProfile,
+            radiusProfilePolicy: policy,
+        };
+
+        handleStateManager.setMugData(mugData);
+        handleStateManager.setProject({
+            linkedMugProjectId: projectId,
+        });
+
+        return mugData;
+    } catch (e) {
+        console.error('Error importing vessel from project:', e);
+        return null;
+    }
+}
+
 /**
  * Import mug data from a dinnerware project
  * @param {string} projectId - The project ID to import from
@@ -173,6 +335,9 @@ export function importMugFromProject(projectId) {
             loaded: true,
             projectName: project.name,
             projectId: project.id,
+            sourceType: 'dinnerware',
+            radiusProfile: null,
+            radiusProfilePolicy: null,
             ...dimensions,
         };
         
@@ -214,6 +379,8 @@ export function importMugFromFile(file) {
                 if (data.mugData) {
                     mugData = {
                         loaded: true,
+                        radiusProfile: null,
+                        radiusProfilePolicy: null,
                         ...data.mugData,
                     };
                 } else {
@@ -227,6 +394,9 @@ export function importMugFromFile(file) {
                     mugData = {
                         loaded: true,
                         projectName: data.name || 'Imported Project',
+                        sourceType: 'dinnerware',
+                        radiusProfile: null,
+                        radiusProfilePolicy: null,
                         ...dimensions,
                     };
                 }
@@ -248,35 +418,84 @@ export function importMugFromFile(file) {
     });
 }
 
+// Source-type configuration for the import picker. Each source has its own
+// project getter, import function, description copy, and empty-state copy.
+const IMPORT_SOURCES = {
+    dinnerware: {
+        description: 'Select a Dinnerware Generator project to import mug dimensions.',
+        emptyMessage: 'No dinnerware projects with mugs found.<br>Create a project in the Dinnerware Generator first.',
+        getProjects: getDinnerwareProjects,
+        import: (project) => importMugFromProject(project.id),
+        formatMeta: (project) => project.mugDimensions
+            ? `${project.mugDimensions.height}mm × Ø${project.mugDimensions.topDiameter}mm`
+            : 'Default dimensions',
+        allowFileImport: true,
+    },
+    'vessel-v2': {
+        description: 'Select a smooth vessel. Handles contact the outermost compiled wall; profiles with motifs need a smooth saved copy.',
+        emptyMessage: 'No Vessel V2 projects found.<br>Create a project in the Vessel Designer V2 first.',
+        getProjects: getVesselV2Projects,
+        import: (project) => importVesselFromProject('vessel-v2', project.id),
+        formatMeta: (project) => project.dimensions
+            ? `${Math.round(project.dimensions.bounds.max - project.dimensions.bounds.min)}mm tall × Ø${Math.round(project.dimensions.radius * 2)}mm mid-wall`
+            : 'Default dimensions',
+        allowFileImport: false,
+    },
+    'vessel-v3': {
+        description: 'Select a smooth vessel. Handles contact the outermost compiled wall; spouts and motifs need a saved copy with those features disabled.',
+        emptyMessage: 'No Vessel V3 projects found.<br>Create a project in the Vessel Designer V3 first.',
+        getProjects: getVesselV3Projects,
+        import: (project) => importVesselFromProject('vessel-v3', project.id),
+        formatMeta: (project) => project.dimensions
+            ? `${Math.round(project.dimensions.bounds.max - project.dimensions.bounds.min)}mm tall × Ø${Math.round(project.dimensions.radius * 2)}mm mid-wall`
+            : 'Default dimensions',
+        allowFileImport: false,
+    },
+};
+
 /**
- * Show the mug import modal and return the selected mug data
- * @returns {Promise<Object|null>} The selected mug data or null if cancelled
+ * Show the mug/vessel import modal and return the selected attachment data.
+ * Supports three source types (Dinnerware Mug, Vessel V2, Vessel V3) via a
+ * source-type selector; switching sources re-renders the same project list
+ * UI against the corresponding project set.
+ * @returns {Promise<Object|null>} The selected data or null if cancelled
  */
 export function showMugImportModal() {
     return new Promise((resolve) => {
         const modal = document.getElementById('mugImportModal');
         const projectList = document.getElementById('mugProjectList');
+        const descriptionEl = document.getElementById('mugImportDescription');
+        const fileImportRow = document.getElementById('mugImportFromFileRow');
+        const sourceButtons = Array.from(document.querySelectorAll('#importSourceSelector .import-source-btn'));
         const cancelBtn = document.getElementById('btnCancelMugImport');
         const closeBtn = document.getElementById('btnCloseMugImportModal');
         const importFromFileBtn = document.getElementById('btnImportMugFromFile');
         const backdrop = modal.querySelector('.modal-backdrop');
-        
-        // Populate project list
-        const projects = getDinnerwareProjects();
-        
-        if (projects.length === 0) {
-            projectList.innerHTML = `
-                <div class="project-list-empty">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="6" y="4" width="10" height="14" rx="2"/>
-                        <path d="M16 8h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2"/>
-                    </svg>
-                    <p>No dinnerware projects with mugs found.<br>Create a project in the Dinnerware Generator first.</p>
-                </div>
-            `;
-        } else {
+
+        let currentSource = 'dinnerware';
+
+        const renderProjectList = (sourceKey) => {
+            const source = IMPORT_SOURCES[sourceKey];
+            const projects = source.getProjects();
+
+            if (descriptionEl) descriptionEl.textContent = source.description;
+            if (fileImportRow) fileImportRow.style.display = source.allowFileImport ? '' : 'none';
+
+            if (projects.length === 0) {
+                projectList.innerHTML = `
+                    <div class="project-list-empty">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="6" y="4" width="10" height="14" rx="2"/>
+                            <path d="M16 8h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2"/>
+                        </svg>
+                        <p>${source.emptyMessage}</p>
+                    </div>
+                `;
+                return;
+            }
+
             projectList.innerHTML = projects.map(project => `
-                <div class="project-list-item" data-project-id="${project.id}">
+                <div class="project-list-item" data-project-id="${escapeHtml(String(project.id))}" aria-disabled="${project.compatible === false}">
                     <div class="project-list-item-icon">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="6" y="4" width="10" height="14" rx="2"/>
@@ -286,60 +505,85 @@ export function showMugImportModal() {
                     <div class="project-list-item-info">
                         <div class="project-list-item-name">${escapeHtml(project.name)}</div>
                         <div class="project-list-item-meta">
-                            ${project.mugDimensions ? 
-                                `${project.mugDimensions.height}mm × Ø${project.mugDimensions.topDiameter}mm` : 
-                                'Default dimensions'
-                            }
+                            ${escapeHtml(project.incompatibilityReason || source.formatMeta(project))}
                             ${project.modifiedAt ? ` • ${formatDate(project.modifiedAt)}` : ''}
                         </div>
                     </div>
                 </div>
             `).join('');
-            
+
             // Add click handlers to project items
             projectList.querySelectorAll('.project-list-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const projectId = item.dataset.projectId;
-                    const mugData = importMugFromProject(projectId);
+                    const project = projects.find(p => String(p.id) === String(projectId));
+                    if (!project) return;
+                    if (project.compatible === false) {
+                        if (descriptionEl) descriptionEl.textContent = project.incompatibilityReason;
+                        return;
+                    }
+                    const importedData = source.import(project);
+                    if (!importedData) {
+                        if (descriptionEl) descriptionEl.textContent = 'This project could not be imported. Check its profile and try again.';
+                        return;
+                    }
                     closeModal();
-                    resolve(mugData);
+                    resolve(importedData);
                 });
             });
-        }
-        
+        };
+
+        const handleSourceButtonClick = (btn) => {
+            sourceButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentSource = btn.dataset.source;
+            renderProjectList(currentSource);
+        };
+
+        const sourceButtonHandlers = sourceButtons.map(btn => {
+            const handler = () => handleSourceButtonClick(btn);
+            btn.addEventListener('click', handler);
+            return { btn, handler };
+        });
+
+        // Reset to the default source each time the modal is opened
+        sourceButtons.forEach(b => b.classList.toggle('active', b.dataset.source === currentSource));
+        renderProjectList(currentSource);
+
         // Close modal handlers
         const closeModal = () => {
             modal.style.display = 'none';
             cleanup();
         };
-        
+
         const cleanup = () => {
             cancelBtn.removeEventListener('click', handleCancel);
             closeBtn.removeEventListener('click', handleClose);
             backdrop.removeEventListener('click', handleBackdropClick);
             importFromFileBtn.removeEventListener('click', handleImportFromFile);
+            sourceButtonHandlers.forEach(({ btn, handler }) => btn.removeEventListener('click', handler));
         };
-        
+
         const handleCancel = () => {
             closeModal();
             resolve(null);
         };
-        
+
         const handleClose = () => {
             closeModal();
             resolve(null);
         };
-        
+
         const handleBackdropClick = () => {
             closeModal();
             resolve(null);
         };
-        
+
         const handleImportFromFile = () => {
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = '.json';
-            
+
             input.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (file) {
@@ -352,16 +596,16 @@ export function showMugImportModal() {
                     }
                 }
             };
-            
+
             input.click();
         };
-        
+
         // Attach handlers
         cancelBtn.addEventListener('click', handleCancel);
         closeBtn.addEventListener('click', handleClose);
         backdrop.addEventListener('click', handleBackdropClick);
         importFromFileBtn.addEventListener('click', handleImportFromFile);
-        
+
         // Show modal
         modal.style.display = 'flex';
     });
@@ -386,4 +630,3 @@ function formatDate(dateString) {
     
     return date.toLocaleDateString();
 }
-

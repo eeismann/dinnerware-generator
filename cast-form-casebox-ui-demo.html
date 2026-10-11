@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cast Form Generator — Case Box UI Demo</title>
+<style>
+    :root {
+        --bg: #161618;
+        --header: #101012;
+        --panel: #1d1d20;
+        --panel-line: #2c2c30;
+        --chip: #26262a;
+        --text: #e8e6e1;
+        --muted: #97948d;
+        --accent: #29b6f6;
+        --amber: #e0a83c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden;
+        font: 13px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg); color: var(--text); }
+
+    /* ── Header (matches the app) ─────────────────────────────── */
+    header { height: 56px; background: var(--header); display: flex; align-items: center;
+        padding: 0 14px; gap: 14px; border-bottom: 1px solid #000; }
+    .back { color: var(--muted); font-size: 18px; cursor: default; }
+    header h1 { font-size: 16px; font-weight: 700; }
+    .project-name { flex: 1; text-align: center; color: var(--muted); }
+    .hbtn { background: transparent; border: 1px solid #3a3a40; color: var(--text);
+        border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; }
+    .hbtn.primary { background: var(--accent); border-color: var(--accent); color: #06222e; font-weight: 600; }
+    .demo-badge { position: fixed; top: 66px; right: 12px; z-index: 30; background: #3d2f10;
+        color: var(--amber); border: 1px solid #6b5518; border-radius: 6px;
+        padding: 4px 10px; font-size: 11px; letter-spacing: .05em; }
+
+    /* ── Layout ───────────────────────────────────────────────── */
+    #main { display: flex; height: calc(100% - 56px - 48px); }
+    #sidebar { width: 322px; background: var(--panel); border-right: 1px solid #000;
+        overflow-y: auto; }
+    #viewport { flex: 1; position: relative; }
+    #viewport canvas { display: block; }
+
+    /* ── Panel sections ───────────────────────────────────────── */
+    section { border-bottom: 1px solid var(--panel-line); }
+    .sec-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+        font-weight: 600; cursor: pointer; user-select: none; }
+    .sec-head .tri { color: var(--muted); font-size: 10px; transition: transform .15s; }
+    section.collapsed .tri { transform: rotate(-90deg); }
+    section.collapsed .sec-body { display: none; }
+    .sec-body { padding: 2px 14px 16px; }
+    .chipfile { background: var(--chip); border-radius: 8px; padding: 9px 12px;
+        color: var(--muted); font-size: 12.5px; display: flex; gap: 8px; align-items: center; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #58c26a; }
+
+    .param { margin: 12px 0 2px; }
+    .param label { display: block; color: #c9c6bf; font-size: 12.5px; margin-bottom: 6px; }
+    .param .ctl { display: flex; align-items: center; gap: 9px; }
+    .param input[type=range] { flex: 1; accent-color: var(--accent); }
+    .param .num { width: 56px; background: var(--chip); border: 1px solid #34343a;
+        color: var(--text); border-radius: 6px; padding: 5px 6px; text-align: center;
+        font-size: 12.5px; }
+    .param .unit { color: var(--muted); width: 24px; font-size: 12px; }
+
+    /* ── Case box section specials ────────────────────────────── */
+    #caseBoxSection .sec-head { position: relative; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between;
+        background: var(--chip); border-radius: 8px; padding: 9px 12px; margin-top: 4px; }
+    .toggle-row span { font-size: 12.5px; }
+    .switch { position: relative; width: 38px; height: 21px; flex: none; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider-ui { position: absolute; inset: 0; background: #3a3a40; border-radius: 999px;
+        transition: .15s; cursor: pointer; }
+    .slider-ui::before { content: ""; position: absolute; width: 15px; height: 15px;
+        border-radius: 50%; background: #cfcdc6; top: 3px; left: 3px; transition: .15s; }
+    .switch input:checked + .slider-ui { background: var(--accent); }
+    .switch input:checked + .slider-ui::before { transform: translateX(17px); background: #06222e; }
+
+    .seg { display: flex; background: var(--chip); border-radius: 8px; padding: 3px;
+        margin: 10px 0 2px; }
+    .seg button { flex: 1; background: transparent; border: 0; color: var(--muted);
+        padding: 6px 0; border-radius: 6px; font-size: 12.5px; cursor: pointer; }
+    .seg button.on { background: #34343a; color: var(--text); }
+    .boxparams.disabled { opacity: .38; pointer-events: none; }
+
+    .readout { background: var(--chip); border-radius: 8px; padding: 10px 12px; margin-top: 12px; }
+    .readout table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .readout td { padding: 2.5px 0; color: #c9c6bf; }
+    .readout td:last-child { text-align: right; color: var(--text);
+        font-variant-numeric: tabular-nums; }
+    .export-note { color: var(--muted); font-size: 11.5px; margin-top: 10px; line-height: 1.5; }
+    .export-note code { color: #b9d7ea; font-size: 11px; }
+
+    /* ── Viewport overlays ────────────────────────────────────── */
+    #legend { position: absolute; top: 14px; right: 14px; background: #131315e6;
+        border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+    #legend .li { display: flex; gap: 9px; align-items: center; font-size: 12.5px; }
+    #legend .sw { width: 11px; height: 11px; border-radius: 3px; }
+    #previewBanner { position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+        background: #10303de6; border: 1px solid #1d5f7a; color: #9adcff; border-radius: 999px;
+        padding: 6px 16px; font-size: 12px; display: none; }
+    #loading { position: absolute; inset: 0; display: none; align-items: center;
+        justify-content: center; background: #16161899; font-size: 13px; color: var(--muted); }
+
+    /* ── Bottom bar ───────────────────────────────────────────── */
+    footer { height: 48px; background: var(--header); border-top: 1px solid #000;
+        display: flex; align-items: center; padding: 0 14px; gap: 10px; }
+    .fbtn { background: transparent; border: 1px solid #3a3a40; color: var(--muted);
+        border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+    .cams { flex: 1; display: flex; justify-content: center; gap: 6px; }
+    .cams button { background: transparent; border: 1px solid #3a3a40; color: var(--muted);
+        border-radius: 7px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
+    .cams button.on { background: var(--accent); border-color: var(--accent); color: #06222e; }
+    #status { color: var(--muted); font-size: 12px; min-width: 260px; text-align: right; }
+</style>
+</head>
+<body>
+<header>
+    <span class="back">←</span>
+    <h1>Cast Form Generator</h1>
+    <span class="project-name">Untitled Cast Form</span>
+    <button class="hbtn">New</button>
+    <button class="hbtn">Load</button>
+    <button class="hbtn">Save</button>
+    <button class="hbtn primary">Export</button>
+</header>
+<div class="demo-badge">UI DEMO — proposed integration</div>
+
+<div id="main">
+    <aside id="sidebar">
+        <section>
+            <div class="sec-head"><span class="tri">▾</span> Input Source</div>
+            <div class="sec-body">
+                <div class="chipfile"><span class="dot"></span> untitled_mug_6.stl (fixture)</div>
+            </div>
+        </section>
+
+        <section id="moldSection">
+            <div class="sec-head"><span class="tri">▾</span> Mold Configuration</div>
+            <div class="sec-body">
+                <div class="param"><label>Plaster Wall Thickness</label>
+                    <div class="ctl"><input type="range" id="m_plaster" min="20" max="50" step="1" value="20">
+                    <input class="num" id="m_plasterN" value="20"><span class="unit">mm</span></div></div>
+                <div class="param"><label>Spare Height</label>
+                    <div class="ctl"><input type="range" id="m_spare" min="10" max="80" step="1" value="10">
+                    <input class="num" id="m_spareN" value="10"><span class="unit">mm</span></div></div>
+                <div class="param"><label>Wall Sections</label>
+                    <div class="ctl"><input type="range" id="m_walls" min="2" max="4" step="1" value="3">
+                    <input class="num" id="m_wallsN" value="3"><span class="unit"></span></div></div>
+            </div>
+        </section>
+
+        <!-- ═══ THE NEW SECTION ═══ -->
+        <section id="caseBoxSection">
+            <div class="sec-head"><span class="tri">▾</span> Polymer Case Box</div>
+            <div class="sec-body">
+                <div class="toggle-row">
+                    <span><b>Preview casting box</b><br>
+                        <small style="color:var(--muted)">pauses the mold preview</small></span>
+                    <label class="switch"><input type="checkbox" id="previewToggle">
+                        <span class="slider-ui"></span></label>
+                </div>
+
+                <div class="seg" id="targetSeg">
+                    <button data-target="wall" class="on">Wall box</button>
+                    <button data-target="foot">Foot box</button>
+                </div>
+
+                <div class="boxparams" id="boxParams">
+                    <div class="param"><label>Side Gap</label>
+                        <div class="ctl"><input type="range" id="b_gap" min="4" max="25" step="1" value="10">
+                        <input class="num" id="b_gapN" value="10"><span class="unit">mm</span></div></div>
+                    <div class="param"><label>Headspace Above Form</label>
+                        <div class="ctl"><input type="range" id="b_head" min="10" max="50" step="0.2" value="25.4">
+                        <input class="num" id="b_headN" value="25.4"><span class="unit">mm</span></div></div>
+                    <div class="param"><label>Box Wall Thickness</label>
+                        <div class="ctl"><input type="range" id="b_wallT" min="0.5" max="6" step="0.1" value="3">
+                        <input class="num" id="b_wallTN" value="3"><span class="unit">mm</span></div></div>
+                    <div class="param"><label>Floor Thickness</label>
+                        <div class="ctl"><input type="range" id="b_floorT" min="0.5" max="8" step="0.5" value="3">
+                        <input class="num" id="b_floorTN" value="3"><span class="unit">mm</span></div></div>
+                    <div class="param"><label>Indent Depth</label>
+                        <div class="ctl"><input type="range" id="b_indent" min="0" max="6" step="0.5" value="2.5">
+                        <input class="num" id="b_indentN" value="2.5"><span class="unit">mm</span></div></div>
+                    <div class="param"><label>Indent Fit Clearance</label>
+                        <div class="ctl"><input type="range" id="b_clear" min="0" max="0.6" step="0.05" value="0.25">
+                        <input class="num" id="b_clearN" value="0.25"><span class="unit">mm</span></div></div>
+                </div>
+
+                <div class="readout"><table id="boxReadout"><tr><td>—</td><td></td></tr></table></div>
+                <div class="export-note">These values drive the exported
+                    <code>…_Case_Box_Wall.stl</code> and <code>…_Case_Box_Foot.stl</code> —
+                    what you preview is what exports.</div>
+            </div>
+        </section>
+    </aside>
+
+    <div id="viewport">
+        <div id="legend">
+            <div class="li"><span class="sw" style="background:#C45C26"></span> Foot</div>
+            <div class="li"><span class="sw" style="background:#7D9B76"></span> Wall 1</div>
+            <div class="li"><span class="sw" style="background:#6B8BA4"></span> Wall 2</div>
+            <div class="li"><span class="sw" style="background:#9C9588"></span> Wall 3</div>
+        </div>
+        <div id="previewBanner">Case box preview — mold preview paused</div>
+        <div id="loading">generating mold…</div>
+    </div>
+</div>
+
+<footer>
+    <button class="fbtn">⚙</button>
+    <button class="fbtn">View ⌄</button>
+    <div class="cams">
+        <button data-cam="front">Front</button>
+        <button data-cam="side">Side</button>
+        <button data-cam="threeQuarter" class="on">3/4</button>
+        <button data-cam="top">Top</button>
+    </div>
+    <div id="status">initializing…</div>
+</footer>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
+import { MoldGenerator } from '/scripts/castForm/geometry/moldGenerator.js';
+import { InputProcessor } from '/scripts/castForm/geometry/inputProcessor.js';
+import { DEFAULT_PARAMS, PART_COLORS } from '/scripts/castForm/state/castFormDefaults.js';
+import { buildWallCaseBox, buildFootCaseBox } from '/scripts/castForm/geometry/caseBoxGenerator.js';
+
+const statusEl = document.getElementById('status');
+const loadingEl = document.getElementById('loading');
+const legendEl = document.getElementById('legend');
+const bannerEl = document.getElementById('previewBanner');
+
+// ── Scene ────────────────────────────────────────────────────────────────────
+const viewport = document.getElementById('viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+viewport.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x161618);
+const camera = new THREE.PerspectiveCamera(40, 1, 1, 4000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const key = new THREE.DirectionalLight(0xffffff, 1.15);
+key.position.set(180, 320, 220);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x88aaff, 0.3);
+fill.position.set(-200, 120, -160);
+scene.add(fill);
+scene.add(new THREE.GridHelper(700, 35, 0x2c2c30, 0x232327));
+
+function resize() {
+    renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+    camera.aspect = viewport.clientWidth / viewport.clientHeight;
+    camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+    mold: { plaster: 20, spare: 10, walls: 3 },
+    box: { gap: 10, head: 25.4, wallT: 3, floorT: 3, indent: 2.5, clear: 0.25 },
+    preview: false,
+    target: 'wall'
+};
+let input = null;
+let parts = null;         // { foot, walls }
+const moldGroup = new THREE.Group();
+const boxGroup = new THREE.Group();
+scene.add(moldGroup, boxGroup);
+
+// ── Generation ───────────────────────────────────────────────────────────────
+async function loadInput() {
+    const response = await fetch('/output/fixtures/untitled_mug_6.stl');
+    const raw = new STLLoader().parse(await response.arrayBuffer());
+    input = InputProcessor.processGeometry(raw).geometry;
+}
+
+async function regenerate() {
+    loadingEl.style.display = 'flex';
+    statusEl.textContent = 'Generating mold…';
+    await new Promise((r) => setTimeout(r, 30)); // let the overlay paint
+    const params = JSON.parse(JSON.stringify(DEFAULT_PARAMS));
+    params.mold.plasterWallThickness = state.mold.plaster;
+    params.mold.spareHeight = state.mold.spare;
+    params.mold.wallCount = state.mold.walls;
+    const generator = new MoldGenerator();
+    generator.applySamplingPreset(input, 'preview');
+    parts?.foot?.dispose?.();
+    parts?.walls?.forEach((w) => w?.dispose?.());
+    parts = generator.generate(input, params, { quality: 'preview', natchesEnabled: true });
+    loadingEl.style.display = 'none';
+    rebuildMoldView();
+    rebuildBoxView();
+    updateMode();
+}
+
+// ── Mold view (normal mode) ──────────────────────────────────────────────────
+const wallColors = [PART_COLORS.wall1, PART_COLORS.wall2, PART_COLORS.wall3, PART_COLORS.wall4];
+function rebuildMoldView() {
+    for (const child of [...moldGroup.children]) moldGroup.remove(child);
+    if (!parts) return;
+    moldGroup.add(new THREE.Mesh(parts.foot, new THREE.MeshStandardMaterial({
+        color: PART_COLORS.foot, roughness: .75, side: THREE.DoubleSide
+    })));
+    parts.walls.forEach((wall, i) => {
+        moldGroup.add(new THREE.Mesh(wall, new THREE.MeshStandardMaterial({
+            color: wallColors[i % wallColors.length], roughness: .75,
+            transparent: true, opacity: .92, side: THREE.DoubleSide
+        })));
+    });
+    // rebuild the legend rows to match wall count
+    legendEl.innerHTML = ['<div class="li"><span class="sw" style="background:#C45C26"></span> Foot</div>']
+        .concat(parts.walls.map((w, i) =>
+            `<div class="li"><span class="sw" style="background:#${wallColors[i % 4].toString(16).padStart(6, '0')}"></span> Wall ${i + 1}</div>`
+        )).join('');
+}
+
+// ── Case box view (preview mode) — mirrors the planned viewport mode ────────
+const boxMaterial = new THREE.MeshStandardMaterial({
+    color: 0x6b8ba4, roughness: .45, transparent: true, opacity: .40,
+    side: THREE.DoubleSide, depthWrite: false
+});
+const polymerMaterial = new THREE.MeshStandardMaterial({
+    color: 0xe0a83c, roughness: .25, transparent: true, opacity: .22, depthWrite: false
+});
+const formMaterial = new THREE.MeshStandardMaterial({ color: 0x7d9b76, roughness: .75, side: THREE.DoubleSide });
+const footFormMaterial = new THREE.MeshStandardMaterial({ color: 0xc45c26, roughness: .75, side: THREE.DoubleSide });
+
+function layFlatWallGeometry(geometry, wallCount) {
+    const phi = Math.PI / wallCount; // wall 0 bisector
+    const cos = Math.cos(phi); const sin = Math.sin(phi);
+    const pos = geometry.getAttribute('position');
+    let D = -Infinity; let yMin = Infinity; let yMax = -Infinity;
+    for (let i = 0; i < pos.count; i++) {
+        D = Math.max(D, pos.getX(i) * cos + pos.getZ(i) * sin);
+        yMin = Math.min(yMin, pos.getY(i)); yMax = Math.max(yMax, pos.getY(i));
+    }
+    const zMid = (yMin + yMax) / 2;
+    const flat = geometry.clone();
+    const fpos = flat.getAttribute('position');
+    for (let i = 0; i < fpos.count; i++) {
+        const x = fpos.getX(i); const y = fpos.getY(i); const z = fpos.getZ(i);
+        fpos.setXYZ(i, -x * sin + z * cos, D - (x * cos + z * sin), y - zMid);
+    }
+    fpos.needsUpdate = true;
+    flat.computeVertexNormals();
+    return flat;
+}
+
+function fmt(v) { return `${v.toFixed(1)} mm`; }
+
+function rebuildBoxView() {
+    for (const child of [...boxGroup.children]) {
+        child.geometry?.dispose?.();
+        boxGroup.remove(child);
+    }
+    if (!parts) return;
+
+    const boxParams = {
+        gap: state.box.gap, headspace: state.box.head, wallThickness: state.box.wallT,
+        floorThickness: state.box.floorT, indentDepth: state.box.indent, fitClearance: state.box.clear
+    };
+
+    const isWall = state.target === 'wall';
+    // THE REAL EXPORT GEOMETRY drives the preview:
+    const boxGeometry = isWall
+        ? buildWallCaseBox(parts.walls[0], state.mold.walls, boxParams)
+        : buildFootCaseBox(parts.foot, boxParams);
+    const info = boxGeometry.userData.caseBox;
+
+    // seated form
+    let formGeometry;
+    if (isWall) {
+        formGeometry = layFlatWallGeometry(parts.walls[0], state.mold.walls);
+    } else {
+        formGeometry = parts.foot.clone();
+        formGeometry.translate(0, -info.form.yMin, 0);
+    }
+    formGeometry.translate(0, boxParams.floorThickness, 0); // onto the pocket floor
+    const formMesh = new THREE.Mesh(formGeometry, isWall ? formMaterial : footFormMaterial);
+    boxGroup.add(formMesh);
+
+    const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+    boxGroup.add(boxMesh);
+    boxGroup.add(new THREE.LineSegments(
+        new THREE.EdgesGeometry(boxGeometry, 25),
+        new THREE.LineBasicMaterial({ color: 0x9fc3dd, transparent: true, opacity: .5 })
+    ));
+
+    // polymer pour to the brim
+    const brim = boxParams.floorThickness + info.interiorHeight;
+    const pourBase = boxParams.floorThickness + boxParams.indentDepth;
+    let pour;
+    if (isWall) {
+        const hx = info.form.halfWidth + boxParams.gap;
+        const hz = info.form.halfLength + boxParams.gap;
+        pour = new THREE.Mesh(new THREE.BoxGeometry(hx * 2, brim - pourBase, hz * 2), polymerMaterial);
+    } else {
+        const r = info.form.radius + boxParams.gap;
+        pour = new THREE.Mesh(new THREE.CylinderGeometry(r, r, brim - pourBase, 96), polymerMaterial);
+    }
+    pour.position.y = (pourBase + brim) / 2;
+    boxGroup.add(pour);
+
+    // readout — same numbers the export uses
+    boxGeometry.computeBoundingBox();
+    const bb = boxGeometry.boundingBox;
+    const rows = isWall
+        ? [
+            ['Form (seated)', `${fmt(info.form.halfWidth * 2)} × ${fmt(info.form.halfLength * 2)} × ${fmt(info.form.height)}`],
+            ['Box outer', `${fmt(bb.max.x - bb.min.x)} × ${fmt(bb.max.z - bb.min.z)} × ${fmt(bb.max.y - bb.min.y)}`],
+            ['Interior above form', fmt(state.box.head)],
+            ['Serves', `all ${state.mold.walls} walls — print once`]
+        ]
+        : [
+            ['Form (seated)', `Ø${fmt(info.form.radius * 2)} × ${fmt(info.form.height)}`],
+            ['Box outer', `Ø${fmt(bb.max.x - bb.min.x)} × ${fmt(bb.max.y - bb.min.y)}`],
+            ['Interior above form', fmt(state.box.head)]
+        ];
+    document.getElementById('boxReadout').innerHTML =
+        rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+}
+
+// ── Mode switching (the core of the proposed UX) ─────────────────────────────
+function updateMode() {
+    moldGroup.visible = !state.preview;
+    boxGroup.visible = state.preview;
+    legendEl.style.display = state.preview ? 'none' : 'flex';
+    bannerEl.style.display = state.preview ? 'block' : 'none';
+    bannerEl.textContent = `Case box preview (${state.target === 'wall' ? 'Wall' : 'Foot'} box) — mold preview paused`;
+    document.getElementById('boxParams').classList.toggle('disabled', !state.preview);
+    document.getElementById('targetSeg').style.opacity = state.preview ? 1 : .38;
+    document.getElementById('targetSeg').style.pointerEvents = state.preview ? 'auto' : 'none';
+    statusEl.textContent = state.preview
+        ? `Case box preview (${state.target}) — box params update live, exports use these values`
+        : `Mold generated (Preview) — ${state.mold.walls} walls + foot`;
+    frameCamera(document.querySelector('.cams button.on')?.dataset.cam || 'threeQuarter');
+}
+
+// ── Camera presets ───────────────────────────────────────────────────────────
+function activeBounds() {
+    const box = new THREE.Box3();
+    const group = state.preview ? boxGroup : moldGroup;
+    group.traverse((o) => { if (o.isMesh) box.expandByObject(o); });
+    return box.isEmpty() ? new THREE.Box3(new THREE.Vector3(-80, 0, -80), new THREE.Vector3(80, 120, 80)) : box;
+}
+function frameCamera(preset) {
+    const bounds = activeBounds();
+    const center = bounds.getCenter(new THREE.Vector3());
+    const size = bounds.getSize(new THREE.Vector3()).length();
+    const d = size * 0.9;
+    const offsets = {
+        front: [0, size * 0.1, d],
+        side: [d, size * 0.1, 0],
+        threeQuarter: [d * 0.72, d * 0.55, d * 0.72],
+        top: [0.001, d, 0]
+    };
+    const [ox, oy, oz] = offsets[preset] || offsets.threeQuarter;
+    camera.position.set(center.x + ox, center.y + oy, center.z + oz);
+    controls.target.copy(center);
+}
+document.querySelectorAll('.cams button').forEach((button) => {
+    button.addEventListener('click', () => {
+        document.querySelectorAll('.cams button').forEach((b) => b.classList.remove('on'));
+        button.classList.add('on');
+        frameCamera(button.dataset.cam);
+    });
+});
+
+// ── Control wiring ───────────────────────────────────────────────────────────
+function bindSlider(id, get, set, { onChange, integer = false }) {
+    const range = document.getElementById(id);
+    const num = document.getElementById(`${id}N`);
+    const apply = (value) => {
+        const v = integer ? Math.round(Number(value)) : Number(value);
+        set(v);
+        range.value = v;
+        num.value = v;
+        onChange();
+    };
+    range.addEventListener('input', () => apply(range.value));
+    num.addEventListener('change', () => apply(num.value));
+}
+
+let regenTimer = null;
+const scheduleRegen = () => {
+    clearTimeout(regenTimer);
+    statusEl.textContent = 'Mold configuration changed…';
+    regenTimer = setTimeout(regenerate, 450);
+};
+bindSlider('m_plaster', () => state.mold.plaster, (v) => state.mold.plaster = v, { onChange: scheduleRegen, integer: true });
+bindSlider('m_spare', () => state.mold.spare, (v) => state.mold.spare = v, { onChange: scheduleRegen, integer: true });
+bindSlider('m_walls', () => state.mold.walls, (v) => state.mold.walls = v, { onChange: scheduleRegen, integer: true });
+
+const boxChanged = () => { rebuildBoxView(); if (state.preview) frameCamera(document.querySelector('.cams button.on')?.dataset.cam); };
+bindSlider('b_gap', () => state.box.gap, (v) => state.box.gap = v, { onChange: boxChanged, integer: true });
+bindSlider('b_head', () => state.box.head, (v) => state.box.head = v, { onChange: boxChanged });
+bindSlider('b_wallT', () => state.box.wallT, (v) => state.box.wallT = v, { onChange: boxChanged });
+bindSlider('b_floorT', () => state.box.floorT, (v) => state.box.floorT = v, { onChange: boxChanged });
+bindSlider('b_indent', () => state.box.indent, (v) => state.box.indent = v, { onChange: boxChanged });
+bindSlider('b_clear', () => state.box.clear, (v) => state.box.clear = v, { onChange: boxChanged });
+
+document.getElementById('previewToggle').addEventListener('change', (event) => {
+    state.preview = event.target.checked;
+    updateMode();
+});
+document.querySelectorAll('#targetSeg button').forEach((button) => {
+    button.addEventListener('click', () => {
+        document.querySelectorAll('#targetSeg button').forEach((b) => b.classList.remove('on'));
+        button.classList.add('on');
+        state.target = button.dataset.target;
+        rebuildBoxView();
+        updateMode();
+    });
+});
+document.querySelectorAll('.sec-head').forEach((head) => {
+    head.addEventListener('click', () => head.parentElement.classList.toggle('collapsed'));
+});
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+try {
+    loadingEl.style.display = 'flex';
+    await loadInput();
+    await regenerate();
+} catch (error) {
+    statusEl.textContent = `failed: ${error.message} — open via the dev server`;
+    console.error(error);
+}
+</script>
+</body>
+</html>

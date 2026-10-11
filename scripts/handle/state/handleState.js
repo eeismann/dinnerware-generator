@@ -70,7 +70,7 @@ const createInitialState = () => ({
     
     // Handle parameters
     handleParams: { ...DEFAULT_HANDLE_PARAMS },
-    
+
     // View settings
     viewSettings: {
         cameraView: 'side',             // side, threeQuarter, top, bottom
@@ -78,6 +78,13 @@ const createInitialState = () => ({
         showDimensions: true,
         showAttachmentOutlines: true,
         showGrid: true,
+        showMoldPreview: false,
+        moldExplode: 0,
+        moldOpacity: 0.68,
+        moldShowProof: true,
+        moldShowHandleMold: true,
+        moldShowWalls: true,
+        moldShowBottom: true,
         mugDisplayMode: 'transparent',  // transparent, wireframe, solid, hidden
     },
     
@@ -159,7 +166,7 @@ class HandleStateManager {
         this.validateParameters();
         this.notify(['handleParams']);
     }
-    
+
     // Update mug data
     setMugData(mugData) {
         this.state = {
@@ -351,7 +358,7 @@ class HandleStateManager {
                 param: 'lowerCornerRadius',
             });
         }
-        
+
         this.state.warnings = warnings;
     }
     
@@ -383,4 +390,3 @@ export function getComputedHandleValues(state) {
         centerHeight: (handleParams.topAttachmentHeight + handleParams.bottomAttachmentHeight) / 2,
     };
 }
-

@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vessel V2 · Attachments & Lid Plan</title>
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --panel: #14161c;
+      --panel-2: #1b1e26;
+      --panel-3: #222631;
+      --input: #0e1016;
+      --border: #2a2e3a;
+      --text: #e8eaed;
+      --secondary: #9aa0ac;
+      --muted: #626875;
+      --accent: #4f8cff;
+      --accent-soft: rgba(79, 140, 255, .15);
+      --green: #58d39b;
+      --orange: #f4ad62;
+      --purple: #b894ff;
+      --warning: #f5b544;
+      --danger: #ef6a74;
+      --radius: 8px;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { background: var(--bg); color: var(--text); font: 13px/1.45 var(--sans); overflow: hidden; }
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .app { height: 100vh; display: grid; grid-template-rows: 56px minmax(0, 1fr) 34px; }
+    .topbar { display: flex; align-items: center; gap: 14px; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--border); }
+    .mark { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 7px; display: grid; place-items: center; color: var(--accent); background: var(--panel-2); }
+    .mark svg { width: 16px; }
+    .title-block { min-width: 190px; }
+    .title-block strong { display: block; font-size: 14px; letter-spacing: .01em; }
+    .title-block span { color: var(--muted); font-size: 10px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .09em; }
+    .project { margin: auto; color: var(--secondary); }
+    .project b { color: var(--text); font-weight: 500; }
+    .actions { display: flex; align-items: center; gap: 8px; }
+    .btn { height: 32px; padding: 0 11px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-2); cursor: pointer; color: var(--secondary); display: inline-flex; align-items: center; gap: 7px; }
+    .btn:hover { color: var(--text); background: var(--panel-3); }
+    .btn.primary { color: white; background: var(--accent); border-color: var(--accent); }
+
+    .workspace { min-height: 0; display: grid; grid-template-columns: 348px minmax(0, 1fr); }
+    .sidebar { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border-right: 1px solid var(--border); background: var(--panel); }
+    .element-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 10px; border-bottom: 1px solid var(--border); }
+    .element-tab { min-width: 0; height: 48px; border: 1px solid var(--border); border-radius: 7px; background: var(--input); color: var(--secondary); cursor: pointer; display: grid; place-items: center; gap: 2px; padding: 5px 2px; }
+    .element-tab svg { width: 17px; height: 17px; }
+    .element-tab span { font-size: 10px; }
+    .element-tab:hover { background: var(--panel-2); color: var(--text); }
+    .element-tab.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(79, 140, 255, .12); }
+    .panel { min-height: 0; overflow: auto; scrollbar-color: var(--border) transparent; }
+    .panel-head { padding: 15px 16px 12px; position: sticky; top: 0; z-index: 3; background: linear-gradient(var(--panel) 84%, transparent); }
+    .panel-head .eyebrow { color: var(--accent); font: 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .panel-head h2 { margin: 4px 0 3px; font-size: 17px; font-weight: 600; }
+    .panel-head p { margin: 0; color: var(--secondary); font-size: 11.5px; }
+    .panel-body { padding: 0 12px 24px; }
+    .section { border-top: 1px solid var(--border); padding: 14px 4px; }
+    .section:first-child { border-top: 0; }
+    .section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .section-title h3 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--secondary); font-weight: 600; }
+    .count { font: 10px var(--mono); color: var(--muted); }
+
+    .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .style-card { min-width: 0; height: 72px; padding: 7px; border: 1px solid var(--border); border-radius: 7px; background: var(--input); cursor: pointer; text-align: left; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 7px; }
+    .style-card:hover { background: var(--panel-2); }
+    .style-card.active { border-color: var(--accent); background: var(--accent-soft); }
+    .style-card svg { width: 48px; height: 42px; color: var(--secondary); overflow: visible; }
+    .style-card.active svg { color: var(--accent); }
+    .style-card b { display: block; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .style-card small { display: block; color: var(--muted); font-size: 9px; margin-top: 2px; }
+
+    .control { margin: 10px 0; }
+    .control label { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; color: var(--secondary); font-size: 11.5px; }
+    .control output { color: var(--text); font: 10.5px var(--mono); }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+    select { width: 100%; height: 32px; padding: 0 8px; color: var(--text); background: var(--input); border: 1px solid var(--border); border-radius: 6px; }
+    .segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 3px; background: var(--input); border: 1px solid var(--border); border-radius: 7px; }
+    .segmented button { height: 27px; border: 0; border-radius: 5px; background: transparent; color: var(--secondary); cursor: pointer; font-size: 11px; }
+    .segmented button.active { background: var(--panel-3); color: var(--text); box-shadow: 0 0 0 1px var(--border); }
+    .point-list { display: grid; gap: 6px; }
+    .point-row { display: grid; grid-template-columns: 22px 1fr 56px; align-items: center; gap: 7px; padding: 7px; border: 1px solid var(--border); border-radius: 6px; background: var(--input); }
+    .point-row .dot { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--accent); color: var(--accent); font: 9px var(--mono); }
+    .point-row b { font-size: 10.5px; font-weight: 500; }
+    .point-row small { display: block; color: var(--muted); font-size: 9px; }
+    .point-row input { width: 56px; height: 26px; padding: 0 5px; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px; font: 10px var(--mono); }
+    .add-point { width: 100%; margin-top: 7px; justify-content: center; border-style: dashed; }
+    .research-note { padding: 10px; border: 1px solid rgba(245,181,68,.25); border-radius: 7px; background: rgba(245,181,68,.07); color: var(--secondary); font-size: 10.5px; }
+    .research-note b { color: var(--warning); }
+    .research-note a { color: var(--text); }
+
+    .stage { min-width: 0; min-height: 0; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 45%, #171a22 0, #0d0f14 55%, #090a0d 100%); }
+    .scene-bar { position: absolute; left: 14px; top: 14px; z-index: 4; display: flex; align-items: center; gap: 6px; padding: 6px; border: 1px solid var(--border); border-radius: 9px; background: rgba(20,22,28,.92); box-shadow: 0 10px 30px rgba(0,0,0,.28); backdrop-filter: blur(12px); }
+    .scene-label { padding: 0 7px 0 3px; color: var(--muted); font: 9px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+    .visibility { height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--input); color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 10.5px; }
+    .visibility::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px rgba(255,255,255,.03); }
+    .visibility.on { color: var(--text); }
+    .visibility[data-part="spout"].on { color: var(--green); }
+    .visibility[data-part="handle"].on { color: var(--orange); }
+    .visibility[data-part="lid"].on { color: var(--purple); }
+    .visibility.solo { border-color: currentColor; background: rgba(255,255,255,.05); }
+    .scene-help { position: absolute; top: 58px; left: 14px; color: var(--muted); font-size: 9.5px; z-index: 3; }
+    .stage svg.main-vessel { width: 100%; height: 100%; display: block; }
+    .stage-grid { opacity: .42; }
+    .vessel-fill { fill: url(#vesselFill); stroke: #7f8795; stroke-width: 1.2; }
+    .rim-line { fill: none; stroke: #aeb4c0; stroke-width: 1.2; }
+    .part { transition: opacity .16s, filter .16s; }
+    .part.hidden { opacity: 0; pointer-events: none; }
+    .part.dim { opacity: .24; }
+    .part.active { filter: drop-shadow(0 0 9px currentColor); }
+    #spoutPart { color: var(--green); }
+    #handlePart { color: var(--orange); }
+    #lidPart { color: var(--purple); }
+    .part-shape { fill: rgba(30,33,42,.94); stroke: currentColor; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+    .part-inner { fill: none; stroke: currentColor; stroke-width: 1; opacity: .58; }
+    .attachment-pad { fill: rgba(244,173,98,.14); stroke: currentColor; stroke-width: 1.2; }
+    .node { fill: var(--panel); stroke: currentColor; stroke-width: 1.5; }
+    .node.selected { fill: currentColor; stroke: white; }
+    .bezier-line { fill: none; stroke: currentColor; stroke-width: 1; stroke-dasharray: 3 3; opacity: .7; }
+    .measure { fill: var(--muted); font: 9px var(--mono); }
+    .ground { fill: rgba(255,255,255,.025); stroke: rgba(255,255,255,.05); }
+    .orientation { position: absolute; right: 16px; bottom: 16px; width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border); background: rgba(20,22,28,.8); display: grid; place-items: center; color: var(--muted); font: 9px var(--mono); }
+    .active-caption { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 7px 11px; border: 1px solid var(--border); border-radius: 999px; background: rgba(20,22,28,.88); color: var(--secondary); font-size: 10.5px; }
+    .active-caption b { color: var(--text); }
+
+    .footer { display: flex; align-items: center; gap: 14px; padding: 0 12px; border-top: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 10px; }
+    .footer .ok { color: var(--green); }
+    .footer .spacer { flex: 1; }
+    .mono { font-family: var(--mono); }
+
+    .sheet-backdrop { position: fixed; inset: 56px 0 34px; z-index: 10; background: rgba(0,0,0,.52); opacity: 0; pointer-events: none; transition: opacity .18s; }
+    .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+    .sheet { position: absolute; right: 0; top: 0; bottom: 0; width: min(620px, 92vw); background: var(--panel); border-left: 1px solid var(--border); transform: translateX(100%); transition: transform .22s ease; display: grid; grid-template-rows: auto auto minmax(0,1fr); box-shadow: -24px 0 70px rgba(0,0,0,.45); }
+    .sheet-backdrop.open .sheet { transform: translateX(0); }
+    .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 13px; border-bottom: 1px solid var(--border); }
+    .sheet-head h2 { margin: 0; font-size: 16px; }
+    .sheet-head p { margin: 3px 0 0; color: var(--muted); font-size: 10.5px; }
+    .close-sheet { width: 30px; padding: 0; justify-content: center; }
+    .sheet-tabs { display: flex; gap: 5px; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+    .sheet-tab { height: 30px; padding: 0 11px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--secondary); cursor: pointer; }
+    .sheet-tab.active { background: var(--panel-3); border-color: var(--border); color: var(--text); }
+    .sheet-content { overflow: auto; padding: 18px; }
+    .sheet-page { display: none; }
+    .sheet-page.active { display: block; }
+    .intro { margin: 0 0 16px; color: var(--secondary); max-width: 68ch; }
+    .var-group { margin-bottom: 18px; }
+    .var-group h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 12px; }
+    .swatch { width: 8px; height: 8px; border-radius: 2px; background: var(--accent); }
+    .var-grid { display: grid; grid-template-columns: 132px 1fr; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+    .var-grid > * { padding: 7px 9px; border-bottom: 1px solid var(--border); }
+    .var-grid > *:nth-last-child(-n+2) { border-bottom: 0; }
+    .var-grid code { color: var(--text); background: var(--input); font: 10px var(--mono); }
+    .var-grid span { color: var(--secondary); font-size: 10.5px; border-left: 1px solid var(--border); }
+    .rule-list, .phase-list { display: grid; gap: 9px; }
+    .rule, .phase { padding: 11px 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--input); }
+    .rule b, .phase b { display: block; margin-bottom: 3px; font-size: 11.5px; }
+    .rule p, .phase p { margin: 0; color: var(--secondary); font-size: 10.5px; }
+    .phase { display: grid; grid-template-columns: 27px 1fr; gap: 9px; }
+    .phase-num { width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font: 10px var(--mono); }
+    .code-block { padding: 12px; white-space: pre-wrap; border: 1px solid var(--border); border-radius: 7px; color: #c6cad2; background: #0d0f14; font: 10px/1.65 var(--mono); }
+    .source-list { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 10px; }
+    .source-list a { color: var(--secondary); }
+
+    @media (max-width: 820px) {
+      .workspace { grid-template-columns: 310px minmax(420px, 1fr); overflow: auto; }
+      .project { display: none; }
+      .title-block span { display: none; }
+      .style-grid { grid-template-columns: 1fr; }
+      .scene-help { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3c0 4-2 5-2 9 0 5 3 8 7 8s7-3 7-8c0-4-2-5-2-9"/><path d="M7 3h10"/></svg>
+    </div>
+    <div class="title-block"><strong>Vessel Designer V2</strong><span>Attachments concept · R1</span></div>
+    <div class="project"><b>Untitled Vessel V2</b> · composed assembly</div>
+    <div class="actions">
+      <button class="btn" id="openPlan">Plan &amp; variables</button>
+      <button class="btn primary">Export assembly</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar">
+      <nav class="element-tabs" aria-label="Editing panels">
+        <button class="element-tab" data-panel="base" title="Base vessel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3c0 4-2 5-2 9 0 5 3 8 7 8s7-3 7-8c0-4-2-5-2-9"/><path d="M7 3h10"/></svg><span>Base</span>
+        </button>
+        <button class="element-tab active" data-panel="spout" title="Spout creator">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 18c4-1 4-8 8-10 2-1 4-1 8-2"/><path d="M4 14v5h5"/><path d="M18 4l3 2-2 3"/></svg><span>Spout</span>
+        </button>
+        <button class="element-tab" data-panel="handle" title="Handle creator">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 5h3c6 0 8 3 8 7s-2 7-8 7H8"/><path d="M8 9h3c3 0 4 1 4 3s-1 3-4 3H8"/></svg><span>Handle</span>
+        </button>
+        <button class="element-tab" data-panel="lid" title="Lid generator">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 13c4-5 12-5 16 0"/><path d="M3 14h18"/><path d="M10 8V6h4v2"/><path d="M7 15v3h10v-3"/></svg><span>Lid</span>
+        </button>
+      </nav>
+      <div class="panel" id="panel"></div>
+    </aside>
+
+    <section class="stage">
+      <div class="scene-bar" aria-label="Assembly visibility">
+        <span class="scene-label">Scene</span>
+        <button class="visibility on" data-part="base">Base</button>
+        <button class="visibility on" data-part="spout">Spout</button>
+        <button class="visibility on" data-part="handle">Handle</button>
+        <button class="visibility on" data-part="lid">Lid</button>
+      </div>
+      <div class="scene-help">Click to show / hide · double-click to solo</div>
+
+      <svg class="main-vessel" viewBox="0 0 920 650" role="img" aria-label="Interactive vessel assembly preview">
+        <defs>
+          <linearGradient id="vesselFill" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#353a46"/><stop offset=".5" stop-color="#20242d"/><stop offset="1" stop-color="#12141a"/></linearGradient>
+          <linearGradient id="lidFill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2e3340"/><stop offset="1" stop-color="#171a21"/></linearGradient>
+          <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#282c36" stroke-width=".7"/></pattern>
+        </defs>
+        <rect width="920" height="650" fill="url(#grid)" class="stage-grid"/>
+        <ellipse class="ground" cx="455" cy="566" rx="230" ry="31"/>
+
+        <g id="basePart" class="part">
+          <path class="vessel-fill" d="M337 230 C326 304 312 412 330 506 C342 558 382 569 455 569 C528 569 568 558 580 506 C598 412 584 304 573 230 C531 250 379 250 337 230 Z"/>
+          <ellipse cx="455" cy="230" rx="118" ry="29" fill="#101218" stroke="#89919e" stroke-width="1.2"/>
+          <ellipse class="rim-line" cx="455" cy="231" rx="104" ry="22"/>
+          <path d="M354 246c29 13 172 13 202 0" fill="none" stroke="#343946"/>
+          <text class="measure" x="462" y="552">Ø 118 mm · H 152 mm</text>
+        </g>
+
+        <g id="spoutPart" class="part active">
+          <path id="spoutShape" class="part-shape" d="M570 286 C646 282 690 243 761 197 L778 221 C699 267 659 316 575 324 Z"/>
+          <path id="spoutInner" class="part-inner" d="M579 298 C647 296 694 259 767 211"/>
+          <path id="spoutMouth" class="part-inner" d="M760 197 L778 221"/>
+          <circle class="node selected" cx="574" cy="304" r="5"/>
+          <circle class="node" cx="665" cy="282" r="4.5"/>
+          <circle class="node" cx="769" cy="209" r="4.5"/>
+          <path class="bezier-line" d="M574 304 L627 304 M665 282 L709 237"/>
+        </g>
+
+        <g id="handlePart" class="part dim">
+          <path id="handleShape" class="part-shape" fill="none" stroke-width="18" d="M338 315 C247 302 202 346 205 418 C208 492 261 516 337 486"/>
+          <ellipse class="attachment-pad" cx="338" cy="315" rx="14" ry="22"/>
+          <ellipse class="attachment-pad" cx="337" cy="486" rx="14" ry="22"/>
+          <g id="handleNodes">
+            <circle class="node" cx="338" cy="315" r="5"/><circle class="node" cx="220" cy="343" r="5"/><circle class="node" cx="216" cy="474" r="5"/><circle class="node" cx="337" cy="486" r="5"/>
+          </g>
+        </g>
+
+        <g id="lidPart" class="part dim" transform="translate(0,-12)">
+          <path id="lidShape" class="part-shape" fill="url(#lidFill)" d="M332 216 C353 183 389 168 455 168 C521 168 557 183 578 216 L574 231 C527 247 383 247 336 231 Z"/>
+          <path id="lidFlange" class="part-inner" d="M365 229v25 M545 229v25 M365 254c45 11 135 11 180 0"/>
+          <path id="lidKnob" class="part-shape" d="M426 174 C430 153 440 144 455 144 C470 144 480 153 484 174 Z"/>
+        </g>
+      </svg>
+
+      <div class="active-caption">Editing <b id="activeCaption">Spout · Faceted Cut</b> · other parts remain available in Scene</div>
+      <div class="orientation">3/4</div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span class="ok">● Preview valid</span>
+    <span>Attached meshes: <span class="mono">base + spout + handle</span></span>
+    <span>Separate part: <span class="mono">lid</span></span>
+    <span class="spacer"></span>
+    <span>Prototype · no production geometry generated</span>
+  </footer>
+</div>
+
+<div class="sheet-backdrop" id="sheetBackdrop">
+  <aside class="sheet" role="dialog" aria-modal="true" aria-labelledby="planTitle">
+    <header class="sheet-head">
+      <div><h2 id="planTitle">Attachment system plan</h2><p>Variables first, then UI rules and implementation order</p></div>
+      <button class="btn close-sheet" id="closePlan" aria-label="Close">×</button>
+    </header>
+    <nav class="sheet-tabs">
+      <button class="sheet-tab active" data-sheet="variables">Variables</button>
+      <button class="sheet-tab" data-sheet="ui">UI behavior</button>
+      <button class="sheet-tab" data-sheet="architecture">Architecture</button>
+      <button class="sheet-tab" data-sheet="phases">Phases</button>
+    </nav>
+    <div class="sheet-content">
+      <section class="sheet-page active" data-page="variables">
+        <p class="intro">Keep every addition in its own state namespace. The base profile remains the source of truth for surface radius, mouth diameter, height limits, and attachment intersections.</p>
+        <div class="var-group"><h3><i class="swatch" style="background:var(--green)"></i>Spout variables</h3><div class="var-grid">
+          <code>style / pathMode</code><span>Preset plus editable Bezier or straight-rounded centerline.</span>
+          <code>mountHeight / azimuth</code><span>Placement on the sampled Vessel 2 exterior profile.</span>
+          <code>pathPoints[]</code><span>Position, in/out handles, point kind, and per-point corner radius.</span>
+          <code>length / rise</code><span>Overall reach and outlet height relative to the vessel rim.</span>
+          <code>rootWidth / rootHeight</code><span>Oval attachment footprint and throat aperture.</span>
+          <code>mouthWidth / mouthShape</code><span>Round, oval, pinched, flared, or knife-edge outlet.</span>
+          <code>wall / blendRadius</code><span>Spout shell thickness and vessel-junction fillet.</span>
+          <code>cutAngle / strainer</code><span>Outlet trim and optional hole array at the throat.</span>
+        </div></div>
+        <div class="var-group"><h3><i class="swatch" style="background:var(--orange)"></i>Handle variables</h3><div class="var-grid">
+          <code>pathMode</code><span>Bezier or straight-rounded, using the Vessel 2 editor interaction model.</span>
+          <code>pathPoints[]</code><span>Any number of points; each stores x/h, in/out handles, kind, and cornerRadius.</span>
+          <code>attachments[]</code><span>Vessel height, azimuth, pad width/height, embed depth, and blend radius.</span>
+          <code>crossSection</code><span>Round, oval, rounded rectangle; width, depth, and corner radius.</span>
+          <code>twist / taper</code><span>Cross-section rotation and scale along the swept path.</span>
+          <code>sweepSegments</code><span>Preview/export sampling quality kept separate from the editable path.</span>
+        </div></div>
+        <div class="var-group"><h3><i class="swatch" style="background:var(--purple)"></i>Lid variables</h3><div class="var-grid">
+          <code>fitType</code><span>Inset gallery, overlapping skirt, or direct-on-flange.</span>
+          <code>profilePoints[]</code><span>Bezier or straight-rounded lid profile, derived initially from mouth diameter.</span>
+          <code>seatWidth / seatDepth</code><span>Gallery ledge geometry that supports the lid.</span>
+          <code>innerFlange</code><span>Depth, thickness, taper, and radial clearance for the locating ring.</span>
+          <code>outerLip / overhang</code><span>Outer skirt depth and overhang for overlap-style lids.</span>
+          <code>clearance / shrink</code><span>Radial fit allowance plus material/process shrink compensation.</span>
+          <code>crown / wall</code><span>Lid rise, thickness, underside dish, and radial segments.</span>
+          <code>handle.style</code><span>Knob, mushroom, loop, bridge, ring, fin, bud, or faceted block.</span>
+          <code>handle.mount</code><span>Integral center, single boss, two lugs, ring saddle, or through-hole.</span>
+          <code>vent</code><span>Optional hole diameter and radial position for pouring vessels.</span>
+        </div></div>
+      </section>
+
+      <section class="sheet-page" data-page="ui">
+        <p class="intro">The panel model is intentionally exclusive: one editing context, one toolset, and one highlighted part at a time.</p>
+        <div class="rule-list">
+          <div class="rule"><b>One open editor</b><p>Base, Spout, Handle, and Lid are mutually exclusive tabs. Switching panels preserves each part’s state and selection.</p></div>
+          <div class="rule"><b>Persistent Scene bar</b><p>Visibility controls never move. Single-click toggles a part; double-click solos it. This provides assembly context without reopening another editor.</p></div>
+          <div class="rule"><b>Active part gets editing affordances</b><p>Only the active part shows points, Bezier handles, attachment pads, dimensions, and warnings. Other visible parts are dimmed.</p></div>
+          <div class="rule"><b>Preset first, custom second</b><p>Spouts and lid handles start from recognizable style cards. Selecting Custom exposes the point editor without forcing it on every user.</p></div>
+          <div class="rule"><b>Lid is separate but composed</b><p>The lid can be shown seated, exploded, sectioned, or hidden. Its export button always produces a separate STL; “Export assembly” produces vessel and lid files together.</p></div>
+          <div class="rule"><b>Progressive controls</b><p>Primary dimensions stay visible. Advanced fit, sweep, and mesh controls live in collapsed sections and inherit safe defaults.</p></div>
+        </div>
+      </section>
+
+      <section class="sheet-page" data-page="architecture">
+        <p class="intro">Reuse the editor and sweep concepts already present, while isolating geometry so normal Vessel 2 export remains unchanged until an addition is enabled.</p>
+        <div class="code-block">state
+├── profile                  existing Vessel 2 source of truth
+├── additions
+│   ├── spout                path + shell + vessel opening
+│   ├── handle               path + sweep + attachment pads
+│   └── lid                  separate profile + fit + handle
+└── ui
+    ├── activePanel
+    ├── visibleParts
+    ├── soloPart
+    └── lidExplode
+
+geometry
+├── editablePath2D           shared points, Bezier handles, corner radii
+├── spoutMeshGenerator       swept hollow section + outlet trim
+├── vesselAttachmentComposer vessel apertures + boolean/fusion boundary
+├── vesselHandleGenerator    generalized mug-handle sweep on V2 radius profile
+├── lidProfileGenerator      revolved lid, gallery/flange/skirt fit
+└── lidHandleGenerator       revolved or swept handle, separate mounts</div>
+        <div class="rule-list" style="margin-top:12px">
+          <div class="rule"><b>Preview vs. manufacturing mesh</b><p>Preview can render intersecting meshes quickly. Export must fuse attached parts, open the spout throat, and pass the shared watertight/manifold checks.</p></div>
+          <div class="rule"><b>Backward-compatible files</b><p>Add a versioned <span class="mono">additions</span> object. Missing additions normalize to disabled defaults, so existing Vessel V2 projects load unchanged.</p></div>
+          <div class="rule"><b>Independent history</b><p>Undo records the active addition namespace plus selection. Camera, visibility, and exploded view remain view-only and never alter geometry.</p></div>
+          <div class="rule"><b>Two export products</b><p>Vessel export includes enabled spout/handle after fusion. Lid export remains a standalone closed mesh. Assembly export writes both with a shared project name.</p></div>
+        </div>
+      </section>
+
+      <section class="sheet-page" data-page="phases">
+        <p class="intro">Build the shared interaction model first, then add geometry in increasing order of manufacturing risk.</p>
+        <div class="phase-list">
+          <div class="phase"><span class="phase-num">1</span><div><b>Composition shell</b><p>Add namespaced state, exclusive panel routing, Scene visibility, save/load normalization, and placeholder meshes.</p></div></div>
+          <div class="phase"><span class="phase-num">2</span><div><b>Generalized editable path</b><p>Extract Vessel 2 point/Bezier/corner-radius behavior into a reusable 2D editor; migrate the handle concept without changing existing base behavior.</p></div></div>
+          <div class="phase"><span class="phase-num">3</span><div><b>Handle on Vessel 2</b><p>Reuse the mug handle cross-section sweep and radius-at-height logic, then add arbitrary points and attachment pads. Validate the handle-only vessel export.</p></div></div>
+          <div class="phase"><span class="phase-num">4</span><div><b>Spout presets and hollow sweep</b><p>Implement the ten centerline presets, mouth profiles, wall thickness, and preview. Then add throat cutting and fused export as a separate gate.</p></div></div>
+          <div class="phase"><span class="phase-num">5</span><div><b>Traditional lid fit</b><p>Implement gallery, lid flange, outer skirt, fit clearance, shrink compensation, lid profile editor, and configurable handle mounts.</p></div></div>
+          <div class="phase"><span class="phase-num">6</span><div><b>Combined validation</b><p>Test spout + handle fusion, separate lid mesh, old project loading, desktop/mobile panels, and the existing mesh diagnostics/performance gates.</p></div></div>
+        </div>
+        <div class="source-list">Research basis: <a href="http://ceramicdictionary.com/en/l-ll/438/lids-a-in-pottery." target="_blank">Ceramic Dictionary — lid anatomy and fit relationships</a> · <a href="http://ceramicdictionary.com/en/l-ll/3653/lids-b-selection-lids-pottery" target="_blank">traditional lid examples</a>. The source distinguishes the jar gallery, vessel flange, lid flange, and lid lip, and documents inset, overlap, and direct-on-flange variants.</div>
+      </section>
+    </div>
+  </aside>
+</div>
+
+<script>
+  const spoutStyles = [
+    { id:'faceted', name:'Faceted Cut', tag:'very angular', mini:'M4 34 L18 12 L43 4 L40 16 L20 24 Z', shape:'M570 286 L638 269 L760 188 L782 215 L650 314 L575 324 Z', inner:'M579 301 L642 288 L770 202', mouth:'M760 188 L782 215' },
+    { id:'knife', name:'Knife-Edge', tag:'angular / thin', mini:'M4 33 L17 14 L45 8 L40 15 L19 25 Z', shape:'M570 288 L642 261 L779 199 L775 217 L649 312 L575 324 Z', inner:'M579 301 L646 282 L777 208', mouth:'M779 199 L775 217' },
+    { id:'sweep', name:'Simple Sweep', tag:'simple + curved', mini:'M3 33 C16 31 22 10 44 7 L45 17 C24 19 20 37 4 39 Z', shape:'M570 288 C646 292 685 225 768 198 L779 221 C700 252 660 324 575 324 Z', inner:'M579 303 C645 306 694 241 774 210', mouth:'M768 198 L779 221' },
+    { id:'soft-s', name:'Soft S-Curve', tag:'balanced', mini:'M3 33 C18 34 17 16 30 14 C37 13 38 6 45 7 L45 18 C38 17 36 25 29 25 C19 27 18 39 4 39 Z', shape:'M570 288 C629 298 630 263 678 255 C724 247 727 205 770 199 L779 222 C737 220 732 272 683 279 C645 285 635 328 575 324 Z', inner:'M579 304 C636 312 640 275 680 267 C725 258 735 220 775 211', mouth:'M770 199 L779 222' },
+    { id:'traditional', name:'Traditional', tag:'teapot', mini:'M3 34 C15 31 20 21 25 12 C30 4 39 4 45 6 L43 18 C35 16 32 18 28 25 C21 38 13 40 4 40 Z', shape:'M570 290 C631 286 654 259 686 210 C708 177 748 172 779 184 L777 213 C743 204 723 210 705 239 C672 292 648 324 575 325 Z', inner:'M579 304 C635 301 665 269 696 222 C715 194 746 192 778 198', mouth:'M779 184 L777 213' },
+    { id:'gooseneck', name:'Gooseneck', tag:'tall / narrow', mini:'M3 35 C17 33 25 29 27 13 C28 5 36 3 44 5 L43 16 C37 15 36 18 35 24 C33 39 18 43 4 41 Z', shape:'M570 291 C626 292 678 281 685 209 C690 165 727 149 770 162 L768 192 C740 183 720 190 717 219 C711 299 648 330 575 325 Z', inner:'M579 305 C630 308 693 288 701 214 C705 178 734 170 769 177', mouth:'M770 162 L768 192' },
+    { id:'pitcher', name:'Pitcher Beak', tag:'broad / pinched', mini:'M3 31 C18 29 30 17 45 4 L43 23 C29 27 17 38 4 39 Z', shape:'M570 284 C640 281 709 228 794 166 L782 225 C712 260 657 322 575 326 Z', inner:'M579 302 C645 300 711 245 788 196', mouth:'M794 166 L782 225' },
+    { id:'low-pour', name:'Low Pour', tag:'short / direct', mini:'M3 31 C17 30 27 24 44 18 L44 30 C27 33 18 39 4 39 Z', shape:'M570 292 C632 291 680 274 744 251 L745 282 C684 296 647 326 575 325 Z', inner:'M579 306 C637 306 682 287 745 267', mouth:'M744 251 L745 282' },
+    { id:'trumpet', name:'Flared Trumpet', tag:'wide mouth', mini:'M3 33 C18 31 26 17 38 12 L45 4 L44 27 L38 21 C27 27 20 39 4 40 Z', shape:'M570 290 C635 290 681 249 742 214 L778 177 L786 233 L750 239 C684 276 651 327 575 325 Z', inner:'M579 304 C641 306 687 263 747 227 L782 205', mouth:'M778 177 L786 233' },
+    { id:'pinched', name:'Pinched Ceramic', tag:'hand-built', mini:'M3 33 C17 31 25 14 44 8 L40 16 L45 21 C28 23 19 39 4 40 Z', shape:'M570 289 C637 288 681 225 774 192 L763 210 L781 221 C695 244 654 326 575 325 Z', inner:'M579 304 C642 303 692 241 772 207', mouth:'M774 192 L781 221' }
+  ];
+
+  const state = {
+    active: 'spout', selectedSpout: 'faceted', pathMode: 'bezier',
+    handlePoints: 4, lidFit: 'gallery', lidHandle: 'mushroom',
+    visible: { base:true, spout:true, handle:true, lid:true }, solo: null
+  };
+
+  const panel = document.getElementById('panel');
+  const caption = document.getElementById('activeCaption');
+  const partEls = { base:document.getElementById('basePart'), spout:document.getElementById('spoutPart'), handle:document.getElementById('handlePart'), lid:document.getElementById('lidPart') };
+
+  const slider = (name, value, min, max, unit='mm') => `<div class="control"><label><span>${name}</span><output>${value} ${unit}</output></label><input type="range" min="${min}" max="${max}" value="${value}"></div>`;
+  const section = (title, body, meta='') => `<section class="section"><div class="section-title"><h3>${title}</h3><span class="count">${meta}</span></div>${body}</section>`;
+
+  function styleCards() {
+    return `<div class="style-grid">${spoutStyles.map(s => `<button class="style-card ${state.selectedSpout===s.id?'active':''}" data-style="${s.id}"><svg viewBox="0 0 50 44"><path d="${s.mini}" fill="rgba(79,140,255,.1)" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span><b>${s.name}</b><small>${s.tag}</small></span></button>`).join('')}</div>`;
+  }
+
+  function pointRows(count, prefix='P') {
+    return `<div class="point-list">${Array.from({length:count},(_,i)=>`<div class="point-row"><span class="dot">${i+1}</span><span><b>${prefix}${i} ${i===0?'· attached':i===count-1?'· attached':'· smooth'}</b><small>${i===0||i===count-1?'locked to vessel surface':'Bezier handles linked'}</small></span><input value="${i===0||i===count-1?8:12}" aria-label="Corner radius point ${i+1}"></div>`).join('')}</div><button class="btn add-point" id="addPoint">+ Add path point</button>`;
+  }
+
+  function renderPanel() {
+    const heads = {
+      base:['Existing editor','Base vessel','The Vessel 2 profile stays the source of truth.'],
+      spout:['Attached element','Spout creator','Choose a starting style, then edit its hollow path and mouth.'],
+      handle:['Attached element','Handle creator','A reusable point editor driving the existing swept-handle logic.'],
+      lid:['Separate element','Lid generator','Traditional gallery, flange, lip, and handle controls.']
+    };
+    const [eye,title,desc] = heads[state.active];
+    let body = '';
+    if (state.active === 'base') {
+      body += section('Base relationship', `<div class="research-note"><b>No duplicate base controls.</b> Selecting Base returns to the existing Vessel 2 profile editor. Additions read its sampled radius profile, mouth diameter, and wall thickness.</div>`);
+      body += section('Assembly anchors', slider('Mouth plane',152,40,220)+slider('Spout mount band',108,20,150)+slider('Handle centerline',78,20,130));
+    }
+    if (state.active === 'spout') {
+      body += section('10 starting styles', styleCards(), 'preset → editable');
+      body += section('Path', `<div class="segmented"><button class="${state.pathMode==='bezier'?'active':''}" data-mode="bezier">Bezier</button><button class="${state.pathMode==='straight'?'active':''}" data-mode="straight">Straight + radius</button></div>`+slider('Projection',84,30,160)+slider('Tip above rim',32,-30,100)+slider('Path corner',6,0,30));
+      body += section('Mouth & attachment', slider('Mouth width',24,6,70)+slider('Wall thickness',3,1,8)+slider('Root blend',9,0,25)+`<div class="control"><label><span>Mouth shape</span></label><select><option>Oval</option><option>Round</option><option>Pinched</option><option>Knife edge</option><option>Flared</option></select></div>`);
+    }
+    if (state.active === 'handle') {
+      body += section('Path editor', `<div class="segmented"><button class="active">Bezier</button><button>Straight + radius</button></div>${pointRows(state.handlePoints)}`, `${state.handlePoints} points`);
+      body += section('Cross-section', `<div class="control"><label><span>Shape</span></label><select><option>Oval</option><option>Round</option><option>Rounded rectangle</option></select></div>`+slider('Section width',18,6,45)+slider('Section depth',11,6,35)+slider('Path taper',8,0,70,'%'));
+      body += section('Attachment pads', slider('Pad width',26,10,60)+slider('Embed depth',3,1,10)+slider('Blend radius',8,0,22));
+    }
+    if (state.active === 'lid') {
+      body += section('Traditional fit', `<div class="segmented">${[['gallery','Inset gallery'],['overlap','Overlap'],['flange','On flange']].map(([id,n])=>`<button data-fit="${id}" class="${state.lidFit===id?'active':''}">${n}</button>`).join('')}</div>`+slider('Fit clearance',0.8,0,4)+slider('Inner flange depth',14,3,35)+slider('Outer lip overhang',3,0,18)+slider('Shrink compensation',12,0,20,'%'));
+      body += section('Lid profile', `<div class="segmented"><button class="active">Bezier</button><button>Straight + radius</button></div>`+slider('Crown rise',22,0,70)+slider('Wall thickness',3,1,8)+slider('Gallery seat',6,2,18));
+      body += section('Handle & attachment', `<div class="control"><label><span>Handle style</span></label><select id="lidHandleSelect"><option value="mushroom">Mushroom knob</option><option value="round">Round knob</option><option value="loop">Loop</option><option value="bridge">Bridge</option><option value="ring">Ring</option><option value="fin">Fin</option><option value="bud">Teapot bud</option><option value="faceted">Faceted block</option></select></div><div class="control"><label><span>Attachment</span></label><select><option>Integral center</option><option>Single boss</option><option>Two lugs</option><option>Ring saddle</option><option>Through-hole</option></select></div>`+slider('Handle height',24,8,70)+slider('Mount fillet',4,0,15));
+      body += section('Research basis', `<div class="research-note"><b>Why these fit types?</b> Traditional references distinguish a vessel gallery (supporting ledge), the vessel flange, the lid flange, and a lid lip that can sit inside or overlap. <a href="http://ceramicdictionary.com/en/l-ll/438/lids-a-in-pottery." target="_blank">Read source ↗</a></div>`);
+    }
+    panel.innerHTML = `<div class="panel-head"><span class="eyebrow">${eye}</span><h2>${title}</h2><p>${desc}</p></div><div class="panel-body">${body}</div>`;
+    bindPanel();
+    updateStage();
+  }
+
+  function bindPanel() {
+    panel.querySelectorAll('[data-style]').forEach(btn => btn.addEventListener('click', () => { state.selectedSpout=btn.dataset.style; renderPanel(); }));
+    panel.querySelectorAll('[data-mode]').forEach(btn => btn.addEventListener('click', () => { state.pathMode=btn.dataset.mode; renderPanel(); }));
+    panel.querySelectorAll('[data-fit]').forEach(btn => btn.addEventListener('click', () => { state.lidFit=btn.dataset.fit; renderPanel(); }));
+    const add = document.getElementById('addPoint');
+    if (add) add.addEventListener('click', () => { state.handlePoints=Math.min(8,state.handlePoints+1); renderPanel(); });
+    const handleSelect = document.getElementById('lidHandleSelect');
+    if (handleSelect) { handleSelect.value=state.lidHandle; handleSelect.addEventListener('change',()=>{state.lidHandle=handleSelect.value; updateLidHandle();}); }
+    panel.querySelectorAll('input[type=range]').forEach(input => input.addEventListener('input', () => { const out=input.previousElementSibling?.querySelector('output'); if(out){const unit=out.textContent.trim().split(' ').pop();out.textContent=`${input.value} ${unit}`;} }));
+  }
+
+  function updateSpout() {
+    const s=spoutStyles.find(x=>x.id===state.selectedSpout) || spoutStyles[0];
+    document.getElementById('spoutShape').setAttribute('d',s.shape);
+    document.getElementById('spoutInner').setAttribute('d',s.inner);
+    document.getElementById('spoutMouth').setAttribute('d',s.mouth);
+  }
+
+  function updateLidFit() {
+    const flange=document.getElementById('lidFlange');
+    const paths={
+      gallery:'M365 229v25 M545 229v25 M365 254c45 11 135 11 180 0',
+      overlap:'M337 226v31 M573 226v31 M337 257c54 17 182 17 236 0',
+      flange:'M348 232h214 M364 232v13 M546 232v13'
+    };
+    flange.setAttribute('d',paths[state.lidFit]);
+  }
+
+  function updateLidHandle() {
+    const knob=document.getElementById('lidKnob');
+    const shapes={
+      mushroom:'M426 174 C430 153 440 144 455 144 C470 144 480 153 484 174 Z',
+      round:'M439 172 C430 155 439 137 455 137 C471 137 480 155 471 172 Z',
+      loop:'M429 171 C428 128 482 128 481 171 L470 171 C470 145 440 145 440 171 Z',
+      bridge:'M421 173 L430 145 Q455 132 480 145 L489 173 L477 173 L470 153 Q455 146 440 153 L433 173 Z',
+      ring:'M429 171 C425 135 485 135 481 171 L470 171 C472 151 438 151 440 171 Z',
+      fin:'M438 173 L449 126 L470 173 Z',
+      bud:'M439 173 Q436 152 455 133 Q474 152 471 173 Z',
+      faceted:'M431 173 L439 143 L468 136 L482 173 Z'
+    };
+    knob.setAttribute('d',shapes[state.lidHandle]||shapes.mushroom);
+  }
+
+  function updateStage() {
+    document.querySelectorAll('.element-tab').forEach(b=>b.classList.toggle('active',b.dataset.panel===state.active));
+    Object.entries(partEls).forEach(([name,el])=>{
+      const shown=state.solo ? name===state.solo : state.visible[name];
+      el.classList.toggle('hidden',!shown);
+      el.classList.toggle('active',name===state.active && shown);
+      el.classList.toggle('dim',name!==state.active && shown);
+    });
+    document.querySelectorAll('.visibility').forEach(b=>{
+      b.classList.toggle('on',state.visible[b.dataset.part]);
+      b.classList.toggle('solo',state.solo===b.dataset.part);
+    });
+    updateSpout(); updateLidFit(); updateLidHandle();
+    const names={base:'Base vessel',spout:`Spout · ${(spoutStyles.find(s=>s.id===state.selectedSpout)||spoutStyles[0]).name}`,handle:`Handle · ${state.handlePoints}-point Bezier`,lid:`Lid · ${state.lidFit==='gallery'?'Inset gallery':state.lidFit==='overlap'?'Overlapping skirt':'Direct on flange'}`};
+    caption.textContent=names[state.active];
+  }
+
+  document.querySelectorAll('.element-tab').forEach(btn=>btn.addEventListener('click',()=>{state.active=btn.dataset.panel;renderPanel();}));
+  document.querySelectorAll('.visibility').forEach(btn=>{
+    btn.addEventListener('click',()=>{state.solo=null;state.visible[btn.dataset.part]=!state.visible[btn.dataset.part];updateStage();});
+    btn.addEventListener('dblclick',e=>{e.preventDefault();state.solo=state.solo===btn.dataset.part?null:btn.dataset.part;updateStage();});
+  });
+
+  const backdrop=document.getElementById('sheetBackdrop');
+  document.getElementById('openPlan').addEventListener('click',()=>backdrop.classList.add('open'));
+  document.getElementById('closePlan').addEventListener('click',()=>backdrop.classList.remove('open'));
+  backdrop.addEventListener('click',e=>{if(e.target===backdrop)backdrop.classList.remove('open');});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')backdrop.classList.remove('open');});
+  document.querySelectorAll('.sheet-tab').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('.sheet-tab').forEach(b=>b.classList.toggle('active',b===btn));
+    document.querySelectorAll('.sheet-page').forEach(p=>p.classList.toggle('active',p.dataset.page===btn.dataset.sheet));
+  }));
+
+  renderPanel();
+</script>
+</body>
+</html>

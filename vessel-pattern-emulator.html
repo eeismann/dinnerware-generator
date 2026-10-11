@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vessel Surface Pattern Emulator — Playground Ceramics</title>
+<style>
+  :root {
+    --bg: #14171c;
+    --bg-2: #1b1f26;
+    --panel: #21262f;
+    --panel-2: #272d38;
+    --line: #333b47;
+    --ink: #eef1f5;
+    --ink-dim: #9aa4b2;
+    --ink-faint: #6b7482;
+    --clay: #e8e0d5;
+    --accent: #d98b5f;
+    --accent-2: #5fb0d9;
+    --radius: 14px;
+    --shadow: 0 10px 30px rgba(0,0,0,.45);
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    /* family colors */
+    --fam-long: #d98b5f;
+    --fam-lat: #6fb98f;
+    --fam-heli: #b98fd9;
+    --fam-latt: #5fb0d9;
+    --fam-org: #d9b45f;
+    --fam-und: #d96f8f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #20252e 0%, var(--bg) 55%) fixed;
+    color: var(--ink);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+  /* Gallery WebGL canvas overlay */
+  #gl-gallery {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 0 24px 80px; position: relative; z-index: 10; }
+
+  header.hero {
+    padding: 54px 0 26px;
+    position: relative; z-index: 10;
+  }
+  .eyebrow {
+    font-size: 12px; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin-bottom: 14px;
+  }
+  h1 { font-size: 40px; line-height: 1.08; margin: 0 0 14px; font-weight: 700; letter-spacing: -.02em; }
+  h1 .thin { color: var(--ink-dim); font-weight: 400; }
+  .lede { max-width: 720px; color: var(--ink-dim); font-size: 16.5px; }
+  .lede code { background: var(--panel); padding: 1px 6px; border-radius: 5px; color: var(--clay); font-size: 14px; }
+
+  .concept {
+    margin-top: 26px;
+    display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px;
+    background: linear-gradient(180deg, var(--panel) 0%, var(--bg-2) 100%);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px 24px;
+  }
+  .concept h3 { margin: 0 0 8px; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink); }
+  .concept p { margin: 0 0 10px; color: var(--ink-dim); font-size: 14px; }
+  .formula {
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    background: #10131a; border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; color: var(--clay); font-size: 13.5px; overflow-x: auto;
+  }
+  .formula .k { color: var(--accent-2); }
+  .formula .c { color: var(--ink-faint); }
+
+  /* Toolbar */
+  .toolbar {
+    position: sticky; top: 0; z-index: 30;
+    margin: 30px 0 22px;
+    display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center;
+    background: rgba(20,23,28,.82); backdrop-filter: blur(10px);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 12px 18px;
+  }
+  .toolbar .group { display: flex; align-items: center; gap: 10px; }
+  .toolbar label { font-size: 12px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .08em; }
+  .seg { display: inline-flex; background: var(--bg-2); border: 1px solid var(--line); border-radius: 9px; padding: 3px; }
+  .seg button {
+    background: transparent; border: 0; color: var(--ink-dim); cursor: pointer;
+    padding: 6px 12px; border-radius: 7px; font-size: 13px; font-weight: 500; font-family: var(--font);
+    transition: .14s;
+  }
+  .seg button:hover { color: var(--ink); }
+  .seg button.on { background: var(--accent); color: #1a1206; }
+  .toolbar input[type=range] { width: 130px; accent-color: var(--accent); }
+  .toolbar .val { font-variant-numeric: tabular-nums; color: var(--clay); font-size: 13px; min-width: 40px; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: var(--ink-dim); }
+  .switch input { accent-color: var(--accent); width: 16px; height: 16px; }
+  .count-note { margin-left: auto; color: var(--ink-faint); font-size: 12.5px; }
+
+  /* Family legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 0 0 20px; }
+  .legend .chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-dim); }
+  .legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* Gallery grid */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
+  .card {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--bg-2) 100%);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    overflow: hidden; cursor: pointer; transition: transform .16s, border-color .16s, box-shadow .16s;
+    position: relative;
+  }
+  .card:hover { transform: translateY(-3px); border-color: #4b5563; box-shadow: var(--shadow); }
+  .card .stage { width: 100%; aspect-ratio: 1 / 1; position: relative; background:
+      radial-gradient(120% 120% at 50% 20%, #2a3038 0%, #171a20 80%); }
+  .card .fam-tag {
+    position: absolute; top: 10px; left: 10px; z-index: 2;
+    font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600;
+    padding: 3px 8px; border-radius: 20px; color: #12151b;
+  }
+  .card .num { position: absolute; top: 10px; right: 12px; z-index: 2; font-size: 12px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .card .meta { padding: 13px 15px 15px; }
+  .card .name { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+  .card .blurb { font-size: 12.5px; color: var(--ink-dim); margin: 0; min-height: 34px; }
+  .card .expand { margin-top: 10px; font-size: 12px; color: var(--accent); opacity: 0; transition: .16s; }
+  .card:hover .expand { opacity: 1; }
+
+  /* Detail modal */
+  .modal-scrim {
+    position: fixed; inset: 0; z-index: 100; display: none;
+    background: rgba(8,10,14,.72); backdrop-filter: blur(6px);
+    align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal-scrim.open { display: flex; }
+  .modal {
+    width: min(1140px, 96vw); height: min(760px, 92vh);
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: var(--shadow); overflow: hidden;
+    display: grid; grid-template-columns: 1.35fr 1fr;
+  }
+  .modal .viz { position: relative; background: radial-gradient(130% 120% at 50% 10%, #2b323c 0%, #14171c 78%); }
+  .modal .viz canvas { display: block; width: 100%; height: 100%; }
+  .modal .viz .hint { position: absolute; bottom: 14px; left: 16px; font-size: 12px; color: var(--ink-faint); }
+  .modal .side { padding: 26px 26px 20px; overflow-y: auto; }
+  .modal .side .fam-tag {
+    display: inline-block; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600;
+    padding: 3px 9px; border-radius: 20px; color: #12151b; margin-bottom: 12px;
+  }
+  .modal h2 { margin: 0 0 6px; font-size: 25px; letter-spacing: -.01em; }
+  .modal .why { color: var(--ink-dim); font-size: 14px; margin: 0 0 16px; }
+  .modal .formula { margin-bottom: 20px; font-size: 12.5px; }
+  .controls .ctl { margin-bottom: 15px; }
+  .controls .ctl .row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+  .controls .ctl .lbl { font-size: 12.5px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .06em; }
+  .controls .ctl .num { font-size: 13px; color: var(--clay); font-variant-numeric: tabular-nums; }
+  .controls input[type=range] { width: 100%; accent-color: var(--accent); }
+  .relief-seg { display: inline-flex; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
+  .relief-seg button { background: transparent; border: 0; color: var(--ink-dim); cursor: pointer; padding: 5px 12px; border-radius: 6px; font-size: 12.5px; font-family: var(--font); }
+  .relief-seg button.on { background: var(--panel-2); color: var(--ink); }
+  .modal .close {
+    position: absolute; top: 16px; right: 18px; z-index: 5;
+    background: rgba(0,0,0,.35); border: 1px solid var(--line); color: var(--ink);
+    width: 34px; height: 34px; border-radius: 9px; cursor: pointer; font-size: 18px; line-height: 1;
+  }
+  .modal .navbtns { display: flex; gap: 8px; margin-top: 6px; }
+  .modal .navbtns button {
+    flex: 1; background: var(--panel); border: 1px solid var(--line); color: var(--ink-dim);
+    padding: 9px; border-radius: 9px; cursor: pointer; font-size: 13px; font-family: var(--font); transition: .14s;
+  }
+  .modal .navbtns button:hover { color: var(--ink); border-color: #4b5563; }
+
+  footer { color: var(--ink-faint); font-size: 12.5px; margin-top: 40px; text-align: center; }
+
+  @media (max-width: 780px) {
+    .concept { grid-template-columns: 1fr; }
+    .modal { grid-template-columns: 1fr; grid-template-rows: 300px 1fr; }
+    h1 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="gl-gallery"></canvas>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">Playground Ceramics · Vessel Generator R&amp;D</div>
+    <h1>Surface Pattern Emulator <span class="thin">— 30 parametric motifs on the revolved wall</span></h1>
+    <p class="lede">
+      Every vessel is a 2D profile revolved around the vertical axis. A surface pattern is a
+      <strong>height field displaced along the profile's outward normal</strong> — one engine, driven by angle
+      <code>θ</code> and height <code>t</code>. Change the function, change the motif. Below is an exhaustive,
+      live gallery of pattern <em>families</em>, each rendered as real geometry on the same vessel. Click any tile
+      to open it interactively and dial its parameters.
+    </p>
+
+    <div class="concept">
+      <div>
+        <h3>The one engine behind all of them</h3>
+        <p>For each point on the wall we compute a signed offset and push the surface in/out along its normal.
+           Patterns differ only in how the offset depends on where you are around the pot (θ) and how high (t):</p>
+        <div class="formula">
+r'(θ,t) = r(t) + <span class="k">A</span> · <span class="k">D</span>(θ,t) · fade(t)  <span class="c">// along 2D normal (n_r, n_h)</span>
+
+<span class="c">longitudinal</span> D = f(<span class="k">N</span>·θ)          <span class="c">flutes, reeds, facets, lobes</span>
+<span class="c">latitudinal </span> D = f(<span class="k">M</span>·t)          <span class="c">rings, bamboo, terraces</span>
+<span class="c">helical     </span> D = f(<span class="k">N</span>·θ + <span class="k">k</span>·t)    <span class="c">twist flutes, rope, screw</span>
+<span class="c">lattice     </span> D = g(<span class="k">N</span>·θ) · g(<span class="k">M</span>·t) <span class="c">hobnail, bead, knurl, hex</span>
+<span class="c">organic     </span> D = noise / worley(θ,t) <span class="c">hammered, bark, crackle</span>
+        </div>
+      </div>
+      <div>
+        <h3>Why this taxonomy is exhaustive</h3>
+        <p>Any wall decoration reduces to <em>which variable it repeats along</em> and <em>what waveform repeats</em>.
+        Repeat around → vertical family. Repeat up → horizontal family. Repeat along a tilted axis → helical.
+        Repeat along both → lattice. Break periodicity with noise → organic. Beat two frequencies → undulating/moiré.</p>
+        <p>Everything survives STL export because it is a watertight displaced grid — the same reason knurling on
+        cups is done with displacement, not booleans, in Fusion 360 &amp; friends.</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <label>Silhouette</label>
+      <div class="seg" id="silhouette-seg">
+        <button data-sil="tumbler" class="on">Tumbler</button>
+        <button data-sil="vase">Vase</button>
+        <button data-sil="bowl">Bowl</button>
+        <button data-sil="cup">Cup</button>
+      </div>
+    </div>
+    <div class="group">
+      <label>Depth ×</label>
+      <input type="range" id="amp-master" min="0.3" max="2.2" step="0.05" value="1">
+      <span class="val" id="amp-master-val">1.0×</span>
+    </div>
+    <label class="switch"><input type="checkbox" id="spin" checked> Auto-rotate</label>
+    <label class="switch"><input type="checkbox" id="wire"> Wireframe</label>
+    <span class="count-note" id="count-note"></span>
+  </div>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    Mock emulator · normal-direction height-field displacement · Three.js r160 · shapes are illustrative previews,
+    not export-tuned geometry.
+  </footer>
+</div>
+
+<!-- Detail modal -->
+<div class="modal-scrim" id="scrim">
+  <div class="modal" id="modal">
+    <button class="close" id="close-btn" title="Close">×</button>
+    <div class="viz">
+      <canvas id="detail-canvas"></canvas>
+      <div class="hint">drag to orbit · scroll to zoom</div>
+    </div>
+    <div class="side">
+      <span class="fam-tag" id="d-fam"></span>
+      <h2 id="d-name"></h2>
+      <p class="why" id="d-why"></p>
+      <div class="formula" id="d-formula"></div>
+      <div class="controls" id="d-controls"></div>
+      <div class="navbtns">
+        <button id="prev-btn">← Previous</button>
+        <button id="next-btn">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ============================================================================
+   MATH HELPERS
+   ============================================================================ */
+const TAU = Math.PI * 2;
+const clamp01 = x => x < 0 ? 0 : x > 1 ? 1 : x;
+const fr = x => x - Math.floor(x);
+function smoothstep(a, b, x) { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); }
+// rounded ridge in [0,1], peak at integer x
+const cosRidge = x => 0.5 + 0.5 * Math.cos(TAU * x);
+// triangle wave in [0,1], peak at half-integer
+const triWave = x => { const f = fr(x); return 1 - Math.abs(2 * f - 1); };
+// shape a [0,1] bump by sharpness (0 = broad, 1 = spiky)
+const shape01 = (x, sharp) => Math.pow(clamp01(x), 0.4 + sharp * 4.0);
+
+// hash + seamless (periodic in θ) value noise on a cylinder param
+function hash2(i, j) { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); }
+function valueNoise(x, y, nc) {
+  const x0 = Math.floor(x), y0 = Math.floor(y);
+  const fx = x - x0, fy = y - y0;
+  const wx = i => ((i % nc) + nc) % nc;
+  const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+  const a = hash2(wx(x0), y0), b = hash2(wx(x0 + 1), y0);
+  const c = hash2(wx(x0), y0 + 1), d = hash2(wx(x0 + 1), y0 + 1);
+  return (a * (1 - ux) + b * ux) * (1 - uy) + (c * (1 - ux) + d * ux) * uy;
+}
+function fbm(x, y, nc) { return 0.6 * valueNoise(x, y, nc) + 0.3 * valueNoise(x * 2, y * 2, nc * 2) + 0.1 * valueNoise(x * 4, y * 4, nc * 4); }
+
+// periodic worley (cellular) — returns {f1,f2}; angular cells wrap at N
+function worley(u, v, N, M) {
+  const gx = u * N, gy = v * M;
+  const cx = Math.floor(gx), cy = Math.floor(gy);
+  let f1 = 9, f2 = 9;
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+    const ix = cx + dx, iy = cy + dy;
+    const wx = ((ix % N) + N) % N;
+    const px = ix + hash2(wx, iy * 3.7);
+    const py = iy + hash2(wx * 2.3, iy);
+    const ddx = px - gx, ddy = py - gy;
+    const d = Math.sqrt(ddx * ddx + ddy * ddy);
+    if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) { f2 = d; }
+  }
+  return { f1, f2 };
+}
+
+/* ============================================================================
+   PATTERN LIBRARY  — the exhaustive taxonomy
+   Each fn(u, v, p) returns a signed value ~[-1,1]. u = θ/2π, v = height 0..1.
+   p = { N, M, twist, sharp }.  relief sign & amplitude applied by the builder.
+   ============================================================================ */
+const FAMILIES = {
+  longitudinal: { label: 'Longitudinal', color: 'var(--fam-long)', hex: '#d98b5f' },
+  latitudinal:  { label: 'Latitudinal',  color: 'var(--fam-lat)',  hex: '#6fb98f' },
+  helical:      { label: 'Helical',      color: 'var(--fam-heli)', hex: '#b98fd9' },
+  lattice:      { label: 'Lattice',      color: 'var(--fam-latt)', hex: '#5fb0d9' },
+  organic:      { label: 'Organic',      color: 'var(--fam-org)',  hex: '#d9b45f' },
+  undulating:   { label: 'Undulating',   color: 'var(--fam-und)',  hex: '#d96f8f' },
+};
+
+// control descriptors
+const CTL = {
+  amp:   { lbl: 'Depth',        min: 0.2, max: 8,   step: 0.1, unit: ' mm' },
+  N:     { lbl: 'Count (around)', min: 3, max: 96,  step: 1,   unit: '',   int: true },
+  M:     { lbl: 'Repeats (up)', min: 1,  max: 60,   step: 1,   unit: '',   int: true },
+  twist: { lbl: 'Twist (turns)', min: -4, max: 4,   step: 0.1, unit: '' },
+  sharp: { lbl: 'Sharpness',    min: 0,  max: 1,    step: 0.02, unit: '' },
+};
+
+const PATTERNS = [
+  /* ---------- LONGITUDINAL (repeat around) ---------- */
+  {
+    id: 'reeding', name: 'Reeding', family: 'longitudinal',
+    blurb: 'Many thin convex ribs running top-to-bottom.',
+    why: 'The classic column-reed: narrow raised ribs give a crisp, light-catching vertical rhythm and improve grip. It is the raised inverse of fluting.',
+    formula: 'D = ridge(N·θ)^sharp · (+relief)',
+    def: { amp: 1.4, N: 40, sharp: 0.45, relief: +1 }, controls: ['amp', 'N', 'sharp', 'relief'],
+    fn: (u, v, p) => shape01(cosRidge(p.N * u), p.sharp),
+  },
+  {
+    id: 'fluting', name: 'Fluting', family: 'longitudinal',
+    blurb: 'Concave vertical grooves carved into the wall.',
+    why: 'Recessed channels (think Doric columns / fluted tumblers). Same waveform as reeding but pushed inward, reading as shadowed valleys rather than highlights.',
+    formula: 'D = ridge(N·θ)^sharp · (−relief)',
+    def: { amp: 1.6, N: 30, sharp: 0.5, relief: -1 }, controls: ['amp', 'N', 'sharp', 'relief'],
+    fn: (u, v, p) => shape01(cosRidge(p.N * u), p.sharp),
+  },
+  {
+    id: 'faceting', name: 'Faceting', family: 'longitudinal',
+    blurb: 'Flat planar faces — a polygonal cross-section.',
+    why: 'Instead of a round wall, snap the circle toward an inscribed N-gon: crisp flats meeting at sharp arrises. Uniquely reshapes the silhouette itself, not just the surface.',
+    formula: 'D = cos(π/N)/cos(φ) − 1   (φ = angle within facet)',
+    def: { amp: 6, N: 10, sharp: 0, relief: +1 }, controls: ['amp', 'N', 'relief'],
+    fn: (u, v, p) => {
+      const sector = TAU / p.N;
+      const phi = (fr(u * p.N) - 0.5) * sector;
+      const poly = Math.cos(sector / 2) / Math.cos(phi);
+      return (poly - 1) / (1 - Math.cos(sector / 2) + 1e-6); // normalized to [-1,0]
+    },
+  },
+  {
+    id: 'scallop', name: 'Scalloped Lobes', family: 'longitudinal',
+    blurb: 'A few large rounded lobes — a flower cross-section.',
+    why: 'Low count + big amplitude turns the whole body into soft petals/melon lobes. Distinct from reeding: it restructures the pot into bold undulating pillows rather than fine ribs.',
+    formula: 'D = ½ + ½cos(N·θ),  small N, large A',
+    def: { amp: 5, N: 8, sharp: 0, relief: +1 }, controls: ['amp', 'N', 'relief'],
+    fn: (u, v, p) => cosRidge(p.N * u) * 2 - 1,
+  },
+  {
+    id: 'gadroon', name: 'Gadrooning', family: 'longitudinal',
+    blurb: 'Lobes concentrated at the base, fading upward.',
+    why: 'Ornamental convex lobes that swell from the foot and dissolve toward the rim — a silversmith motif. Unique for coupling a longitudinal ridge with a vertical envelope.',
+    formula: 'D = ridge(N·θ) · (1 − smoothstep(0,0.6,t))',
+    def: { amp: 3.5, N: 16, sharp: 0.3, relief: +1 }, controls: ['amp', 'N', 'sharp', 'relief'],
+    fn: (u, v, p) => shape01(cosRidge(p.N * u), p.sharp) * (1 - smoothstep(0.0, 0.6, v)),
+  },
+  {
+    id: 'pleat', name: 'Pleating', family: 'longitudinal',
+    blurb: 'Sharp accordion folds — alternating in/out creases.',
+    why: 'A triangle wave gives hard-edged radial folds like pressed fabric or origami. Unique waveform: zero rounded transition, so every crease is a knife edge.',
+    formula: 'D = 2·tri(N·θ) − 1   (triangle wave)',
+    def: { amp: 3, N: 22, sharp: 0.8, relief: +1 }, controls: ['amp', 'N', 'relief'],
+    fn: (u, v, p) => (triWave(p.N * u) * 2 - 1),
+  },
+
+  /* ---------- LATITUDINAL (repeat up) ---------- */
+  {
+    id: 'ribbing', name: 'Horizontal Ribbing', family: 'latitudinal',
+    blurb: 'Stacked horizontal rings up the wall.',
+    why: 'Coil-built / banded look — rings encircle the pot. No seam issue at all since it depends only on height. Reads as sedimentary strata.',
+    formula: 'D = ridge(M·t)^sharp',
+    def: { amp: 1.2, M: 20, sharp: 0.4, relief: +1 }, controls: ['amp', 'M', 'sharp', 'relief'],
+    fn: (u, v, p) => shape01(cosRidge(p.M * v), p.sharp),
+  },
+  {
+    id: 'throwingRings', name: 'Throwing Rings', family: 'latitudinal',
+    blurb: 'Fine, shallow spiral-like ripples from the wheel.',
+    why: 'Simulates the subtle hand-thrown finger ridges: many low-amplitude rings. Unique for its restraint — texture you feel more than see.',
+    formula: 'D = ½ + ½sin(2π·M·t),  large M, tiny A',
+    def: { amp: 0.5, M: 46, sharp: 0.2, relief: +1 }, controls: ['amp', 'M', 'relief'],
+    fn: (u, v, p) => cosRidge(p.M * v),
+  },
+  {
+    id: 'bamboo', name: 'Bamboo Nodes', family: 'latitudinal',
+    blurb: 'Periodic swelling rings with smooth internodes.',
+    why: 'Widely-spaced bulging bands like bamboo joints. Unique profile: broad swells (not thin ridges) separated by long smooth stretches.',
+    formula: 'D = ridge(M·t)^0.35   (broadened bumps)',
+    def: { amp: 3, M: 6, sharp: 0, relief: +1 }, controls: ['amp', 'M', 'relief'],
+    fn: (u, v, p) => Math.pow(cosRidge(p.M * v), 0.35),
+  },
+  {
+    id: 'terrace', name: 'Terraced Steps', family: 'latitudinal',
+    blurb: 'Contour steps like a topographic model.',
+    why: 'A sawtooth in height creates stacked ledges — each band ramps out then drops back. Unique for asymmetric (ramp-then-cliff) cross-section, echoing 3D-print layer aesthetics.',
+    formula: 'D = 2·frac(M·t) − 1   (sawtooth)',
+    def: { amp: 2.2, M: 14, sharp: 0, relief: +1 }, controls: ['amp', 'M', 'relief'],
+    fn: (u, v, p) => fr(p.M * v) * 2 - 1,
+  },
+  {
+    id: 'chevron', name: 'Chevron Bands', family: 'latitudinal',
+    blurb: 'Zigzag ridges — horizontal bands kinked into Vs.',
+    why: 'Add a triangle-wave phase shift around the circumference to horizontal rings and they bend into repeating chevrons. Unique for turning a purely up-repeating band into a directional zigzag without a true helix.',
+    formula: 'D = ridge(M·t + tri(N·θ))',
+    def: { amp: 1.8, N: 8, M: 16, sharp: 0.45, relief: +1 }, controls: ['amp', 'N', 'M', 'sharp', 'relief'],
+    fn: (u, v, p) => shape01(cosRidge(p.M * v + triWave(p.N * u)), p.sharp),
+  },
+
+  /* ---------- HELICAL (repeat along a tilted axis) ---------- */
+  {
+    id: 'spiralFlute', name: 'Spiral Fluting', family: 'helical',
+    blurb: 'Flutes that rotate as they climb.',
+    why: 'Add a twist term so vertical grooves wind around the pot. Unique for introducing motion — the eye spirals upward. Twist sign flips handedness.',
+    formula: 'D = ridge(N·θ + k·t)^sharp',
+    def: { amp: 1.8, N: 24, twist: 1.5, sharp: 0.5, relief: -1 }, controls: ['amp', 'N', 'twist', 'sharp', 'relief'],
+    fn: (u, v, p) => shape01(cosRidge(p.N * u + p.twist * v), p.sharp),
+  },
+  {
+    id: 'rope', name: 'Rope / Cable Twist', family: 'helical',
+    blurb: 'Bold rounded cords spiraling like twisted rope.',
+    why: 'Few thick starts + strong twist give plump helical cords. Unique for its heavy, tactile relief — a decorative border turned into a whole-body texture.',
+    formula: 'D = ridge(N·θ + k·t),  round, high k',
+    def: { amp: 3, N: 14, twist: 2.4, sharp: 0.15, relief: +1 }, controls: ['amp', 'N', 'twist', 'relief'],
+    fn: (u, v, p) => Math.pow(cosRidge(p.N * u + p.twist * v), 0.6),
+  },
+  {
+    id: 'screw', name: 'Single-Thread Helix', family: 'helical',
+    blurb: 'One continuous ridge winding top to bottom.',
+    why: 'A single start (N=1) with many turns: a screw-thread / unicursal spiral. Unique because the pattern is one unbroken line rather than a repeating set.',
+    formula: 'D = ridge(1·θ + k·t)',
+    def: { amp: 2.4, N: 1, twist: 3.5, sharp: 0.3, relief: +1 }, controls: ['amp', 'twist', 'sharp', 'relief'],
+    fn: (u, v, p) => shape01(cosRidge(1 * u + p.twist * v), p.sharp),
+  },
+  {
+    id: 'optic', name: 'Optic Swirl', family: 'helical',
+    blurb: 'Subtle many-start twist, like optic-mold glass.',
+    why: 'High count, gentle twist, shallow depth: the soft swirled shimmer of optic glassware. Unique for being almost subliminal — reads as light play more than relief.',
+    formula: 'D = ridge(N·θ + k·t),  large N, small k & A',
+    def: { amp: 0.7, N: 30, twist: 0.6, sharp: 0.2, relief: +1 }, controls: ['amp', 'N', 'twist', 'relief'],
+    fn: (u, v, p) => cosRidge(p.N * u + p.twist * v),
+  },
+  {
+    id: 'doubleHelix', name: 'Double Helix', family: 'helical',
+    blurb: 'Two interleaved ribbons winding around.',
+    why: 'The union of two offset helices (barber-pole / DNA). Unique for reading as intertwined strands rather than parallel grooves.',
+    formula: 'D = max( ridge(θ+kt), ridge(θ+kt+½) )',
+    def: { amp: 2.6, N: 3, twist: 3, sharp: 0.3, relief: +1 }, controls: ['amp', 'N', 'twist', 'relief'],
+    fn: (u, v, p) => Math.max(cosRidge(p.N * u + p.twist * v), cosRidge(p.N * u + p.twist * v + 0.5)),
+  },
+
+  /* ---------- LATTICE (repeat along both) ---------- */
+  {
+    id: 'hobnail', name: 'Hobnail Quilting', family: 'lattice',
+    blurb: 'Raised bumps on a diamond grid.',
+    why: 'Two opposing diagonal waves multiplied give a diamond lattice of studs — the pressed-glass hobnail. Unique diagonal registration reads as diamonds, not a square grid.',
+    formula: 'D = ridge(Nθ+Mt)·ridge(Nθ−Mt)',
+    def: { amp: 2.2, N: 18, M: 12, sharp: 0.5, relief: +1 }, controls: ['amp', 'N', 'M', 'sharp', 'relief'],
+    fn: (u, v, p) => shape01(cosRidge(p.N * u + p.M * v) * cosRidge(p.N * u - p.M * v), p.sharp),
+  },
+  {
+    id: 'beading', name: 'Beading (Grid)', family: 'lattice',
+    blurb: 'Rows of little hemispherical beads.',
+    why: 'A separable product of an around-wave and an up-wave: aligned rows/columns of dots. Unique orthogonal registration distinguishes it from diamond hobnail.',
+    formula: 'D = ridge(N·θ) · ridge(M·t)',
+    def: { amp: 1.8, N: 24, M: 22, sharp: 0.55, relief: +1 }, controls: ['amp', 'N', 'M', 'sharp', 'relief'],
+    fn: (u, v, p) => shape01(cosRidge(p.N * u) * cosRidge(p.M * v), p.sharp),
+  },
+  {
+    id: 'basketweave', name: 'Basketweave', family: 'lattice',
+    blurb: 'Over-and-under woven blocks.',
+    why: 'Checkerboard cells alternate between a vertical strand and a horizontal strand, faking woven relief. Unique for encoding orientation, not just amplitude, per cell.',
+    formula: 'cell parity → strand runs ⟂ ; D = ridge(strand)',
+    def: { amp: 2, N: 16, M: 16, sharp: 0.4, relief: +1 }, controls: ['amp', 'N', 'M', 'relief'],
+    fn: (u, v, p) => {
+      const a = u * p.N, b = v * p.M;
+      const even = ((Math.floor(a) + Math.floor(b)) & 1) === 0;
+      return shape01(even ? cosRidge(a) : cosRidge(b), p.sharp);
+    },
+  },
+  {
+    id: 'knurl', name: 'Knurling', family: 'lattice',
+    blurb: 'Fine machined diamond grip texture.',
+    why: 'Intersecting sharp diagonal V-grooves make the tight diamond peaks of a knurled tool grip. Unique for maximum density + hard V cross-section = pure tactile function.',
+    formula: 'D = min( ridge(Nθ+Mt), ridge(Nθ−Mt) )^sharp',
+    def: { amp: 1.2, N: 40, M: 34, sharp: 0.85, relief: +1 }, controls: ['amp', 'N', 'M', 'relief'],
+    fn: (u, v, p) => shape01(Math.min(cosRidge(p.N * u + p.M * v), cosRidge(p.N * u - p.M * v)), p.sharp),
+  },
+  {
+    id: 'diamondFacet', name: 'Cut-Crystal Facets', family: 'lattice',
+    blurb: 'Large faceted diamonds — cut-glass gemwork.',
+    why: 'Deep crossed V-grooves carve big diamond flats that catch light like leaded crystal. Unique for recessed, faceted (not rounded) cells at low density.',
+    formula: 'D = −½[(1−tri(Nθ+Mt)) + (1−tri(Nθ−Mt))]',
+    def: { amp: 3, N: 12, M: 9, sharp: 0, relief: +1 }, controls: ['amp', 'N', 'M', 'relief'],
+    fn: (u, v, p) => -0.5 * ((1 - triWave(p.N * u + p.M * v)) + (1 - triWave(p.N * u - p.M * v))),
+  },
+  {
+    id: 'hex', name: 'Hex Tessellation', family: 'lattice',
+    blurb: 'Honeycomb cells of bumps.',
+    why: 'Summing three cosine waves 60° apart yields a hexagonal bump lattice — nature’s tightest packing. Unique three-axis interference no product-of-two grid can make.',
+    formula: 'D = Σ cos over 3 axes at 60°',
+    def: { amp: 2, N: 16, M: 14, sharp: 0.5, relief: +1 }, controls: ['amp', 'N', 'M', 'sharp', 'relief'],
+    fn: (u, v, p) => {
+      const a = Math.cos(TAU * p.N * u);
+      const b = Math.cos(TAU * (0.5 * p.N * u + p.M * v));
+      const c = Math.cos(TAU * (-0.5 * p.N * u + p.M * v));
+      return shape01((a + b + c) / 3 * 0.5 + 0.5, p.sharp);
+    },
+  },
+  {
+    id: 'dimple', name: 'Dimpling', family: 'lattice',
+    blurb: 'Recessed round dimples — golf-ball / hammered.',
+    why: 'Beading inverted: sunken cups instead of studs. Unique for reading as a peened, dappled surface that scatters light softly.',
+    formula: 'D = − ridge(N·θ) · ridge(M·t)',
+    def: { amp: 1.6, N: 26, M: 22, sharp: 0.55, relief: -1 }, controls: ['amp', 'N', 'M', 'sharp', 'relief'],
+    fn: (u, v, p) => shape01(cosRidge(p.N * u) * cosRidge(p.M * v), p.sharp),
+  },
+  {
+    id: 'coffer', name: 'Coffered Panels', family: 'lattice',
+    blurb: 'Sunken rectangular panels with raised frames.',
+    why: 'Each grid cell is a flat recessed panel bordered by a ridge — an architectural coffer wrapped onto the pot. Unique for flat-bottomed cells (not curved bumps).',
+    formula: 'D = − panelMask(θ,t)  (edge-framed cells)',
+    def: { amp: 2, N: 12, M: 12, sharp: 0, relief: +1 }, controls: ['amp', 'N', 'M', 'relief'],
+    fn: (u, v, p) => {
+      const du = fr(u * p.N), dv = fr(v * p.M);
+      const inU = smoothstep(0, 0.16, du) * smoothstep(0, 0.16, 1 - du);
+      const inV = smoothstep(0, 0.16, dv) * smoothstep(0, 0.16, 1 - dv);
+      return -(inU * inV); // interior recessed, frame at 0
+    },
+  },
+
+  /* ---------- ORGANIC (break periodicity) ---------- */
+  {
+    id: 'hammered', name: 'Hammered Metal', family: 'organic',
+    blurb: 'Irregular faceted planishing marks.',
+    why: 'Quantized value noise gives random shallow facets like hand-hammered copper. Unique for controlled irregularity — a grid that refuses to be a grid.',
+    formula: 'D = round(noise·L)/L,  faceted value noise',
+    def: { amp: 1.6, N: 14, sharp: 0, relief: +1 }, controls: ['amp', 'N', 'relief'],
+    fn: (u, v, p) => {
+      const levels = 6;
+      const nz = fbm(u * p.N, v * p.N * 1.3, p.N);
+      return Math.round(nz * levels) / levels * 2 - 1;
+    },
+  },
+  {
+    id: 'bark', name: 'Bark Striations', family: 'organic',
+    blurb: 'Vertically-stretched organic ridges.',
+    why: 'Noise elongated in the height direction and ridged, mimicking tree bark or wood grain. Unique anisotropy — random around, streaky up.',
+    formula: 'D = ridge(noise stretched in t)',
+    def: { amp: 1.8, N: 22, sharp: 0.4, relief: +1 }, controls: ['amp', 'N', 'sharp', 'relief'],
+    fn: (u, v, p) => {
+      const nz = fbm(u * p.N, v * 3.0, p.N);
+      return (1 - Math.abs(nz * 2 - 1)); // ridged
+    },
+  },
+  {
+    id: 'melt', name: 'Molten / Blobby', family: 'organic',
+    blurb: 'Soft low-frequency swells, like slumped clay.',
+    why: 'Very low-frequency smooth noise gently inflates and dents the whole form. Unique for large, soft, non-repeating undulation — the pot looks hand-squeezed.',
+    formula: 'D = 2·fbm(low freq) − 1',
+    def: { amp: 3.5, N: 5, sharp: 0, relief: +1 }, controls: ['amp', 'N', 'relief'],
+    fn: (u, v, p) => fbm(u * p.N, v * p.N, Math.max(3, Math.round(p.N))) * 2 - 1,
+  },
+  {
+    id: 'crackle', name: 'Voronoi Crackle', family: 'organic',
+    blurb: 'A network of recessed crack lines.',
+    why: 'Worley cellular noise: the seams between random cells become fine incised cracks, like crackle glaze or dried mud. Unique for foregrounding cell borders, not cell interiors.',
+    formula: 'D = −(1 − smoothstep(F2−F1))   (cell edges)',
+    def: { amp: 1.4, N: 14, M: 16, sharp: 0, relief: +1 }, controls: ['amp', 'N', 'M', 'relief'],
+    fn: (u, v, p) => {
+      const { f1, f2 } = worley(u, v, Math.max(3, Math.round(p.N)), Math.max(3, Math.round(p.M)));
+      const edge = smoothstep(0.0, 0.10, f2 - f1); // ~0 on cracks, 1 inside cells
+      return -(1 - edge);
+    },
+  },
+
+  /* ---------- UNDULATING (beat two frequencies) ---------- */
+  {
+    id: 'undulate', name: 'Undulating Wobble', family: 'undulating',
+    blurb: 'Slow swell that drifts around and up.',
+    why: 'A low-frequency around-wave times a low-frequency up-wave: the rim and body gently pinch and swell in a checker of soft hollows. Unique for coupling both axes at large scale.',
+    formula: 'D = cos(N·θ) · cos(M·t)',
+    def: { amp: 3.5, N: 6, M: 4, sharp: 0, relief: +1 }, controls: ['amp', 'N', 'M', 'relief'],
+    fn: (u, v, p) => Math.cos(TAU * p.N * u) * Math.cos(TAU * p.M * v),
+  },
+  {
+    id: 'moire', name: 'Moiré Interference', family: 'undulating',
+    blurb: 'Two close ring frequencies beating together.',
+    why: 'Superposing two nearly-equal horizontal frequencies produces travelling beat bands — a moiré that pulses in width up the wall. Unique emergent macro-pattern from micro-detail.',
+    formula: 'D = sin(2π M t) + sin(2π·1.12M·t + N·θ)',
+    def: { amp: 1.4, N: 8, M: 26, sharp: 0, relief: +1 }, controls: ['amp', 'N', 'M', 'relief'],
+    fn: (u, v, p) => 0.5 * (Math.sin(TAU * p.M * v) + Math.sin(TAU * 1.12 * p.M * v + TAU * p.N * u)),
+  },
+];
+
+/* ============================================================================
+   SILHOUETTES — control points (t in 0..1 → radius mm) + height
+   ============================================================================ */
+const SILHOUETTES = {
+  tumbler: { H: 105, cp: [[0, 30], [0.05, 32], [0.5, 33.5], [0.85, 34], [1, 33]] },
+  vase:    { H: 130, cp: [[0, 15], [0.06, 17], [0.16, 27], [0.38, 41], [0.6, 35], [0.76, 18], [0.86, 17], [0.94, 22], [1, 26]] },
+  bowl:    { H: 62,  cp: [[0, 12], [0.05, 18], [0.28, 44], [0.62, 66], [1, 78]] },
+  cup:     { H: 92,  cp: [[0, 25], [0.05, 27], [0.5, 32], [0.9, 37], [1, 38]] },
+};
+
+// Catmull-Rom through control points (x monotone in [0,1])
+function sampleCP(cp, x) {
+  // find segment
+  let i = 0;
+  while (i < cp.length - 2 && x > cp[i + 1][0]) i++;
+  const p0 = cp[Math.max(0, i - 1)], p1 = cp[i], p2 = cp[Math.min(cp.length - 1, i + 1)], p3 = cp[Math.min(cp.length - 1, i + 2)];
+  const seg = (p2[0] - p1[0]) || 1e-6;
+  const t = clamp01((x - p1[0]) / seg);
+  const t2 = t * t, t3 = t2 * t;
+  const y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t +
+    (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+    (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+  return y;
+}
+
+function buildProfile(silId, rows) {
+  const sil = SILHOUETTES[silId];
+  const r = new Float32Array(rows), h = new Float32Array(rows), nr = new Float32Array(rows), nh = new Float32Array(rows), vv = new Float32Array(rows);
+  for (let i = 0; i < rows; i++) {
+    const t = i / (rows - 1);
+    r[i] = Math.max(1, sampleCP(sil.cp, t));
+    h[i] = t * sil.H;
+    vv[i] = t;
+  }
+  // normals from finite differences of (r,h): outward normal = (dh, -dr) normalized
+  for (let i = 0; i < rows; i++) {
+    const a = Math.max(0, i - 1), b = Math.min(rows - 1, i + 1);
+    const dr = r[b] - r[a], dh = h[b] - h[a];
+    const len = Math.hypot(dr, dh) || 1e-6;
+    nr[i] = dh / len;
+    nh[i] = -dr / len;
+    if (nr[i] < 0) { nr[i] = -nr[i]; nh[i] = -nh[i]; } // keep outward (+r)
+  }
+  return { r, h, nr, nh, v: vv, H: sil.H, rows };
+}
+
+/* ============================================================================
+   GEOMETRY BUILDER — revolved displaced grid
+   ============================================================================ */
+function fadeEnv(v) {
+  return smoothstep(0.0, 0.035, v) * (1 - smoothstep(0.9, 1.0, v));
+}
+
+function buildGeometry(profile, pattern, params, cols, ampScale) {
+  const rows = profile.rows;
+  const nVerts = rows * cols + 1; // + bottom center
+  const pos = new Float32Array(nVerts * 3);
+  const relief = params.relief ?? pattern.def.relief ?? 1;
+  const amp = (params.amp ?? pattern.def.amp) * ampScale;
+
+  const p = {
+    N: params.N ?? pattern.def.N ?? 12,
+    M: params.M ?? pattern.def.M ?? 12,
+    twist: params.twist ?? pattern.def.twist ?? 0,
+    sharp: params.sharp ?? pattern.def.sharp ?? 0.3,
+  };
+
+  for (let i = 0; i < rows; i++) {
+    const r = profile.r[i], h = profile.h[i], nr = profile.nr[i], nh = profile.nh[i], v = profile.v[i];
+    const env = fadeEnv(v) * amp * relief;
+    for (let j = 0; j < cols; j++) {
+      const u = j / cols;
+      const d = pattern.fn(u, v, p) * env;
+      const rr = Math.max(0.5, r + d * nr);
+      const hh = h + d * nh;
+      const th = u * TAU;
+      const idx = (i * cols + j) * 3;
+      pos[idx] = rr * Math.cos(th);
+      pos[idx + 1] = hh;
+      pos[idx + 2] = rr * Math.sin(th);
+    }
+  }
+  // bottom center
+  const cIdx = rows * cols;
+  pos[cIdx * 3] = 0; pos[cIdx * 3 + 1] = profile.h[0]; pos[cIdx * 3 + 2] = 0;
+
+  const indices = [];
+  for (let i = 0; i < rows - 1; i++) {
+    for (let j = 0; j < cols; j++) {
+      const jn = (j + 1) % cols;
+      const a = i * cols + j, b = i * cols + jn, c = (i + 1) * cols + j, d = (i + 1) * cols + jn;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+  // bottom cap fan (winding downward)
+  for (let j = 0; j < cols; j++) {
+    const jn = (j + 1) % cols;
+    indices.push(cIdx, j, jn);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/* ============================================================================
+   MATERIALS / LIGHTS / SCENE FACTORY
+   ============================================================================ */
+const CLAY = 0xe8e0d5;
+function makeMaterial(wire) {
+  return new THREE.MeshStandardMaterial({
+    color: CLAY, roughness: 0.62, metalness: 0.0, side: THREE.DoubleSide,
+    wireframe: wire, flatShading: false,
+  });
+}
+function addLights(scene) {
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x2a2f38, 0.9));
+  const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(60, 120, 90); scene.add(key);
+  const fill = new THREE.DirectionalLight(0x9ab8d9, 0.5); fill.position.set(-80, 40, -40); scene.add(fill);
+  const rim = new THREE.DirectionalLight(0xffd9b0, 0.5); rim.position.set(-30, 80, 120); scene.add(rim);
+}
+function frameCamera(cam, H, maxR) {
+  const cy = H * 0.5;
+  cam.position.set(maxR * 2.4, H * 0.62, maxR * 3.2);
+  cam.lookAt(0, cy, 0);
+  return cy;
+}
+function maxRadius(profile) { let m = 0; for (const r of profile.r) m = Math.max(m, r); return m; }
+
+/* ============================================================================
+   STATE
+   ============================================================================ */
+let currentSil = 'tumbler';
+let ampMaster = 1;
+let spin = true;
+let wire = false;
+
+/* ============================================================================
+   GALLERY — scissor multi-view rendering
+   ============================================================================ */
+const galleryCanvas = document.getElementById('gl-gallery');
+let galleryRenderer = null;
+let webglOK = true;
+try {
+  galleryRenderer = new THREE.WebGLRenderer({ canvas: galleryCanvas, antialias: true, alpha: true });
+  galleryRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  galleryRenderer.setClearColor(0x000000, 0);
+} catch (err) {
+  webglOK = false;
+  console.warn('WebGL unavailable — rendering taxonomy without 3D previews.', err);
+  const note = document.createElement('div');
+  note.style.cssText = 'position:relative;z-index:10;max-width:1360px;margin:0 auto 18px;padding:12px 18px;border:1px solid var(--line);border-radius:12px;background:#2a2016;color:#e8c9a0;font-size:13.5px';
+  note.textContent = 'Heads-up: this browser could not create a WebGL context, so the live 3D previews are hidden. The pattern taxonomy, parameters and descriptions below are still fully browsable — open in a hardware-accelerated browser (Chrome recommended) to see the geometry.';
+  document.querySelector('.wrap').insertBefore(note, document.querySelector('.legend'));
+  galleryCanvas.style.display = 'none';
+}
+
+const GALLERY_COLS = 128, GALLERY_ROWS = 84;
+const cards = []; // {pattern, stageEl, scene, camera, mesh, material}
+
+function buildGalleryProfile() { return buildProfile(currentSil, GALLERY_ROWS); }
+let galleryProfile = buildGalleryProfile();
+
+function makeCardScene(pattern) {
+  const scene = new THREE.Scene();
+  addLights(scene);
+  const material = makeMaterial(wire);
+  const geo = buildGeometry(galleryProfile, pattern, {}, GALLERY_COLS, ampMaster);
+  const mesh = new THREE.Mesh(geo, material);
+  scene.add(mesh);
+  const cam = new THREE.PerspectiveCamera(38, 1, 1, 2000);
+  const cy = frameCamera(cam, galleryProfile.H, maxRadius(galleryProfile));
+  mesh.userData.cy = cy;
+  return { scene, material, mesh, cam, cy };
+}
+
+function renderGallery() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  cards.length = 0;
+
+  PATTERNS.forEach((pattern, idx) => {
+    const fam = FAMILIES[pattern.family];
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="stage">
+        <span class="fam-tag" style="background:${fam.hex}">${fam.label}</span>
+        <span class="num">${String(idx + 1).padStart(2, '0')}</span>
+      </div>
+      <div class="meta">
+        <p class="name">${pattern.name}</p>
+        <p class="blurb">${pattern.blurb}</p>
+        <p class="expand">Open interactive →</p>
+      </div>`;
+    card.addEventListener('click', () => openDetail(idx));
+    grid.appendChild(card);
+
+    const stageEl = card.querySelector('.stage');
+    if (webglOK) {
+      const built = makeCardScene(pattern);
+      cards.push({ pattern, stageEl, ...built });
+    } else {
+      // No WebGL: label the empty stage so the card still communicates
+      const badge = document.createElement('div');
+      badge.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);font-size:12px;text-align:center;padding:12px';
+      badge.textContent = pattern.formula;
+      stageEl.appendChild(badge);
+    }
+  });
+  document.getElementById('count-note').textContent = `${PATTERNS.length} patterns · ${Object.keys(FAMILIES).length} families · live geometry`;
+}
+
+function rebuildGalleryMeshes() {
+  galleryProfile = buildGalleryProfile();
+  for (const c of cards) {
+    c.mesh.geometry.dispose();
+    c.mesh.geometry = buildGeometry(galleryProfile, c.pattern, {}, GALLERY_COLS, ampMaster);
+    c.material.wireframe = wire;
+    c.cy = frameCamera(c.cam, galleryProfile.H, maxRadius(galleryProfile));
+    c.mesh.userData.cy = c.cy;
+    c.mesh.rotation.y = 0;
+  }
+}
+
+function resizeGalleryRenderer() {
+  if (galleryRenderer) galleryRenderer.setSize(window.innerWidth, window.innerHeight, false);
+}
+window.addEventListener('resize', resizeGalleryRenderer);
+resizeGalleryRenderer();
+
+let lastT = performance.now();
+function galleryLoop() {
+  requestAnimationFrame(galleryLoop);
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+
+  galleryRenderer.setScissorTest(true);
+  const H = window.innerHeight;
+  for (const c of cards) {
+    const rect = c.stageEl.getBoundingClientRect();
+    if (rect.bottom < 0 || rect.top > H || rect.width === 0) continue; // cull offscreen
+    const bottom = H - rect.bottom;
+    galleryRenderer.setViewport(rect.left, bottom, rect.width, rect.height);
+    galleryRenderer.setScissor(rect.left, bottom, rect.width, rect.height);
+    c.cam.aspect = rect.width / rect.height;
+    c.cam.updateProjectionMatrix();
+    if (spin) c.mesh.rotation.y += dt * 0.45;
+    galleryRenderer.render(c.scene, c.cam);
+  }
+  galleryRenderer.setScissorTest(false);
+}
+
+/* ============================================================================
+   DETAIL MODAL — dedicated interactive renderer
+   ============================================================================ */
+const scrim = document.getElementById('scrim');
+const detailCanvas = document.getElementById('detail-canvas');
+let detailRenderer, detailScene, detailCamera, detailControls, detailMesh, detailMaterial;
+let detailIndex = 0;
+let detailParams = {};
+let detailProfile;
+
+function initDetail() {
+  try {
+    detailRenderer = new THREE.WebGLRenderer({ canvas: detailCanvas, antialias: true });
+  } catch (err) {
+    console.warn('WebGL unavailable for detail view.', err);
+    detailCanvas.parentElement.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);padding:24px;text-align:center;font-size:13px">3D preview needs a hardware-accelerated browser.<br>Parameters &amp; description are shown at right.</div>';
+    return;
+  }
+  detailRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  detailScene = new THREE.Scene();
+  addLights(detailScene);
+  detailCamera = new THREE.PerspectiveCamera(38, 1, 1, 3000);
+  detailControls = new OrbitControls(detailCamera, detailRenderer.domElement);
+  detailControls.enableDamping = true;
+  detailControls.dampingFactor = 0.08;
+  detailMaterial = makeMaterial(false);
+  detailMesh = new THREE.Mesh(new THREE.BufferGeometry(), detailMaterial);
+  detailScene.add(detailMesh);
+  detailLoop();
+}
+function detailSize() {
+  const viz = detailCanvas.parentElement;
+  const w = viz.clientWidth, h = viz.clientHeight;
+  detailRenderer.setSize(w, h, false);
+  detailCamera.aspect = w / h; detailCamera.updateProjectionMatrix();
+}
+function detailLoop() {
+  requestAnimationFrame(detailLoop);
+  if (!detailRenderer || !scrim.classList.contains('open')) return;
+  detailControls.update();
+  detailRenderer.render(detailScene, detailCamera);
+}
+
+function rebuildDetailMesh() {
+  if (!detailRenderer) return;
+  const pattern = PATTERNS[detailIndex];
+  detailMesh.geometry.dispose();
+  detailMesh.geometry = buildGeometry(detailProfile, pattern, detailParams, 300, ampMaster);
+  detailMaterial.wireframe = wire;
+}
+
+function openDetail(idx) {
+  detailIndex = idx;
+  const pattern = PATTERNS[idx];
+  const fam = FAMILIES[pattern.family];
+  // reset params to defaults
+  detailParams = { ...pattern.def };
+  detailProfile = buildProfile(currentSil, 220);
+
+  document.getElementById('d-fam').textContent = fam.label;
+  document.getElementById('d-fam').style.background = fam.hex;
+  document.getElementById('d-name').textContent = `${String(idx + 1).padStart(2, '0')} · ${pattern.name}`;
+  document.getElementById('d-why').textContent = pattern.why;
+  document.getElementById('d-formula').textContent = pattern.formula;
+
+  buildControls(pattern);
+  scrim.classList.add('open');
+
+  if (!detailRenderer && webglOK) initDetail();
+  requestAnimationFrame(() => {
+    if (!detailRenderer) return;
+    detailSize();
+    const cy = frameCamera(detailCamera, detailProfile.H, maxRadius(detailProfile));
+    detailControls.target.set(0, cy, 0);
+    detailControls.update();
+    rebuildDetailMesh();
+  });
+}
+
+function buildControls(pattern) {
+  const host = document.getElementById('d-controls');
+  host.innerHTML = '';
+  pattern.controls.forEach(key => {
+    if (key === 'relief') {
+      const wrap = document.createElement('div'); wrap.className = 'ctl';
+      wrap.innerHTML = `
+        <div class="row"><span class="lbl">Relief</span></div>
+        <div class="relief-seg">
+          <button data-r="1">Raised</button>
+          <button data-r="-1">Recessed</button>
+        </div>`;
+      const btns = wrap.querySelectorAll('button');
+      const cur = detailParams.relief ?? 1;
+      btns.forEach(b => {
+        if (Number(b.dataset.r) === cur) b.classList.add('on');
+        b.addEventListener('click', () => {
+          btns.forEach(x => x.classList.remove('on')); b.classList.add('on');
+          detailParams.relief = Number(b.dataset.r);
+          rebuildDetailMesh();
+        });
+      });
+      host.appendChild(wrap);
+      return;
+    }
+    const meta = CTL[key];
+    const val = detailParams[key] ?? pattern.def[key] ?? meta.min;
+    const wrap = document.createElement('div'); wrap.className = 'ctl';
+    const fmt = v => meta.int ? Math.round(v) : (Math.round(v * 100) / 100).toFixed(meta.step < 0.1 ? 2 : 1);
+    wrap.innerHTML = `
+      <div class="row"><span class="lbl">${meta.lbl}</span><span class="num" id="num-${key}">${fmt(val)}${meta.unit}</span></div>
+      <input type="range" min="${meta.min}" max="${meta.max}" step="${meta.step}" value="${val}" id="rng-${key}">`;
+    host.appendChild(wrap);
+    const rng = wrap.querySelector('input');
+    const num = wrap.querySelector('.num');
+    rng.addEventListener('input', () => {
+      const v = parseFloat(rng.value);
+      detailParams[key] = v;
+      num.textContent = `${fmt(v)}${meta.unit}`;
+      rebuildDetailMesh();
+    });
+  });
+}
+
+document.getElementById('close-btn').addEventListener('click', () => scrim.classList.remove('open'));
+scrim.addEventListener('click', e => { if (e.target === scrim) scrim.classList.remove('open'); });
+document.addEventListener('keydown', e => {
+  if (!scrim.classList.contains('open')) return;
+  if (e.key === 'Escape') scrim.classList.remove('open');
+  if (e.key === 'ArrowRight') openDetail((detailIndex + 1) % PATTERNS.length);
+  if (e.key === 'ArrowLeft') openDetail((detailIndex - 1 + PATTERNS.length) % PATTERNS.length);
+});
+document.getElementById('next-btn').addEventListener('click', () => openDetail((detailIndex + 1) % PATTERNS.length));
+document.getElementById('prev-btn').addEventListener('click', () => openDetail((detailIndex - 1 + PATTERNS.length) % PATTERNS.length));
+window.addEventListener('resize', () => { if (detailRenderer && scrim.classList.contains('open')) detailSize(); });
+
+/* ============================================================================
+   TOOLBAR
+   ============================================================================ */
+document.getElementById('silhouette-seg').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  document.querySelectorAll('#silhouette-seg button').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  currentSil = btn.dataset.sil;
+  rebuildGalleryMeshes();
+  if (scrim.classList.contains('open')) {
+    detailProfile = buildProfile(currentSil, 220);
+    const cy = frameCamera(detailCamera, detailProfile.H, maxRadius(detailProfile));
+    detailControls.target.set(0, cy, 0);
+    rebuildDetailMesh();
+  }
+});
+const ampSlider = document.getElementById('amp-master');
+ampSlider.addEventListener('input', () => {
+  ampMaster = parseFloat(ampSlider.value);
+  document.getElementById('amp-master-val').textContent = ampMaster.toFixed(1) + '×';
+  rebuildGalleryMeshes();
+  if (scrim.classList.contains('open')) rebuildDetailMesh();
+});
+document.getElementById('spin').addEventListener('change', e => spin = e.target.checked);
+document.getElementById('wire').addEventListener('change', e => {
+  wire = e.target.checked;
+  cards.forEach(c => c.material.wireframe = wire);
+  if (detailMaterial) detailMaterial.wireframe = wire;
+});
+
+/* ============================================================================
+   LEGEND
+   ============================================================================ */
+(function buildLegend() {
+  const host = document.getElementById('legend');
+  const descs = {
+    longitudinal: 'repeats around → flutes, facets, lobes',
+    latitudinal: 'repeats up → rings, bamboo, terraces',
+    helical: 'tilted axis → twist, rope, screw',
+    lattice: 'both axes → hobnail, knurl, hex',
+    organic: 'noise → hammered, bark, crackle',
+    undulating: 'beats → wobble, moiré',
+  };
+  Object.entries(FAMILIES).forEach(([k, f]) => {
+    const el = document.createElement('span');
+    el.className = 'chip';
+    el.innerHTML = `<span class="dot" style="background:${f.hex}"></span><strong>${f.label}</strong> — ${descs[k]}`;
+    host.appendChild(el);
+  });
+})();
+
+/* ============================================================================
+   BOOT
+   ============================================================================ */
+renderGallery();
+if (webglOK) galleryLoop();
+</script>
+</body>
+</html>

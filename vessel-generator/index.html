@@ -1,20 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>(function(){try{var p=new URLSearchParams(location.search).get('ui');var m=(p==='studio'||p==='classic'||p==='line')?p:localStorage.getItem('playground-ceramics-ui');if(p==='line'||(p==='classic'&&localStorage.getItem('playground-ceramics-ui')==='line'))localStorage.setItem('playground-ceramics-ui',p);document.documentElement.dataset.ui=(m==='studio'||m==='line')?m:'classic';}catch(e){document.documentElement.dataset.ui='classic';}})();</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vessel Designer</title>
-    <link rel="stylesheet" href="/styles/vessel-generator.css">
+    <link rel="stylesheet" href="../styles/vessel-generator.css">
+    <link rel="stylesheet" href="../styles/studio-shell.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/line-base.css">
+    <link rel="stylesheet" href="../styles/line-app.css">
 </head>
 <body>
     <div id="app">
         <!-- Header -->
         <header class="header">
             <div class="header-left">
-                <a href="/dashboard.html" class="btn btn-icon" id="btnBackToDashboard" title="Back to Dashboard">
+                <a href="../dashboard.html" class="btn btn-icon" id="btnBackToDashboard" title="Back to Dashboard">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M19 12H5"/>
                         <polyline points="12 19 5 12 12 5"/>
@@ -796,7 +800,9 @@
         </div>
     </div>
 
-    <script type="module" src="/scripts/vessel/vesselMain.js"></script>
+    <script type="module" src="../scripts/vessel/vesselMain.js"></script>
+    <script type="module" src="../scripts/ui/studio/adapters/vesselAdapter.js"></script>
+    <script type="module" src="../scripts/ui/line/adapters/vesselLine.js"></script>
+    <script type="module" src="../scripts/ui/pageComments/pageComments.js"></script>
 </body>
 </html>
-

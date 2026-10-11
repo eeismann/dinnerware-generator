@@ -276,7 +276,7 @@ body::after {
     flex-direction: column;
     overflow: hidden;
     z-index: 50;
-    box-shadow: var(--th-shadow-xl);
+    box-shadow: none;
     transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
@@ -637,10 +637,24 @@ input[type="range"]::-moz-range-thumb {
 .viewport {
     width: 100%;
     height: 100%;
+    position: relative;
 }
 
 .viewport canvas {
     display: block;
+}
+
+.viewport-webgl-fallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: var(--th-text-muted);
+    background: var(--th-bg-secondary);
+    font-size: 14px;
+    text-align: center;
 }
 
 .viewport-overlay {
@@ -1001,6 +1015,41 @@ input[type="range"]::-moz-range-thumb {
 
 .main-content:has(.parameter-panel.hidden) .viewport-container {
     flex: 1;
+}
+
+/* ================================================
+   Import Source Selector (Mug / Vessel V2 / Vessel V3)
+   ================================================ */
+.import-source-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.import-source-btn {
+    flex: 1;
+    padding: 10px 12px;
+    background: var(--th-bg-tertiary);
+    border: 2px solid var(--th-border);
+    border-radius: var(--th-radius-md);
+    color: var(--th-text-secondary);
+    font-family: var(--th-font-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.import-source-btn:hover {
+    background: var(--th-bg-hover);
+    border-color: var(--th-border-light);
+    color: var(--th-text-primary);
+}
+
+.import-source-btn.active {
+    background: var(--th-bg-active);
+    border-color: var(--th-accent);
+    color: var(--th-accent);
 }
 
 /* ================================================
@@ -1403,12 +1452,116 @@ input[type="range"]::-moz-range-thumb {
     font-family: var(--th-font-mono);
     font-size: 14px;
     color: var(--th-text-primary);
+    overflow-wrap: anywhere;
+    line-height: 1.45;
 }
 
 .export-note {
     font-size: 12px;
     color: var(--th-text-muted);
     line-height: 1.5;
+}
+
+.mold-kit-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    background: var(--th-bg-tertiary);
+    border: 1px solid var(--th-border);
+    border-radius: var(--th-radius-md);
+}
+
+.mold-kit-summary-row {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 10px;
+    align-items: baseline;
+    font-size: 12px;
+}
+
+.mold-kit-summary-row label {
+    color: var(--th-text-muted);
+    font-weight: 500;
+}
+
+.mold-kit-summary-row span {
+    color: var(--th-text-primary);
+    font-family: var(--th-font-mono);
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.mold-construction-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--th-bg-secondary);
+    border: 1px solid var(--th-border);
+    border-radius: var(--th-radius-md);
+}
+
+.mold-control-row {
+    display: grid;
+    grid-template-columns: 64px 1fr 42px;
+    gap: 10px;
+    align-items: center;
+    font-size: 12px;
+}
+
+.mold-control-row label,
+.mold-control-row span {
+    color: var(--th-text-muted);
+}
+
+.mold-control-row span {
+    text-align: right;
+    font-family: var(--th-font-mono);
+}
+
+.mold-visibility-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+    font-size: 12px;
+    color: var(--th-text-secondary);
+}
+
+.mold-visibility-grid label {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    min-width: 0;
+}
+
+.mold-fit-status {
+    padding: 8px 10px;
+    border-radius: var(--th-radius-sm);
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--th-success);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.mold-fit-status.warning {
+    background: rgba(245, 158, 11, 0.14);
+    color: var(--th-warning);
+}
+
+.mold-fit-status.paused {
+    background: var(--th-bg-tertiary);
+    color: var(--th-text-muted);
+}
+
+.mold-construction-panel.mold-preview-hidden .mold-control-row,
+.mold-construction-panel.mold-preview-hidden .mold-visibility-grid {
+    opacity: 0.45;
+}
+
+.mold-construction-panel input:disabled {
+    cursor: not-allowed;
 }
 
 /* Progress Bar */
@@ -1464,4 +1617,3 @@ input[type="range"]::-moz-range-thumb {
         height: 90px;
     }
 }
-

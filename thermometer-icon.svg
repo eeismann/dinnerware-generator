@@ -1,0 +1,21 @@
+<svg width="200" height="400" viewBox="0 0 200 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Thermometer tube -->
+  <path d="M 100 40
+           A 30 30 0 0 1 130 70
+           L 130 280
+           A 50 50 0 0 1 80 330
+           A 50 50 0 0 1 70 280
+           L 70 70
+           A 30 30 0 0 1 100 40 Z"
+        fill="black"/>
+
+  <!-- Inner white cutout -->
+  <path d="M 100 65
+           A 15 15 0 0 1 115 80
+           L 115 290
+           A 35 35 0 0 1 80 325
+           A 35 35 0 0 1 85 290
+           L 85 80
+           A 15 15 0 0 1 100 65 Z"
+        fill="white"/>
+</svg>

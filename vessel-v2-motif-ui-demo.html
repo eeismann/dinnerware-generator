@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vessel V2 · Per-Segment Surface Motifs — UI Proposal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Theme tokens — mirror the vessel-v2 dark theme (--th-*)
+   ============================================================ */
+:root{
+  --th-bg-deep:#0b0c10;
+  --th-bg-secondary:#14161c;
+  --th-bg-tertiary:#1b1e26;
+  --th-bg-hover:#232734;
+  --th-border:#2a2e3a;
+  --th-border-width:1px;
+  --th-accent:#4f8cff;
+  --th-accent-soft:rgba(79,140,255,.15);
+  --th-text-primary:#e8eaed;
+  --th-text-secondary:#9aa0ac;
+  --th-text-muted:#626875;
+  --th-text-inverse:#0b0c10;
+  --th-input-bg:#0e1016;
+  --th-radius-sm:4px;--th-radius-md:6px;--th-radius-lg:9px;
+  --th-font:'Inter',system-ui,sans-serif;
+  --th-font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --th-warning:#f5b544;
+  --th-danger:#ef4444;
+  --transition-fast:120ms ease;
+
+  /* motif family colors (badges / previews) */
+  --fam-vertical:#5bd6a0;
+  --fam-horizontal:#4f8cff;
+  --fam-diagonal:#c78bff;
+  --fam-crosshatch:#f0a24e;
+  --fam-knurl:#ff6b8b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--th-font);
+  color:var(--th-text-primary);
+  background:var(--th-bg-deep);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* ---------------- Header ---------------- */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  height:56px;padding:0 16px;
+  background:var(--th-bg-secondary);
+  border-bottom:var(--th-border-width) solid var(--th-border);
+  flex:0 0 auto;
+}
+.header-left{display:flex;align-items:center;gap:12px}
+.app-title{font-size:15px;font-weight:600;letter-spacing:.2px}
+.header-center{display:flex;align-items:center;gap:6px;color:var(--th-text-secondary);font-size:13px}
+.header-right{display:flex;align-items:center;gap:8px}
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  height:34px;padding:0 13px;
+  background:var(--th-bg-tertiary);
+  border:var(--th-border-width) solid var(--th-border);
+  border-radius:var(--th-radius-md);
+  color:var(--th-text-secondary);
+  font:inherit;font-size:13px;cursor:pointer;
+  transition:all var(--transition-fast);
+}
+.btn:hover{background:var(--th-bg-hover);color:var(--th-text-primary)}
+.btn svg{width:16px;height:16px}
+.btn-primary{background:var(--th-accent);border-color:var(--th-accent);color:#fff}
+.btn-primary:hover{filter:brightness(1.08);background:var(--th-accent);color:#fff}
+.btn-icon{width:34px;padding:0;justify-content:center}
+
+/* ---------------- Main grid ---------------- */
+.main-content{
+  display:grid;
+  grid-template-columns:minmax(360px,42vw) minmax(420px,1fr);
+  gap:1px;background:var(--th-border);
+  flex:1 1 auto;min-height:0;
+}
+.profile-workspace,.viewport-shell{min-width:0;min-height:0;background:var(--th-bg-deep)}
+.profile-workspace{
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;
+}
+
+/* toolbar */
+.profile-toolbar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:12px;background:var(--th-bg-secondary);
+  border-bottom:var(--th-border-width) solid var(--th-border);
+}
+.tool-group{display:flex;align-items:center;gap:6px}
+.icon-button{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;
+  background:var(--th-bg-tertiary);
+  border:var(--th-border-width) solid var(--th-border);
+  border-radius:var(--th-radius-md);
+  color:var(--th-text-secondary);cursor:pointer;
+  transition:all var(--transition-fast);
+}
+.icon-button svg{width:17px;height:17px}
+.icon-button:hover,.icon-button.active{
+  background:var(--th-bg-hover);border-color:var(--th-accent);color:var(--th-text-primary);
+}
+.icon-button.active{color:var(--th-accent)}
+.tool-sep{width:1px;height:22px;background:var(--th-border);margin:0 2px}
+.tool-hint{
+  margin-left:auto;font-size:11.5px;color:var(--th-text-muted);
+  font-family:var(--th-font-mono);
+}
+
+/* canvas */
+.profile-canvas-wrap{min-height:0;padding:12px;overflow:hidden}
+.profile-svg{
+  display:block;width:100%;height:100%;min-height:340px;
+  background:linear-gradient(180deg,rgba(255,255,255,.03),transparent),var(--th-bg-secondary);
+  border:var(--th-border-width) solid var(--th-border);
+  border-radius:var(--th-radius-lg);
+  touch-action:none;user-select:none;
+}
+.profile-grid-line{stroke:var(--th-border);stroke-width:.25;opacity:.45;vector-effect:non-scaling-stroke}
+.profile-grid-line.major{stroke-width:.45;opacity:.7;vector-effect:non-scaling-stroke}
+.profile-centerline{stroke:var(--th-accent);stroke-width:1.2;stroke-dasharray:4 4;vector-effect:non-scaling-stroke}
+.profile-baseline{stroke:var(--th-text-muted);stroke-width:.9;vector-effect:non-scaling-stroke}
+.seg-path{fill:none;stroke:var(--th-text-primary);stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;transition:stroke .12s}
+.seg-path.base{stroke:var(--th-text-muted)}
+.seg-path.has-motif{stroke:var(--th-accent)}
+.seg-path.selected{stroke:var(--th-accent);stroke-width:3.4;filter:drop-shadow(0 0 4px var(--th-accent-soft))}
+.seg-hit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer;pointer-events:stroke;vector-effect:non-scaling-stroke}
+.profile-anchor{fill:var(--th-bg-secondary);stroke:var(--th-text-primary);stroke-width:1.25;vector-effect:non-scaling-stroke}
+.profile-anchor.locked{fill:var(--th-text-muted)}
+.seg-badge{stroke:var(--th-bg-deep);stroke-width:1.2;vector-effect:non-scaling-stroke;cursor:pointer}
+.seg-label{fill:var(--th-text-secondary);font-family:var(--th-font-mono);font-size:9px;pointer-events:none}
+.seg-label.selected{fill:var(--th-accent)}
+
+/* controls + stats rows */
+.profile-controls,.profile-stats{
+  display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  padding:10px 12px;background:var(--th-bg-secondary);
+  border-top:var(--th-border-width) solid var(--th-border);
+}
+.control-line{display:inline-flex;align-items:center;gap:6px;color:var(--th-text-secondary);font-size:12px}
+.control-line input[type=number]{
+  width:56px;padding:5px 6px;background:var(--th-input-bg);
+  border:var(--th-border-width) solid var(--th-border);border-radius:var(--th-radius-md);
+  color:var(--th-text-primary);font-family:var(--th-font-mono);font-size:12px;
+}
+.segmented-control{display:inline-flex;padding:2px;background:var(--th-bg-tertiary);border:var(--th-border-width) solid var(--th-border);border-radius:var(--th-radius-md)}
+.segment-button{min-width:58px;height:24px;padding:0 9px;background:transparent;border:0;border-radius:var(--th-radius-sm);color:var(--th-text-secondary);cursor:pointer;font:inherit;font-size:12px}
+.segment-button.active{background:var(--th-accent);color:#fff}
+.profile-stats{justify-content:space-between;color:var(--th-text-muted)}
+.profile-stats strong{color:var(--th-text-primary);font-family:var(--th-font-mono);font-weight:500}
+
+/* ---------------- Viewport + inspector ---------------- */
+.viewport-shell{position:relative;overflow:hidden}
+#vesselCanvas{display:block;width:100%;height:100%}
+.viewport-tag{
+  position:absolute;left:14px;bottom:12px;z-index:2;
+  font-family:var(--th-font-mono);font-size:11px;color:var(--th-text-muted);
+  background:rgba(11,12,16,.6);padding:4px 8px;border-radius:var(--th-radius-md);
+  border:1px solid var(--th-border);
+}
+.select-hint{
+  position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:3;
+  display:flex;align-items:center;gap:8px;
+  padding:8px 14px;border-radius:999px;
+  background:var(--th-bg-tertiary);border:1px solid var(--th-border);
+  color:var(--th-text-secondary);font-size:12.5px;
+  box-shadow:0 6px 24px rgba(0,0,0,.35);
+  transition:opacity .18s,transform .18s;
+}
+.select-hint svg{width:15px;height:15px;color:var(--th-accent)}
+.select-hint.hidden{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(-6px)}
+
+/* Inspector card */
+.inspector{
+  position:absolute;top:16px;left:16px;z-index:4;width:300px;
+  background:var(--th-bg-secondary);
+  border:1px solid var(--th-border);border-radius:12px;
+  box-shadow:0 18px 50px rgba(0,0,0,.5);
+  overflow:hidden;
+  transition:opacity .18s ease,transform .18s ease;
+}
+.inspector.hidden{opacity:0;pointer-events:none;transform:translateY(-8px) scale(.98)}
+.insp-head{
+  display:flex;align-items:center;gap:9px;
+  padding:12px 13px;border-bottom:1px solid var(--th-border);
+  background:linear-gradient(180deg,rgba(79,140,255,.08),transparent);
+}
+.insp-diamond{width:9px;height:9px;border-radius:2px;transform:rotate(45deg);background:var(--th-accent);flex:0 0 auto}
+.insp-title{font-size:13px;font-weight:600;flex:1 1 auto}
+.insp-title small{display:block;font-weight:400;font-size:10.5px;color:var(--th-text-muted);font-family:var(--th-font-mono);margin-top:1px}
+.insp-close{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:0;color:var(--th-text-muted);border-radius:var(--th-radius-sm);cursor:pointer}
+.insp-close:hover{background:var(--th-bg-hover);color:var(--th-text-primary)}
+.insp-body{padding:12px 13px;display:flex;flex-direction:column;gap:11px;max-height:calc(100vh - 160px);overflow:auto}
+
+.field{display:flex;flex-direction:column;gap:6px}
+.field-label{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:var(--th-text-secondary)}
+.field-label .val{font-family:var(--th-font-mono);color:var(--th-text-primary);font-size:11.5px}
+select.control,input[type=range].control{width:100%}
+select.control{
+  height:32px;padding:0 8px;background:var(--th-input-bg);
+  border:1px solid var(--th-border);border-radius:var(--th-radius-md);
+  color:var(--th-text-primary);font:inherit;font-size:12.5px;cursor:pointer;
+}
+input[type=range].control{
+  -webkit-appearance:none;appearance:none;height:4px;border-radius:3px;
+  background:var(--th-bg-hover);outline:none;cursor:pointer;
+}
+input[type=range].control::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--th-accent);border:2px solid var(--th-bg-secondary);cursor:pointer;
+}
+input[type=range].control::-moz-range-thumb{width:14px;height:14px;border:2px solid var(--th-bg-secondary);border-radius:50%;background:var(--th-accent);cursor:pointer}
+
+.seg2{display:inline-flex;width:100%;padding:2px;background:var(--th-bg-tertiary);border:1px solid var(--th-border);border-radius:var(--th-radius-md)}
+.seg2 button{flex:1;height:26px;background:transparent;border:0;border-radius:var(--th-radius-sm);color:var(--th-text-secondary);cursor:pointer;font:inherit;font-size:12px}
+.seg2 button.active{background:var(--th-accent);color:#fff}
+
+.hideable[hidden]{display:none}
+
+.preview-box{
+  border:1px solid var(--th-border);border-radius:var(--th-radius-md);
+  overflow:hidden;background:var(--th-input-bg);
+}
+.preview-box .cap{
+  display:flex;justify-content:space-between;
+  padding:5px 8px;font-size:10px;color:var(--th-text-muted);
+  font-family:var(--th-font-mono);border-bottom:1px solid var(--th-border);
+}
+#motifPreview{display:block;width:100%;height:74px}
+
+.warn{
+  display:none;align-items:flex-start;gap:7px;
+  padding:8px 9px;border-radius:var(--th-radius-md);font-size:11.5px;line-height:1.35;
+  background:rgba(245,181,68,.1);border:1px solid rgba(245,181,68,.3);color:var(--th-warning);
+}
+.warn.show{display:flex}
+.warn svg{width:14px;height:14px;flex:0 0 auto;margin-top:1px}
+
+.insp-actions{display:flex;gap:6px;padding-top:2px}
+.mini-btn{
+  flex:1;height:30px;background:var(--th-bg-tertiary);border:1px solid var(--th-border);
+  border-radius:var(--th-radius-md);color:var(--th-text-secondary);font:inherit;font-size:11.5px;cursor:pointer;
+  transition:all var(--transition-fast);
+}
+.mini-btn:hover{background:var(--th-bg-hover);color:var(--th-text-primary);border-color:var(--th-accent)}
+
+/* footer */
+.footer{
+  display:flex;align-items:center;justify-content:space-between;
+  height:40px;padding:0 14px;flex:0 0 auto;
+  background:var(--th-bg-secondary);border-top:1px solid var(--th-border);
+  font-size:12px;color:var(--th-text-muted);
+}
+.footer .status-info{font-family:var(--th-font-mono)}
+.legend{display:flex;align-items:center;gap:14px}
+.legend .dot{display:inline-flex;align-items:center;gap:5px}
+.legend .dot i{width:8px;height:8px;border-radius:2px;display:inline-block}
+
+.demo-flag{
+  position:fixed;top:8px;right:10px;z-index:50;
+  font-family:var(--th-font-mono);font-size:10px;letter-spacing:.4px;
+  color:var(--th-text-muted);background:rgba(11,12,16,.7);
+  border:1px solid var(--th-border);border-radius:6px;padding:3px 8px;
+}
+</style>
+</head>
+<body>
+<div class="demo-flag">UI PROPOSAL · NON-FUNCTIONAL MOCKUP</div>
+<div id="app">
+
+  <header class="header">
+    <div class="header-left">
+      <button class="btn btn-icon" title="Back to Dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+      </button>
+      <span class="app-title">Vessel Designer V2</span>
+    </div>
+    <div class="header-center">
+      <span>Untitled Vessel V2</span><span style="color:var(--th-accent)">*</span>
+    </div>
+    <div class="header-right">
+      <button class="btn">New</button>
+      <button class="btn">Load</button>
+      <button class="btn">Save</button>
+      <button class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export STL
+      </button>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <!-- ============ LEFT: profile workspace ============ -->
+    <section class="profile-workspace">
+      <div class="profile-toolbar">
+        <div class="tool-group">
+          <button class="icon-button" title="Pen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18"/><path d="M2 2l7.6 7.6"/><circle cx="11" cy="11" r="2"/></svg>
+          </button>
+          <button class="icon-button active" title="Edit / Select Segment">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.5 18 2.6-7.9L21 10.5 3 3z"/></svg>
+          </button>
+        </div>
+        <div class="tool-sep"></div>
+        <div class="tool-group">
+          <button class="icon-button" title="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg></button>
+          <button class="icon-button" title="Redo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 15-6.7L21 13"/></svg></button>
+        </div>
+        <span class="tool-hint">click a segment to edit its motif</span>
+      </div>
+
+      <div class="profile-canvas-wrap">
+        <svg id="profileSvg" class="profile-svg" viewBox="0 0 320 400" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+
+      <div class="profile-controls">
+        <div class="control-line">
+          <span>Mode</span>
+          <div class="segmented-control">
+            <button class="segment-button active">Bezier</button>
+            <button class="segment-button">Straight</button>
+          </div>
+        </div>
+        <label class="control-line"><span>Wall</span><input type="number" value="3" step="0.5"><span>mm</span></label>
+        <label class="control-line"><span>Segments</span><input type="number" value="96" step="8"></label>
+      </div>
+
+      <div class="profile-stats">
+        <span>Height <strong>150 mm</strong></span>
+        <span>Diameter <strong>116 mm</strong></span>
+        <span>Motifs <strong id="statMotifs">2 / 3</strong></span>
+      </div>
+    </section>
+
+    <!-- ============ RIGHT: viewport + contextual inspector ============ -->
+    <section class="viewport-shell">
+      <canvas id="vesselCanvas"></canvas>
+      <div class="viewport-tag">3D preview · representative</div>
+
+      <div class="select-hint" id="selectHint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.5 18 2.6-7.9L21 10.5 3 3z"/></svg>
+        Select a segment to add a surface motif
+      </div>
+
+      <!-- Contextual inspector: driven entirely by the selected segment -->
+      <div class="inspector hidden" id="inspector">
+        <div class="insp-head">
+          <span class="insp-diamond"></span>
+          <span class="insp-title" id="inspTitle">Segment<small id="inspSub">—</small></span>
+          <button class="insp-close" id="inspClose" title="Deselect">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="insp-body">
+          <div class="field">
+            <div class="field-label"><span>Motif</span></div>
+            <select class="control" id="fType">
+              <option value="none">Smooth</option>
+              <option value="vertical">Vertical Lines</option>
+              <option value="horizontal">Horizontal Lines</option>
+              <option value="diagonal">Diagonal Lines</option>
+              <option value="crosshatch">Cross-Hatch</option>
+              <option value="knurl">Knurling</option>
+            </select>
+          </div>
+
+          <div class="field hideable" data-suffix="Depth">
+            <div class="field-label"><span>Depth</span><span class="val" id="vDepth">0.4 mm</span></div>
+            <input type="range" class="control" id="fDepth" min="0.1" max="1.5" step="0.05" value="0.4">
+          </div>
+
+          <div class="field hideable" data-suffix="Relief">
+            <div class="field-label"><span>Relief</span></div>
+            <div class="seg2" id="fRelief">
+              <button data-v="raised" class="active">Raised</button>
+              <button data-v="recessed">Recessed</button>
+            </div>
+          </div>
+
+          <div class="field hideable" data-suffix="Count">
+            <div class="field-label"><span>Line Count</span><span class="val" id="vCount">32</span></div>
+            <input type="range" class="control" id="fCount" min="8" max="240" step="1" value="32">
+          </div>
+
+          <div class="field hideable" data-suffix="Pitch">
+            <div class="field-label"><span>Pitch</span><span class="val" id="vPitch">4 mm</span></div>
+            <input type="range" class="control" id="fPitch" min="1" max="20" step="0.5" value="4">
+          </div>
+
+          <div class="field hideable" data-suffix="LineWidth">
+            <div class="field-label"><span>Line Width</span><span class="val" id="vLineWidth">50 %</span></div>
+            <input type="range" class="control" id="fLineWidth" min="10" max="90" step="5" value="50">
+          </div>
+
+          <div class="field hideable" data-suffix="Profile">
+            <div class="field-label"><span>Ridge Profile</span></div>
+            <select class="control" id="fProfile">
+              <option value="rounded">Rounded</option>
+              <option value="v">V-Groove</option>
+              <option value="square">Square</option>
+            </select>
+          </div>
+
+          <div class="field hideable" data-suffix="Angle">
+            <div class="field-label"><span>Angle</span><span class="val" id="vAngle">45°</span></div>
+            <input type="range" class="control" id="fAngle" min="15" max="75" step="5" value="45">
+          </div>
+
+          <div class="field hideable" data-suffix="Direction">
+            <div class="field-label"><span>Direction</span></div>
+            <div class="seg2" id="fDirection">
+              <button data-v="right" class="active">Right</button>
+              <button data-v="left">Left</button>
+            </div>
+          </div>
+
+          <div class="preview-box hideable" data-suffix="preview">
+            <div class="cap"><span id="pvName">Vertical Lines</span><span>unwrapped</span></div>
+            <canvas id="motifPreview" width="274" height="74"></canvas>
+          </div>
+
+          <div class="warn" id="inspWarn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span id="inspWarnText"></span>
+          </div>
+
+          <div class="insp-actions">
+            <button class="mini-btn" id="actSmooth">Smooth</button>
+            <button class="mini-btn" id="actAdjacent">Copy&nbsp;→&nbsp;adjacent</button>
+            <button class="mini-btn" id="actAll">Apply&nbsp;to&nbsp;all</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span class="status-info" id="statusInfo">Ready</span>
+    <div class="legend">
+      <span class="dot"><i style="background:var(--fam-vertical)"></i>Vertical</span>
+      <span class="dot"><i style="background:var(--fam-horizontal)"></i>Horizontal</span>
+      <span class="dot"><i style="background:var(--fam-diagonal)"></i>Diagonal</span>
+      <span class="dot"><i style="background:var(--fam-crosshatch)"></i>Cross-hatch</span>
+      <span class="dot"><i style="background:var(--fam-knurl)"></i>Knurl</span>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* =====================================================================
+   Demo state — a vessel profile (r,h) with per-segment motifs.
+   Mirrors the V2 model: motif lives on each segment's UPPER anchor.
+   ===================================================================== */
+const FAMILY_COLOR = {
+  vertical:'#5bd6a0', horizontal:'#4f8cff', diagonal:'#c78bff',
+  crosshatch:'#f0a24e', knurl:'#ff6b8b', none:'#626875'
+};
+const TYPE_LABEL = {
+  none:'Smooth', vertical:'Vertical Lines', horizontal:'Horizontal Lines',
+  diagonal:'Diagonal Lines', crosshatch:'Cross-Hatch', knurl:'Knurling'
+};
+// which controls each motif exposes (mirrors PATTERN_VISIBLE_SUFFIXES)
+const VISIBLE = {
+  none:[],
+  vertical:['Depth','Relief','Count','LineWidth','Profile','preview'],
+  horizontal:['Depth','Relief','Pitch','LineWidth','Profile','preview'],
+  diagonal:['Depth','Relief','Count','LineWidth','Profile','Angle','Direction','preview'],
+  crosshatch:['Depth','Relief','Count','LineWidth','Profile','Angle','preview'],
+  knurl:['Depth','Relief','Count','Angle','preview']
+};
+const defMotif = () => ({type:'none',depth:0.4,relief:'raised',count:32,pitch:4,lineWidth:50,profile:'rounded',angle:45,direction:'right'});
+
+// Profile anchors (r = radius mm, h = height mm). p0 is base center (locked).
+// Each non-base point owns the segment BELOW it.
+const points = [
+  {id:'p0', r:0,  h:0,   locked:true, name:'Base center', motif:null},
+  {id:'p1', r:42, h:0,   name:'Foot',     base:true,  motif:defMotif()},      // p0->p1 flat base (non-motifable)
+  {id:'p2', r:60, h:52,  name:'Body',                 motif:Object.assign(defMotif(),{type:'vertical',count:28,depth:0.5})},
+  {id:'p3', r:47, h:104, name:'Shoulder',             motif:defMotif()},
+  {id:'p4', r:30, h:150, name:'Neck / Lip',           motif:Object.assign(defMotif(),{type:'horizontal',pitch:5,depth:0.45})}
+];
+// bezier-ish handles for a nice silhouette (relative to anchor, in r/h)
+const HANDLES = {
+  p1:{out:{r:12,h:26}},
+  p2:{in:{r:-6,h:-30}, out:{r:-4,h:30}},
+  p3:{in:{r:10,h:-26}, out:{r:-8,h:-24}},
+  p4:{in:{r:14,h:-24}}
+};
+
+let selectedId = null;      // upper-anchor id of selected segment
+const segIndexOf = id => points.findIndex(p=>p.id===id);
+// Sequential number of a wall segment (1-based, bottom-up, base excluded)
+function segNumber(id){
+  let n=0;
+  for(let i=1;i<points.length;i++){
+    if(!points[i].base){ n++; if(points[i].id===id) return n; }
+  }
+  return null;
+}
+
+/* =====================================================================
+   Profile SVG (half-profile, centerline at left — faithful to V2)
+   ===================================================================== */
+const svg = document.getElementById('profileSvg');
+const SVGNS='http://www.w3.org/2000/svg';
+// map (r,h) -> svg coords. Center axis near left, h grows upward.
+const PAD_L=54, PAD_B=40, PAD_T=24, SCALE=1.85;
+const toX = r => PAD_L + r*SCALE;
+const toY = h => 400 - PAD_B - h*SCALE;
+
+function segPathD(i){
+  // segment from points[i-1] -> points[i], cubic if handles present
+  const a=points[i-1], b=points[i];
+  const ah=HANDLES[a.id], bh=HANDLES[b.id];
+  const x1=toX(a.r), y1=toY(a.h), x2=toX(b.r), y2=toY(b.h);
+  const c1r = a.r + (ah&&ah.out?ah.out.r:0), c1h = a.h + (ah&&ah.out?ah.out.h:0);
+  const c2r = b.r + (bh&&bh.in?bh.in.r:0),  c2h = b.h + (bh&&bh.in?bh.in.h:0);
+  if((ah&&ah.out)||(bh&&bh.in)){
+    return `M ${x1} ${y1} C ${toX(c1r)} ${toY(c1h)} ${toX(c2r)} ${toY(c2h)} ${x2} ${y2}`;
+  }
+  return `M ${x1} ${y1} L ${x2} ${y2}`;
+}
+function segMidpoint(i){
+  const a=points[i-1], b=points[i];
+  return {x:(toX(a.r)+toX(b.r))/2, y:(toY(a.h)+toY(b.h))/2};
+}
+
+function el(tag,attrs){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+
+function renderProfile(){
+  svg.innerHTML='';
+  // grid
+  for(let r=0;r<=90;r+=10){const x=toX(r);svg.appendChild(el('line',{class:'profile-grid-line'+(r%30===0?' major':''),x1:x,y1:PAD_T,x2:x,y2:400-PAD_B}));}
+  for(let h=0;h<=160;h+=10){const y=toY(h);svg.appendChild(el('line',{class:'profile-grid-line'+(h%30===0?' major':''),x1:PAD_L-6,y1:y,x2:toX(90),y2:y}));}
+  // baseline + centerline
+  svg.appendChild(el('line',{class:'profile-baseline',x1:PAD_L-6,y1:toY(0),x2:toX(90),y2:toY(0)}));
+  svg.appendChild(el('line',{class:'profile-centerline',x1:PAD_L,y1:PAD_T,x2:PAD_L,y2:400-PAD_B}));
+
+  // segments (visible path + fat invisible hit strip)
+  for(let i=1;i<points.length;i++){
+    const p=points[i], d=segPathD(i);
+    const isBase=!!p.base, hasMotif=!isBase && p.motif && p.motif.type!=='none';
+    const sel = p.id===selectedId;
+    let cls='seg-path'+(isBase?' base':'')+(hasMotif?' has-motif':'')+(sel?' selected':'');
+    svg.appendChild(el('path',{class:cls,d}));
+    const hit=el('path',{class:'seg-hit',d, 'data-id':p.id});
+    if(!isBase) hit.addEventListener('click',()=>selectSegment(p.id));
+    else hit.style.cursor='not-allowed';
+    svg.appendChild(hit);
+    // motif badge at midpoint
+    if(hasMotif){
+      const m=segMidpoint(i);
+      const badge=el('circle',{class:'seg-badge',cx:m.x+10,cy:m.y,r:4,fill:FAMILY_COLOR[p.motif.type]});
+      badge.addEventListener('click',()=>selectSegment(p.id));
+      svg.appendChild(badge);
+    }
+    // segment label (numbered)
+    if(!isBase){
+      const m=segMidpoint(i);
+      const lbl=el('text',{class:'seg-label'+(sel?' selected':''),x:m.x+18,y:m.y+3});
+      lbl.textContent='Seg '+segNumber(p.id);
+      svg.appendChild(lbl);
+    }
+  }
+  // anchors
+  for(const p of points){
+    svg.appendChild(el('circle',{class:'profile-anchor'+(p.locked?' locked':''),cx:toX(p.r),cy:toY(p.h),r:4.5}));
+  }
+}
+
+/* =====================================================================
+   Inspector wiring
+   ===================================================================== */
+const insp=document.getElementById('inspector');
+const hint=document.getElementById('selectHint');
+const F={
+  type:document.getElementById('fType'),
+  depth:document.getElementById('fDepth'),
+  relief:document.getElementById('fRelief'),
+  count:document.getElementById('fCount'),
+  pitch:document.getElementById('fPitch'),
+  lineWidth:document.getElementById('fLineWidth'),
+  profile:document.getElementById('fProfile'),
+  angle:document.getElementById('fAngle'),
+  direction:document.getElementById('fDirection'),
+};
+const curMotif = () => { const p=points[segIndexOf(selectedId)]; return p?p.motif:null; };
+
+function selectSegment(id){
+  selectedId=id;
+  const idx=segIndexOf(id), p=points[idx], lo=points[idx-1];
+  const num=segNumber(id);
+  document.getElementById('inspTitle').childNodes[0].nodeValue = 'Segment '+num+' ';
+  document.getElementById('inspSub').textContent = `h ${lo.h}–${p.h} mm`;
+  insp.classList.remove('hidden');
+  hint.classList.add('hidden');
+  syncInspectorFromMotif();
+  renderProfile();
+  setStatus('Editing motif · Segment '+num);
+}
+function deselect(){
+  selectedId=null;
+  insp.classList.add('hidden');
+  hint.classList.remove('hidden');
+  renderProfile();
+  setStatus('Ready');
+}
+
+function syncInspectorFromMotif(){
+  const m=curMotif(); if(!m) return;
+  F.type.value=m.type;
+  F.depth.value=m.depth;
+  F.count.value=m.count;
+  F.pitch.value=m.pitch;
+  F.lineWidth.value=m.lineWidth;
+  F.profile.value=m.profile;
+  F.angle.value=m.angle;
+  setSeg(F.relief,m.relief);
+  setSeg(F.direction,m.direction);
+  updateVisibility();
+  updateValueLabels();
+  drawPreview();
+}
+function setSeg(group,val){group.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.v===val));}
+
+function updateVisibility(){
+  const vis=VISIBLE[F.type.value]||[];
+  insp.querySelectorAll('.hideable').forEach(node=>{
+    node.hidden = !vis.includes(node.dataset.suffix);
+  });
+}
+function updateValueLabels(){
+  document.getElementById('vDepth').textContent=(+F.depth.value).toFixed(2)+' mm';
+  document.getElementById('vCount').textContent=F.count.value;
+  document.getElementById('vPitch').textContent=(+F.pitch.value)+' mm';
+  document.getElementById('vLineWidth').textContent=F.lineWidth.value+' %';
+  document.getElementById('vAngle').textContent=F.angle.value+'°';
+  document.getElementById('pvName').textContent=TYPE_LABEL[F.type.value];
+}
+
+function commit(){
+  const m=curMotif(); if(!m) return;
+  m.type=F.type.value;
+  m.depth=+F.depth.value;
+  m.count=+F.count.value;
+  m.pitch=+F.pitch.value;
+  m.lineWidth=+F.lineWidth.value;
+  m.profile=F.profile.value;
+  m.angle=+F.angle.value;
+  m.relief=F.relief.querySelector('.active').dataset.v;
+  m.direction=F.direction.querySelector('.active').dataset.v;
+  updateValueLabels();
+  updateWarnings();
+  drawPreview();
+  renderProfile();
+  drawVessel();
+  updateStatMotifs();
+}
+
+// input listeners
+F.type.addEventListener('change',()=>{updateVisibility();commit();});
+['depth','count','pitch','lineWidth','angle'].forEach(k=>F[k].addEventListener('input',commit));
+F.profile.addEventListener('change',commit);
+[F.relief,F.direction].forEach(g=>g.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{setSeg(g,b.dataset.v);commit();})));
+document.getElementById('inspClose').addEventListener('click',deselect);
+
+// actions
+document.getElementById('actSmooth').addEventListener('click',()=>{F.type.value='none';updateVisibility();commit();});
+document.getElementById('actAll').addEventListener('click',()=>{
+  const m=curMotif();points.forEach(p=>{if(!p.base&&p.motif)p.motif=Object.assign(defMotif(),m);});
+  renderProfile();drawVessel();updateStatMotifs();setStatus('Applied motif to all wall segments');
+});
+document.getElementById('actAdjacent').addEventListener('click',()=>{
+  const i=segIndexOf(selectedId),m=curMotif();
+  [i-1,i+1].forEach(j=>{const p=points[j];if(p&&!p.base&&!p.locked&&p.motif)p.motif=Object.assign(defMotif(),m);});
+  renderProfile();drawVessel();updateStatMotifs();setStatus('Copied motif to adjacent segments');
+});
+
+function updateWarnings(){
+  const m=curMotif();const w=document.getElementById('inspWarn');const wt=document.getElementById('inspWarnText');
+  const wall=3; let msg='';
+  if(m.type!=='none'&&m.relief==='recessed'&&(wall-m.depth)<1.2){
+    msg=`Recessed ${m.depth.toFixed(2)} mm leaves ${(wall-m.depth).toFixed(1)} mm wall (min 1.2 mm).`;
+  }else if(m.type!=='none'&&['vertical','diagonal','crosshatch','knurl'].includes(m.type)){
+    const p=points[segIndexOf(selectedId)];const meanR=(p.r+points[segIndexOf(selectedId)-1].r)/2;
+    const ridge=(2*Math.PI*meanR*(m.lineWidth/100))/m.count;
+    if(ridge<0.8) msg=`Ridge width ≈ ${ridge.toFixed(2)} mm — below ~0.8 mm, lines may not print cleanly.`;
+  }
+  if(msg){wt.textContent=msg;w.classList.add('show');}else{w.classList.remove('show');}
+}
+
+function updateStatMotifs(){
+  const wall=points.filter(p=>!p.base&&!p.locked);
+  const on=wall.filter(p=>p.motif&&p.motif.type!=='none').length;
+  document.getElementById('statMotifs').textContent=`${on} / ${wall.length}`;
+}
+function setStatus(t){document.getElementById('statusInfo').textContent=t;}
+
+/* =====================================================================
+   Motif preview swatch (unwrapped height field, grayscale)
+   ===================================================================== */
+const pv=document.getElementById('motifPreview'), pctx=pv.getContext('2d');
+function ridgeWave(phase,profile,duty){
+  const f=phase-Math.floor(phase);
+  const d=Math.abs(f-0.5)/(duty/2);
+  if(d>=1)return 0;
+  if(profile==='v')return 1-d;
+  if(profile==='square')return Math.min(1,(1-d)/0.15);
+  return 0.5*(1+Math.cos(d*Math.PI));
+}
+function amp(u,v,m){ // u:0..1 around, v:0..1 up
+  const duty=m.lineWidth/100, cnt=m.count, dir=m.direction==='left'?-1:1;
+  const tan=Math.tan(m.angle*Math.PI/180);
+  const diag=(s)=>cnt*(u + s*v*tan*0.6);
+  switch(m.type){
+    case 'vertical':return ridgeWave(u*cnt,m.profile,duty);
+    case 'horizontal':return ridgeWave(v*(140/m.pitch),m.profile,duty);
+    case 'diagonal':return ridgeWave(diag(dir),m.profile,duty);
+    case 'crosshatch':return Math.max(ridgeWave(diag(1),m.profile,duty),ridgeWave(diag(-1),m.profile,duty));
+    case 'knurl':return Math.min(ridgeWave(diag(1),'v',1),ridgeWave(diag(-1),'v',1));
+    default:return 0;
+  }
+}
+function drawPreview(){
+  const m=curMotif(); if(!m){return;}
+  const W=pv.width,H=pv.height,img=pctx.createImageData(W,H);
+  const fam=FAMILY_COLOR[m.type]||'#888';
+  const rgb=[parseInt(fam.slice(1,3),16),parseInt(fam.slice(3,5),16),parseInt(fam.slice(5,7),16)];
+  const sign=m.relief==='recessed'?-1:1;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const a = m.type==='none'?0:amp(x/W,1-y/H,m);
+    // shade: base panel + raised/recessed highlight
+    const base=26, lift=sign*a*100;
+    const idx=(y*W+x)*4;
+    img.data[idx]  =Math.max(0,Math.min(255, base + rgb[0]/255*lift + a*rgb[0]*0.35));
+    img.data[idx+1]=Math.max(0,Math.min(255, base + rgb[1]/255*lift + a*rgb[1]*0.35));
+    img.data[idx+2]=Math.max(0,Math.min(255, base + rgb[2]/255*lift + a*rgb[2]*0.35));
+    img.data[idx+3]=255;
+  }
+  pctx.putImageData(img,0,0);
+}
+
+/* =====================================================================
+   Vessel viewport preview (stylized revolved silhouette w/ motif bands)
+   ===================================================================== */
+const vc=document.getElementById('vesselCanvas'), vctx=vc.getContext('2d');
+function fitCanvas(){
+  const r=vc.parentElement.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  vc.width=r.width*dpr; vc.height=r.height*dpr;
+  vctx.setTransform(dpr,0,0,dpr,0,0);
+  drawVessel();
+}
+function sampleOuter(){ // return array of {r,h} sampled along the whole profile
+  const out=[];
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1],b=points[i],ah=HANDLES[a.id],bh=HANDLES[b.id];
+    const curved=(ah&&ah.out)||(bh&&bh.in);
+    const steps=curved?24:1;
+    const p0r=a.r,p0h=a.h,p3r=b.r,p3h=b.h;
+    const p1r=a.r+(ah&&ah.out?ah.out.r:0),p1h=a.h+(ah&&ah.out?ah.out.h:0);
+    const p2r=b.r+(bh&&bh.in?bh.in.r:0),p2h=b.h+(bh&&bh.in?bh.in.h:0);
+    for(let s=(i===1?0:1);s<=steps;s++){
+      const t=s/steps,mt=1-t;
+      const r=curved?(mt*mt*mt*p0r+3*mt*mt*t*p1r+3*mt*t*t*p2r+t*t*t*p3r):(mt*p0r+t*p3r);
+      const h=curved?(mt*mt*mt*p0h+3*mt*mt*t*p1h+3*mt*t*t*p2h+t*t*t*p3h):(mt*p0h+t*p3h);
+      out.push({r,h,seg:b.id,base:!!b.base});
+    }
+  }
+  return out;
+}
+function drawVessel(){
+  const w=vc.parentElement.clientWidth, h=vc.parentElement.clientHeight;
+  vctx.clearRect(0,0,w,h);
+  // subtle radial backdrop
+  const bg=vctx.createRadialGradient(w*0.5,h*0.42,20,w*0.5,h*0.5,Math.max(w,h)*0.7);
+  bg.addColorStop(0,'#151821');bg.addColorStop(1,'#0b0c10');
+  vctx.fillStyle=bg;vctx.fillRect(0,0,w,h);
+
+  const samples=sampleOuter();
+  const maxH=150, maxR=60;
+  const sc=Math.min((h-120)/maxH,(w-260)/(maxR*2));
+  const cx=w*0.52, baseY=h*0.5+maxH*sc/2;
+  const X=(r,side)=>cx+side*r*sc;
+  const Y=hh=>baseY-hh*sc;
+
+  // build silhouette polygon (right side down, left side up)
+  vctx.beginPath();
+  vctx.moveTo(X(samples[0].r,1),Y(samples[0].h));
+  samples.forEach(p=>vctx.lineTo(X(p.r,1),Y(p.h)));
+  for(let i=samples.length-1;i>=0;i--)vctx.lineTo(X(samples[i].r,-1),Y(samples[i].h));
+  vctx.closePath();
+  const body=vctx.createLinearGradient(X(-maxR,1)-60,0,X(maxR,1)+60,0);
+  body.addColorStop(0,'#20242e');body.addColorStop(.5,'#3a4150');body.addColorStop(1,'#20242e');
+  vctx.fillStyle=body;vctx.fill();
+
+  // per-segment motif bands (clip to silhouette)
+  vctx.save();vctx.clip();
+  for(let i=1;i<samples.length;i++){
+    const a=samples[i-1],b=samples[i];
+    if(b.base)continue;
+    const p=points[segIndexOf(b.seg)];const m=p&&p.motif;
+    if(!m||m.type==='none')continue;
+    drawBandTexture(a,b,m,X,Y,maxR,sc);
+  }
+  vctx.restore();
+
+  // selected segment highlight ring
+  if(selectedId){
+    const idx=segIndexOf(selectedId);
+    const seg=samples.filter(s=>s.seg===selectedId);
+    if(seg.length){
+      vctx.strokeStyle='rgba(79,140,255,.9)';vctx.lineWidth=2.5;vctx.setLineDash([6,4]);
+      vctx.beginPath();
+      vctx.moveTo(X(seg[0].r,1),Y(seg[0].h));
+      seg.forEach(p=>vctx.lineTo(X(p.r,1),Y(p.h)));
+      vctx.stroke();
+      vctx.beginPath();
+      vctx.moveTo(X(seg[0].r,-1),Y(seg[0].h));
+      seg.forEach(p=>vctx.lineTo(X(p.r,-1),Y(p.h)));
+      vctx.stroke();
+      vctx.setLineDash([]);
+    }
+  }
+  // outline
+  vctx.beginPath();
+  vctx.moveTo(X(samples[0].r,1),Y(samples[0].h));
+  samples.forEach(p=>vctx.lineTo(X(p.r,1),Y(p.h)));
+  for(let i=samples.length-1;i>=0;i--)vctx.lineTo(X(samples[i].r,-1),Y(samples[i].h));
+  vctx.closePath();
+  vctx.strokeStyle='rgba(232,234,237,.5)';vctx.lineWidth=1.5;vctx.stroke();
+}
+function drawBandTexture(a,b,m,X,Y,maxR,sc){
+  const fam=FAMILY_COLOR[m.type];
+  const y0=Y(b.h),y1=Y(a.h);
+  const steps=Math.max(2,Math.round(Math.abs(y1-y0)/2));
+  vctx.lineWidth=1;
+  for(let s=0;s<=steps;s++){
+    const t=s/steps;
+    const rr=a.r+(b.r-a.r)*t, hh=a.h+(b.h-a.h)*t, yy=Y(hh);
+    // draw across the width using the height field at this row
+    const cols=64;
+    for(let c=0;c<cols;c++){
+      const u=c/cols;
+      const v=(hh - a.h)/Math.max(1,(b.h-a.h));
+      const val = m.type==='none'?0:amp(u,v,m);
+      if(val<=0.04)continue;
+      // map u (0..1 around half) to x across the visible width (front face)
+      const side = u<0.5? -1: 1;
+      const uu = Math.abs(u-0.5)*2;
+      const x=X(rr*(1-uu),side);
+      const alpha=Math.min(.8,val*(m.relief==='recessed'?0.5:0.85));
+      vctx.fillStyle=`rgba(${hx(fam,0)},${hx(fam,1)},${hx(fam,2)},${alpha})`;
+      vctx.fillRect(x-1,yy-1,2,2);
+    }
+  }
+}
+function hx(hex,i){return parseInt(hex.slice(1+i*2,3+i*2),16);}
+
+/* ---------------- boot ---------------- */
+window.addEventListener('resize',fitCanvas);
+renderProfile();
+updateStatMotifs();
+fitCanvas();
+// open on the Body segment to showcase the contextual inspector
+selectSegment('p2');
+</script>
+</body>
+</html>

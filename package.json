@@ -6,15 +6,30 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "verify:handle-mold": "node scripts/benchmarks/handleMoldGeneratorGate.mjs",
+    "verify:cast-compact": "node scripts/benchmarks/castFormCompactWallBlockGate.mjs",
+    "verify:cast-registration": "node scripts/benchmarks/castFormMultiWallRegistrationKeyGate.mjs",
+    "verify:cast-box": "node scripts/benchmarks/castFormCaseBoxGate.mjs",
+    "verify:cast-volume": "node scripts/benchmarks/castFormMaterialVolumeGate.mjs",
+    "preview": "vite preview",
+    "test": "node scripts/benchmarks/regressionGate.mjs",
+    "test:browser": "node scripts/tests/browserWorkflows.mjs && node scripts/tests/dinnerwareBrowser.mjs && node scripts/tests/pageCommentsBrowser.mjs",
+    "benchmark:dinnerware": "node scripts/benchmarks/dinnerwarePerfBench.mjs",
+    "verify:cast-topology": "node scripts/benchmarks/castFormTopologyGate.mjs",
+    "verify:cast-cleanup": "node scripts/benchmarks/castFormCleanupGate.mjs",
+    "verify:cast-worker": "node scripts/benchmarks/castFormWorkerStateGate.mjs",
+    "verify:performance": "node scripts/benchmarks/qualityPerfGate.mjs",
+    "benchmark:cleanup": "node scripts/benchmarks/castFormCleanupGate.mjs --benchmark"
   },
   "dependencies": {
-    "three": "^0.160.0"
+    "three": "^0.160.0",
+    "three-mesh-bvh": "^0.9.10"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "vite": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
-
-
-

@@ -7,11 +7,30 @@ import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ProfileGenerator } from './profileGenerator.js';
 
+const PROFILE_EPSILON = 1e-5;
+const MIN_PROFILE_RADIUS = 0.1;
+
 export class VesselMeshGenerator {
+    static sharedPreviewMaterial = null;
+
+    static getSharedPreviewMaterial() {
+        if (!VesselMeshGenerator.sharedPreviewMaterial) {
+            VesselMeshGenerator.sharedPreviewMaterial = new THREE.MeshStandardMaterial({
+                color: 0xE8E0D5,
+                roughness: 0.7,
+                metalness: 0.0,
+                side: THREE.DoubleSide,
+                flatShading: false
+            });
+        }
+        return VesselMeshGenerator.sharedPreviewMaterial;
+    }
+
     constructor(state) {
         this.state = state;
         this.radialSegments = 64;
         this.profileGenerator = new ProfileGenerator(state);
+        this.previewMaterial = VesselMeshGenerator.getSharedPreviewMaterial();
     }
 
     /**
@@ -22,8 +41,8 @@ export class VesselMeshGenerator {
         const group = new THREE.Group();
         
         // Generate outer and inner profiles
-        const outerProfile = this.profileGenerator.generate();
-        const innerProfile = this.profileGenerator.generateInnerProfile();
+        const outerProfile = this.sanitizeProfile(this.profileGenerator.generate());
+        const innerProfile = this.sanitizeProfile(this.profileGenerator.generateInnerProfile());
         
         if (outerProfile.length < 2) {
             console.warn('Profile has insufficient points');
@@ -48,10 +67,14 @@ export class VesselMeshGenerator {
             group.add(rimMesh);
         }
 
-        // Create base
-        const baseMesh = this.createBaseMesh(outerProfile, innerProfile);
-        if (baseMesh) {
-            group.add(baseMesh);
+        // The foot profile already encodes bottom geometry when foot is enabled.
+        // Generating an additional base in that mode creates overlapping faces.
+        const shouldGenerateBase = !this.state.sections?.foot?.enabled;
+        if (shouldGenerateBase) {
+            const baseMesh = this.createBaseMesh(outerProfile, innerProfile);
+            if (baseMesh) {
+                group.add(baseMesh);
+            }
         }
 
         return group;
@@ -100,9 +123,10 @@ export class VesselMeshGenerator {
             const profilePoints = previousEndPoint 
                 ? [previousEndPoint, ...points]
                 : points;
+            const sanitizedProfile = this.sanitizeProfile(profilePoints);
 
             const color = sectionColors[sectionName] || 0x808080;
-            const mesh = this.createLatheMesh(profilePoints, sectionName, false, color);
+            const mesh = this.createLatheMesh(sanitizedProfile, sectionName, false, color);
             
             if (mesh) {
                 group.add(mesh);
@@ -112,6 +136,85 @@ export class VesselMeshGenerator {
         });
 
         return group;
+    }
+
+    /**
+     * Clean profile points to avoid lathe degenerates and non-manifold horizontal spikes.
+     * @param {Array<{r:number,h:number}>} profile
+     * @returns {Array<{r:number,h:number}>}
+     */
+    sanitizeProfile(profile) {
+        if (!Array.isArray(profile) || profile.length === 0) {
+            return [];
+        }
+
+        let points = profile
+            .filter((point) => Number.isFinite(point?.r) && Number.isFinite(point?.h))
+            .map((point) => ({ ...point, r: Math.max(MIN_PROFILE_RADIUS, point.r) }));
+
+        if (points.length < 2) {
+            return points;
+        }
+
+        // Remove exact/near duplicate consecutive points.
+        points = points.filter((point, index) => {
+            if (index === 0) return true;
+            const prev = points[index - 1];
+            return (
+                Math.abs(point.r - prev.r) > PROFILE_EPSILON ||
+                Math.abs(point.h - prev.h) > PROFILE_EPSILON
+            );
+        });
+
+        // Iteratively remove collinear and same-height spike points.
+        let changed = true;
+        while (changed && points.length > 2) {
+            changed = false;
+            const cleaned = [points[0]];
+
+            for (let i = 1; i < points.length - 1; i++) {
+                const a = cleaned[cleaned.length - 1];
+                const b = points[i];
+                const c = points[i + 1];
+
+                const abx = b.r - a.r;
+                const aby = b.h - a.h;
+                const bcx = c.r - b.r;
+                const bcy = c.h - b.h;
+                const area2 = Math.abs(abx * bcy - aby * bcx);
+
+                if (area2 <= PROFILE_EPSILON) {
+                    const minR = Math.min(a.r, c.r) - PROFILE_EPSILON;
+                    const maxR = Math.max(a.r, c.r) + PROFILE_EPSILON;
+                    const minH = Math.min(a.h, c.h) - PROFILE_EPSILON;
+                    const maxH = Math.max(a.h, c.h) + PROFILE_EPSILON;
+
+                    if (b.r >= minR && b.r <= maxR && b.h >= minH && b.h <= maxH) {
+                        changed = true;
+                        continue;
+                    }
+                }
+
+                // Remove radius spikes on perfectly horizontal runs.
+                const sameHeight =
+                    Math.abs(a.h - b.h) <= PROFILE_EPSILON &&
+                    Math.abs(b.h - c.h) <= PROFILE_EPSILON;
+                const localExtremum =
+                    (b.r >= a.r && b.r >= c.r) || (b.r <= a.r && b.r <= c.r);
+
+                if (sameHeight && localExtremum) {
+                    changed = true;
+                    continue;
+                }
+
+                cleaned.push(b);
+            }
+
+            cleaned.push(points[points.length - 1]);
+            points = cleaned;
+        }
+
+        return points;
     }
 
     /**
@@ -143,14 +246,16 @@ export class VesselMeshGenerator {
         // Recompute normals after merging
         geometry.computeVertexNormals();
 
-        // Create material
-        const material = new THREE.MeshStandardMaterial({
-            color: color || 0xE8E0D5,
-            roughness: 0.7,
-            metalness: 0.0,
-            side: isInnerSurface ? THREE.BackSide : THREE.FrontSide,
-            flatShading: false
-        });
+        // Use lightweight shared material in generator path; viewport assigns render materials.
+        const material = color
+            ? new THREE.MeshStandardMaterial({
+                color,
+                roughness: 0.7,
+                metalness: 0.0,
+                side: isInnerSurface ? THREE.BackSide : THREE.FrontSide,
+                flatShading: false
+            })
+            : this.previewMaterial;
 
         const mesh = new THREE.Mesh(geometry, material);
         mesh.name = name;
@@ -191,15 +296,66 @@ export class VesselMeshGenerator {
         geometry.rotateX(-Math.PI / 2);
         geometry.translate(0, height, 0);
 
-        const material = new THREE.MeshStandardMaterial({
-            color: 0xE8E0D5,
-            roughness: 0.7,
-            metalness: 0.0,
-            side: THREE.DoubleSide
-        });
-
-        const mesh = new THREE.Mesh(geometry, material);
+        const mesh = new THREE.Mesh(geometry, this.previewMaterial);
         mesh.name = 'rim';
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        return mesh;
+    }
+
+    /**
+     * Create a flat annular cap that closes a hollow vessel ring.
+     * @param {number} innerRadius
+     * @param {number} outerRadius
+     * @param {number} height
+     * @param {string} name
+     * @param {number} normalY - 1 for upward, -1 for downward
+     * @returns {THREE.Mesh|null}
+     */
+    createAnnularCapMesh(innerRadius, outerRadius, height, name, normalY = -1) {
+        const safeOuterRadius = Math.max(MIN_PROFILE_RADIUS, outerRadius);
+        const safeInnerRadius = Math.max(0, innerRadius);
+
+        if (safeOuterRadius <= safeInnerRadius + PROFILE_EPSILON) {
+            return null;
+        }
+
+        const positions = [];
+        const indices = [];
+
+        for (let i = 0; i < this.radialSegments; i++) {
+            const angle = (i / this.radialSegments) * Math.PI * 2;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+
+            positions.push(safeOuterRadius * cos, height, safeOuterRadius * sin);
+            positions.push(safeInnerRadius * cos, height, safeInnerRadius * sin);
+        }
+
+        for (let i = 0; i < this.radialSegments; i++) {
+            const next = (i + 1) % this.radialSegments;
+            const outerCurrent = i * 2;
+            const innerCurrent = outerCurrent + 1;
+            const outerNext = next * 2;
+            const innerNext = outerNext + 1;
+
+            if (normalY < 0) {
+                indices.push(outerCurrent, outerNext, innerCurrent);
+                indices.push(outerNext, innerNext, innerCurrent);
+            } else {
+                indices.push(outerCurrent, innerCurrent, outerNext);
+                indices.push(outerNext, innerCurrent, innerNext);
+            }
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+
+        const mesh = new THREE.Mesh(geometry, this.previewMaterial);
+        mesh.name = name;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
 
@@ -222,30 +378,35 @@ export class VesselMeshGenerator {
         const foot = this.state.sections.foot;
         const group = new THREE.Group();
         
-        const material = new THREE.MeshStandardMaterial({
-            color: 0xE8E0D5,
-            roughness: 0.7,
-            metalness: 0.0,
-            side: THREE.DoubleSide
-        });
-
         if (!foot.enabled) {
-            // No foot - simple base disc at first profile point
-            const basePoint = outerProfile[0];
-            const geometry = new THREE.CircleGeometry(basePoint.r, this.radialSegments);
-            geometry.rotateX(-Math.PI / 2);
-            geometry.translate(0, basePoint.h, 0);
-            
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.name = 'base';
-            return mesh;
+            const outerBase = outerProfile[0];
+            const innerBase = innerProfile[0];
+            const innerRadius = Math.max(0, innerBase?.r ?? 0);
+
+            if (innerRadius <= PROFILE_EPSILON) {
+                const geometry = new THREE.CircleGeometry(outerBase.r, this.radialSegments);
+                geometry.rotateX(-Math.PI / 2);
+                geometry.translate(0, outerBase.h, 0);
+
+                const mesh = new THREE.Mesh(geometry, this.previewMaterial);
+                mesh.name = 'base';
+                return mesh;
+            }
+
+            return this.createAnnularCapMesh(
+                innerRadius,
+                outerBase.r,
+                outerBase.h,
+                'base',
+                -1
+            );
         }
 
         // Calculate footring geometry (same as profileGenerator)
         const footBottomRadius = foot.bottomDiameter / 2;
-        const footringWidth = foot.footringWidth || 8;
-        const innerFootringAngle = foot.innerFootringAngle || -15;
-        const baseRecessDepth = foot.baseRecessDepth || -2; // negative = recessed into vessel, 0 = flat
+        const footringWidth = foot.footringWidth ?? 8;
+        const innerFootringAngle = foot.innerFootringAngle ?? -15;
+        const baseRecessDepth = foot.baseRecessDepth ?? -2; // negative = recessed into vessel, 0 = flat
         
         const footringInnerRadius = Math.max(3, footBottomRadius - footringWidth);
         const baseY = -baseRecessDepth; // Base surface Y position (negative depth = positive Y, inside vessel)
@@ -273,7 +434,7 @@ export class VesselMeshGenerator {
         }
         ringNormals.needsUpdate = true;
         
-        const ring = new THREE.Mesh(ringGeometry, material.clone());
+        const ring = new THREE.Mesh(ringGeometry, this.previewMaterial);
         ring.name = 'footring-bottom';
         group.add(ring);
 
@@ -292,7 +453,7 @@ export class VesselMeshGenerator {
                 Math.PI * 2
             );
             
-            const wall = new THREE.Mesh(wallGeometry, material.clone());
+            const wall = new THREE.Mesh(wallGeometry, this.previewMaterial);
             wall.name = 'inner-footring-wall';
             group.add(wall);
         }
@@ -309,7 +470,7 @@ export class VesselMeshGenerator {
         }
         normals.needsUpdate = true;
         
-        const baseSurface = new THREE.Mesh(baseSurfaceGeometry, material.clone());
+        const baseSurface = new THREE.Mesh(baseSurfaceGeometry, this.previewMaterial);
         baseSurface.name = 'base-surface';
         group.add(baseSurface);
 
@@ -515,4 +676,3 @@ export class VesselMeshGenerator {
 }
 
 export default VesselMeshGenerator;
-

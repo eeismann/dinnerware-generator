@@ -7,6 +7,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import castFormState from '../state/castFormState.js';
 import { PART_COLORS } from '../state/castFormDefaults.js';
+import { buildWallCaseBox, buildFootCaseBox, buildContinuousWallCaseBox } from '../geometry/caseBoxGenerator.js';
+import { RenderScheduler } from '../../ui/renderScheduler.js';
+import { createWorldAxes } from '../../ui/studio/worldAxes.js';
+import { createOrbitPanMode } from '../../ui/orbitPanMode.js';
 
 export class CastFormViewport {
     constructor(container) {
@@ -48,13 +52,22 @@ export class CastFormViewport {
         // Cross-section clipping
         this.clippingPlane = null;
         this.clippingPlaneHelper = null;
+
+        this.renderScheduler = null;
+        this.resizeHandler = null;
+        this.keydownHandler = null;
+        this.cameraTweenFrame = null;
+        this.panController = null;
+        this.unsubscribers = [];
+        this.validationCaptureRequested = new URLSearchParams(window.location.search).get('validationCapture') === '1';
+        this.validationCaptureKey = '';
         
         // Camera presets
         this.cameraPresets = {
             front: { position: [0, 100, 300], target: [0, 50, 0] },
             side: { position: [300, 100, 0], target: [0, 50, 0] },
             threeQuarter: { position: [200, 150, 200], target: [0, 50, 0] },
-            top: { position: [0, 400, 0], target: [0, 0, 0] }
+            top: { position: [0, 520, 0], target: [0, 0, 0] }
         };
         
         this.init();
@@ -65,7 +78,8 @@ export class CastFormViewport {
     init() {
         // Scene
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x1a1a1a);
+        // Match the light gray studio canvas used by the other generators.
+        this.scene.background = new THREE.Color(0xe9e9e6);
         
         // Camera
         const aspect = this.container.clientWidth / this.container.clientHeight;
@@ -96,6 +110,18 @@ export class CastFormViewport {
         this.controls.minDistance = 50;
         this.controls.maxDistance = 2000;
         this.controls.target.set(0, 50, 0);
+
+        // Re-render whenever the camera changes (drag, zoom, damping, presets, tweens)
+        this.controls.addEventListener('change', () => {
+            this.requestRender({ settle: true });
+        });
+        this.panController = createOrbitPanMode({
+            THREE,
+            controls: this.controls,
+            element: this.renderer.domElement,
+            root: this.container,
+            requestRender: (options) => this.requestRender(options)
+        });
         
         // Lighting
         this.setupLighting();
@@ -117,12 +143,20 @@ export class CastFormViewport {
         this.debugGroup.name = 'debug';
         this.debugGroup.visible = false;
         this.scene.add(this.debugGroup);
-        
-        // Start render loop
-        this.animate();
+
+        // Polymer case box preview group (seated form + pour box + polymer)
+        this.caseBoxGroup = new THREE.Group();
+        this.caseBoxGroup.name = 'caseBox';
+        this.caseBoxGroup.visible = false;
+        this.scene.add(this.caseBoxGroup);
         
         // Handle resize
-        window.addEventListener('resize', () => this.onResize());
+        this.resizeHandler = () => this.onResize();
+        window.addEventListener('resize', this.resizeHandler);
+
+        this.setupRenderScheduler();
+        this.updateValidationState();
+        this.requestRender();
     }
 
     setupLighting() {
@@ -156,33 +190,89 @@ export class CastFormViewport {
     }
 
     setupGrid() {
-        this.gridHelper = new THREE.GridHelper(400, 40, 0x444444, 0x333333);
+        this.gridHelper = new THREE.GridHelper(400, 40, 0xbfc0bd, 0xd8d8d4);
         this.gridHelper.position.y = 0;
         this.scene.add(this.gridHelper);
     }
 
+    setupRenderScheduler() {
+        this.renderScheduler = new RenderScheduler({
+            controls: this.controls,
+            render: () => {
+                this.renderer.render(this.scene, this.camera);
+                this.updateValidationCapture();
+            }
+        });
+    }
+
     setupSubscriptions() {
         // Subscribe to input geometry changes
-        castFormState.subscribe('input', () => this.updateInputPreview());
+        this.unsubscribers.push(castFormState.subscribe('input', () => {
+            this.updateInputPreview();
+            this.updateValidationState();
+            this.requestRender();
+        }));
         
         // Subscribe to output changes
-        castFormState.subscribe('output', () => this.updateMoldMeshes());
+        this.unsubscribers.push(castFormState.subscribe('output', () => {
+            this.updateMoldMeshes();
+            // Reseat the case box preview on the fresh parts if it is active
+            if (castFormState.getState('view.caseBoxPreview')?.enabled) {
+                this.updateCaseBoxPreview();
+            }
+            this.updateValidationState();
+            this.requestRender();
+        }));
+
+        // Case box preview mode: toggling/enabling swaps the viewport scene
+        this.unsubscribers.push(castFormState.subscribe('view.caseBoxPreview', () => {
+            this.updateCaseBoxPreview({ refit: true });
+            this.requestRender();
+        }));
+
+        // Case box parameters: rebuild only the box preview (never the mold)
+        this.unsubscribers.push(castFormState.subscribe('params.caseBox', () => {
+            if (castFormState.getState('view.caseBoxPreview')?.enabled) {
+                this.updateCaseBoxPreview();
+                this.requestRender();
+            }
+        }));
         
         // Subscribe to view mode changes
-        castFormState.subscribe('view.mode', () => this.updateViewMode());
+        this.unsubscribers.push(castFormState.subscribe('view.mode', () => {
+            this.updateViewMode();
+            this.updateValidationState();
+            this.requestRender();
+        }));
         
         // Subscribe to explosion distance changes
-        castFormState.subscribe('view.explosionDistance', () => this.updateViewMode());
+        this.unsubscribers.push(castFormState.subscribe('view.explosionDistance', () => {
+            this.updateViewMode();
+            this.updateValidationState();
+            this.requestRender();
+        }));
+
+        // Subscribe to camera preset changes
+        this.unsubscribers.push(castFormState.subscribe('view.cameraPreset', () => {
+            this.updateValidationState();
+        }));
+
+        // Subscribe to wall count changes
+        this.unsubscribers.push(castFormState.subscribe('params.mold.wallCount', () => {
+            this.updateValidationState();
+        }));
         
         // Subscribe to cross-section angle changes
-        castFormState.subscribe('view.crossSectionAngle', () => this.updateCrossSectionAngle());
+        this.unsubscribers.push(castFormState.subscribe('view.crossSectionAngle', () => { this.updateCrossSectionAngle(); this.requestRender(); }));
         
         // Subscribe to grid visibility
-        castFormState.subscribe('view.showGrid', (show) => {
+        this.unsubscribers.push(castFormState.subscribe('view.showGrid', (show) => {
             if (this.gridHelper) {
                 this.gridHelper.visible = show;
             }
-        });
+            this.requestRender();
+        }));
+
     }
 
     /**
@@ -190,7 +280,7 @@ export class CastFormViewport {
      */
     updateInputPreview() {
         // Clear existing input preview
-        this.clearGroup(this.inputGroup);
+        this.clearGroup(this.inputGroup, { disposeGeometry: false, disposeMaterial: true });
         
         const inputState = castFormState.getState('input');
         if (!inputState.geometry || !inputState.isValid) {
@@ -223,7 +313,7 @@ export class CastFormViewport {
      */
     updateMoldMeshes() {
         // Clear existing mold meshes
-        this.clearGroup(this.moldGroup);
+        this.clearGroup(this.moldGroup, { disposeGeometry: false, disposeMaterial: true });
         
         const output = castFormState.getState('output');
         if (!output.footShell && !output.wallShells.some(w => w)) {
@@ -247,11 +337,10 @@ export class CastFormViewport {
         }
         
         // Wall meshes
-        const wallColors = [PART_COLORS.wall1, PART_COLORS.wall2, PART_COLORS.wall3];
         output.wallShells.forEach((wallGeo, index) => {
             if (wallGeo) {
                 const wallMaterial = new THREE.MeshStandardMaterial({
-                    color: wallColors[index],
+                    color: PART_COLORS[`wall${index + 1}`] || PART_COLORS.wall1,
                     roughness: 0.7,
                     metalness: 0.0,
                     side: THREE.DoubleSide
@@ -274,20 +363,14 @@ export class CastFormViewport {
      */
     updateViewMode() {
         const viewMode = castFormState.getState('view.mode');
-        const explosionDistance = castFormState.getState('view.explosionDistance') || 40;
+        const explosionDistance = castFormState.getState('view.explosionDistance') ?? 40;
         
         // Always keep input visible - user should see the imported STL alongside the mold
         this.inputGroup.visible = true;
         
-        // Wall segment midpoint angles (each wall covers 120°, so midpoints are at 60°, 180°, 300°)
-        // Wall 1: 0° to 120° → midpoint at 60° (π/3)
-        // Wall 2: 120° to 240° → midpoint at 180° (π)
-        // Wall 3: 240° to 360° → midpoint at 300° (5π/3)
-        const wallMidAngles = [
-            Math.PI / 3,      // 60° for wall1
-            Math.PI,          // 180° for wall2
-            5 * Math.PI / 3   // 300° for wall3
-        ];
+        const output = castFormState.getState('output');
+        const wallCount = Math.max(1, output.wallShells.filter(Boolean).length || castFormState.getState('params.mold.wallCount') || 2);
+        const wallSegmentAngle = (Math.PI * 2) / wallCount;
         
         // Handle cross-section clipping
         const isCrossSection = viewMode === 'crossSection';
@@ -302,36 +385,320 @@ export class CastFormViewport {
                         // Foot pulls straight down
                         mesh.position.set(0, -explosionDistance, 0);
                         break;
-                    case 'wall1':
-                        // Pull in direction of segment midpoint (60°)
+                    default: {
+                        const match = /^wall(\d+)$/.exec(mesh.name);
+                        if (!match) break;
+                        const wallIndex = parseInt(match[1], 10) - 1;
+                        const wallMidAngle = (wallIndex + 0.5) * wallSegmentAngle;
                         mesh.position.set(
-                            explosionDistance * Math.cos(wallMidAngles[0]),
+                            explosionDistance * Math.cos(wallMidAngle),
                             0,
-                            explosionDistance * Math.sin(wallMidAngles[0])
+                            explosionDistance * Math.sin(wallMidAngle)
                         );
                         break;
-                    case 'wall2':
-                        // Pull in direction of segment midpoint (180°)
-                        mesh.position.set(
-                            explosionDistance * Math.cos(wallMidAngles[1]),
-                            0,
-                            explosionDistance * Math.sin(wallMidAngles[1])
-                        );
-                        break;
-                    case 'wall3':
-                        // Pull in direction of segment midpoint (300°)
-                        mesh.position.set(
-                            explosionDistance * Math.cos(wallMidAngles[2]),
-                            0,
-                            explosionDistance * Math.sin(wallMidAngles[2])
-                        );
-                        break;
+                    }
                 }
             } else {
                 // Assembly and cross-section views - all at origin
                 mesh.position.set(0, 0, 0);
             }
         });
+
+        this.updateValidationState();
+    }
+
+    /**
+     * Case box preview mode: shows the selected mold form seated outer-face-down
+     * in its polymer pour box (with the amber pour volume), hiding the mold and
+     * input previews. Uses the exact box geometry the exporter writes.
+     * @param {{refit?: boolean}} options - refit reframes the camera on the box
+     */
+    updateCaseBoxPreview(options = {}) {
+        const preview = castFormState.getState('view.caseBoxPreview') || {};
+        const enabled = !!preview.enabled;
+
+        this.clearGroup(this.caseBoxGroup, { disposeGeometry: true, disposeMaterial: true });
+        if (!enabled) {
+            this.caseBoxGroup.visible = false;
+            this.moldGroup.visible = true;
+            this.inputGroup.visible = true;
+            this.requestRender();
+            return;
+        }
+
+        const output = castFormState.getState('output');
+        const params = castFormState.getState('params');
+        const target = preview.target === 'foot' ? 'foot' : 'wall';
+        const wallCount = Math.max(1, Math.min(4, Math.round(params?.mold?.wallCount || 2)));
+
+        const readout = document.getElementById('caseBoxReadout');
+        const setReadoutMessage = (message) => {
+            if (readout) readout.innerHTML = `<table><tr><td>${message}</td><td></td></tr></table>`;
+        };
+
+        if (target === 'wall' && !output.wallShells?.[0]) {
+            this.caseBoxGroup.visible = false;
+            this.moldGroup.visible = true;
+            this.inputGroup.visible = true;
+            setReadoutMessage('Generate a mold first');
+            return;
+        }
+        if (target === 'foot' && !output.footShell) {
+            this.caseBoxGroup.visible = false;
+            this.moldGroup.visible = true;
+            this.inputGroup.visible = true;
+            setReadoutMessage('Generate a mold first');
+            return;
+        }
+
+        this.caseBoxGroup.visible = true;
+        this.moldGroup.visible = false;
+        this.inputGroup.visible = false;
+
+        const caseBoxParams = params.caseBox || {};
+        const floorThickness = caseBoxParams.floorThickness ?? 3;
+        const isContinuousWallBox = target === 'wall' && wallCount === 1;
+
+        // The exact export geometry drives the preview.
+        const boxGeometry = target === 'wall'
+            ? (isContinuousWallBox
+                ? buildContinuousWallCaseBox(output.wallShells[0], caseBoxParams)
+                : buildWallCaseBox(output.wallShells[0], wallCount, caseBoxParams))
+            : buildFootCaseBox(output.footShell, caseBoxParams);
+        const info = boxGeometry.userData.caseBox;
+
+        // Seated form: laid-flat clone (wall) or bottom-on-floor clone (foot).
+        let formGeometry;
+        if (target === 'wall') {
+            formGeometry = isContinuousWallBox
+                ? this.seatContinuousWallFootSocketDown(output.wallShells[0])
+                : this.layFlatWallClone(output.wallShells[0], wallCount);
+        } else {
+            formGeometry = output.footShell.clone();
+            formGeometry.translate(0, -info.form.yMin, 0);
+        }
+        formGeometry.translate(0, floorThickness, 0); // onto the pocket floor
+
+        const formMesh = new THREE.Mesh(formGeometry, new THREE.MeshStandardMaterial({
+            color: target === 'wall' ? PART_COLORS.wall1 : PART_COLORS.foot,
+            roughness: 0.75,
+            metalness: 0.0,
+            side: THREE.DoubleSide
+        }));
+        formMesh.name = 'caseBoxForm';
+        this.caseBoxGroup.add(formMesh);
+
+        const boxMesh = new THREE.Mesh(boxGeometry, new THREE.MeshStandardMaterial({
+            color: 0x6b8ba4,
+            roughness: 0.45,
+            metalness: 0.05,
+            transparent: true,
+            opacity: 0.4,
+            side: THREE.DoubleSide,
+            depthWrite: false
+        }));
+        boxMesh.name = 'caseBoxTub';
+        this.caseBoxGroup.add(boxMesh);
+        this.caseBoxGroup.add(new THREE.LineSegments(
+            new THREE.EdgesGeometry(boxGeometry, 25),
+            new THREE.LineBasicMaterial({ color: 0x9fc3dd, transparent: true, opacity: 0.5 })
+        ));
+
+        // Polymer pour to the brim (from the indent ledge up).
+        const brim = floorThickness + info.interiorHeight;
+        const pourBase = floorThickness + (caseBoxParams.indentDepth ?? 2.5);
+        const gap = caseBoxParams.gap ?? 10;
+        const pourGeometry = target === 'wall' && !isContinuousWallBox
+            ? new THREE.BoxGeometry(
+                (info.form.halfWidth + gap) * 2,
+                brim - pourBase,
+                (info.form.halfLength + gap) * 2
+            )
+            : new THREE.CylinderGeometry(info.form.radius + gap, info.form.radius + gap, brim - pourBase, 96);
+        const pourMesh = new THREE.Mesh(pourGeometry, new THREE.MeshStandardMaterial({
+            color: 0xe0a83c,
+            roughness: 0.25,
+            transparent: true,
+            opacity: 0.22,
+            depthWrite: false
+        }));
+        pourMesh.position.y = (pourBase + brim) / 2;
+        pourMesh.name = 'caseBoxPour';
+        this.caseBoxGroup.add(pourMesh);
+
+        // Readout: the same numbers the export uses.
+        if (readout) {
+            boxGeometry.computeBoundingBox();
+            const bb = boxGeometry.boundingBox;
+            const fmt = (v) => `${v.toFixed(1)} mm`;
+            const rows = target === 'wall' && !isContinuousWallBox
+                ? [
+                    ['Form (seated)', `${fmt(info.form.halfWidth * 2)} × ${fmt(info.form.halfLength * 2)} × ${fmt(info.form.height)}`],
+                    ['Box outer', `${fmt(bb.max.x - bb.min.x)} × ${fmt(bb.max.z - bb.min.z)} × ${fmt(bb.max.y - bb.min.y)}`],
+                    ['Interior above form', fmt(caseBoxParams.headspace ?? 25.4)],
+                    ['Serves', `all ${wallCount} walls — print once`]
+                ]
+                : [
+                    ['Form (seated)', `Ø${fmt(info.form.radius * 2)} × ${fmt(info.form.height)}`],
+                    ['Box outer', `Ø${fmt(bb.max.x - bb.min.x)} × ${fmt(bb.max.y - bb.min.y)}`],
+                    ['Interior above form', fmt(caseBoxParams.headspace ?? 25.4)],
+                    ...(isContinuousWallBox ? [
+                        ['Orientation', 'Foot socket seated on the case-box floor'],
+                        ['Cavity', 'Open upward for polymer capture']
+                    ] : [])
+                ];
+            readout.innerHTML = `<table>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>`;
+        }
+
+        if (options.refit) {
+            this.fitCameraToObject(boxGeometry);
+        }
+    }
+
+    /**
+     * Bake wall segment geometry into the laid-flat frame:
+     * worldX = tangent, worldY = outerFaceDistance - u (up), worldZ = mold-Y (centered).
+     */
+    layFlatWallClone(wallGeometry, wallCount) {
+        const phi = Math.PI / Math.max(1, wallCount); // wall 0 bisector
+        const cos = Math.cos(phi);
+        const sin = Math.sin(phi);
+        const clone = wallGeometry.clone();
+        const position = clone.getAttribute('position');
+
+        let outerFaceDistance = -Infinity;
+        let yMin = Infinity;
+        let yMax = -Infinity;
+        for (let i = 0; i < position.count; i++) {
+            const u = position.getX(i) * cos + position.getZ(i) * sin;
+            if (u > outerFaceDistance) outerFaceDistance = u;
+            const y = position.getY(i);
+            if (y < yMin) yMin = y;
+            if (y > yMax) yMax = y;
+        }
+
+        const zMid = (yMin + yMax) / 2;
+        for (let i = 0; i < position.count; i++) {
+            const x = position.getX(i);
+            const y = position.getY(i);
+            const z = position.getZ(i);
+            const u = x * cos + z * sin;
+            const v = -x * sin + z * cos;
+            position.setXYZ(i, v, outerFaceDistance - u, y - zMid);
+        }
+        position.needsUpdate = true;
+        clone.computeVertexNormals();
+        return clone;
+    }
+
+    /**
+     * Seat the rotational one-wall form with its foot-mold interface against
+     * the case-box floor. The vessel cavity stays open at the pour side so the
+     * polymer records its full internal shape.
+     */
+    seatContinuousWallFootSocketDown(wallGeometry) {
+        wallGeometry.computeBoundingBox();
+        const clone = wallGeometry.clone();
+        clone.translate(0, -wallGeometry.boundingBox.min.y, 0);
+        clone.computeVertexNormals();
+        return clone;
+    }
+
+    formatDataNumber(value) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return '';
+        return Number.isInteger(number) ? String(number) : String(Number(number.toFixed(3)));
+    }
+
+    formatVectorData(vector) {
+        if (!vector) return '';
+        return [
+            this.formatDataNumber(vector.x),
+            this.formatDataNumber(vector.y),
+            this.formatDataNumber(vector.z)
+        ].join(',');
+    }
+
+    getRenderedWallCount() {
+        return this.moldGroup?.children.filter(child => /^wall\d+$/.test(child.name)).length || 0;
+    }
+
+    updateValidationState() {
+        if (!this.container) return;
+
+        const params = castFormState.getState('params');
+        const input = castFormState.getState('input');
+        const output = castFormState.getState('output');
+        const view = castFormState.getState('view');
+        const renderedWallCount = this.getRenderedWallCount();
+        const configuredWallCount = Number(params?.mold?.wallCount);
+        const wallCount = Number.isFinite(configuredWallCount)
+            ? Math.max(1, Math.round(configuredWallCount))
+            : renderedWallCount;
+        const hasRenderedMold = Boolean(output?.footShell || renderedWallCount > 0);
+        const isReady = Boolean(castFormState.getState('input.isValid') && hasRenderedMold && !output?.isGenerating);
+
+        this.container.dataset.validationReady = isReady ? 'true' : 'false';
+        this.container.dataset.wallCount = String(wallCount || '');
+        this.container.dataset.renderedWallCount = String(renderedWallCount);
+        this.container.dataset.cornerCutWidth = this.formatDataNumber(params?.mold?.cornerCutWidth ?? 0);
+        this.container.dataset.inputFileName = input?.fileName || '';
+        this.container.dataset.inputSourceUrl = input?.validationSourceUrl || '';
+        this.container.dataset.explosionDistance = this.formatDataNumber(view?.explosionDistance ?? 40);
+        this.container.dataset.viewMode = view?.mode || '';
+        this.container.dataset.cameraPreset = view?.cameraPreset || '';
+        this.container.dataset.cameraSettled = this.cameraTweenFrame ? 'false' : 'true';
+        this.container.dataset.cameraPosition = this.formatVectorData(this.camera?.position);
+        this.container.dataset.cameraTarget = this.formatVectorData(this.controls?.target);
+    }
+
+    updateValidationCapture() {
+        if (!this.validationCaptureRequested || !this.container) return;
+
+        const isReady = this.container.dataset.validationReady === 'true';
+        const isCameraSettled = this.container.dataset.cameraSettled === 'true';
+        if (!isReady || !isCameraSettled) {
+            this.container.dataset.validationCaptureReady = 'false';
+            return;
+        }
+
+        const captureKey = [
+            this.container.dataset.inputSourceUrl,
+            this.container.dataset.cornerCutWidth,
+            this.container.dataset.wallCount,
+            this.container.dataset.renderedWallCount,
+            this.container.dataset.explosionDistance,
+            this.container.dataset.viewMode,
+            this.container.dataset.cameraPreset,
+            this.container.dataset.cameraPosition,
+            this.container.dataset.cameraTarget
+        ].join('|');
+
+        if (captureKey === this.validationCaptureKey) return;
+
+        try {
+            const img = this.getValidationCaptureElement();
+            img.src = this.captureCurrentFrame(520, 366);
+            img.dataset.captureKey = captureKey;
+            this.validationCaptureKey = captureKey;
+            this.container.dataset.validationCaptureReady = 'true';
+            this.container.dataset.validationCaptureError = '';
+        } catch (error) {
+            this.container.dataset.validationCaptureReady = 'false';
+            this.container.dataset.validationCaptureError = error?.message || 'capture failed';
+        }
+    }
+
+    getValidationCaptureElement() {
+        let img = document.getElementById('castFormValidationCapture');
+        if (!img) {
+            img = document.createElement('img');
+            img.id = 'castFormValidationCapture';
+            img.alt = 'Cast form validation capture';
+            img.hidden = true;
+            this.container.appendChild(img);
+        }
+        return img;
     }
     
     /**
@@ -389,16 +756,34 @@ export class CastFormViewport {
      * Set camera to preset position
      * @param {string} presetName - 'front', 'side', 'threeQuarter', 'top'
      */
-    setCameraPreset(presetName) {
+    setCameraPreset(presetName, options = {}) {
         const preset = this.cameraPresets[presetName];
         if (!preset) return;
-        
+        const { instant = false } = options;
+
+        if (this.cameraTweenFrame) {
+            cancelAnimationFrame(this.cameraTweenFrame);
+            this.cameraTweenFrame = null;
+        }
+
+        const endPosition = new THREE.Vector3(...preset.position);
+        const endTarget = new THREE.Vector3(...preset.target);
+
+        if (instant) {
+            this.camera.position.copy(endPosition);
+            this.controls.target.copy(endTarget);
+            this.controls.update();
+            castFormState.setState('view.cameraPreset', presetName);
+            this.updateValidationState();
+            this.renderer.render(this.scene, this.camera);
+            this.updateValidationCapture();
+            return;
+        }
+
         // Animate camera to new position
         const duration = 500;
         const startPosition = this.camera.position.clone();
         const startTarget = this.controls.target.clone();
-        const endPosition = new THREE.Vector3(...preset.position);
-        const endTarget = new THREE.Vector3(...preset.target);
         const startTime = Date.now();
         
         const animate = () => {
@@ -409,9 +794,14 @@ export class CastFormViewport {
             this.camera.position.lerpVectors(startPosition, endPosition, eased);
             this.controls.target.lerpVectors(startTarget, endTarget, eased);
             this.controls.update();
+            this.requestRender({ settle: true });
             
             if (t < 1) {
-                requestAnimationFrame(animate);
+                this.cameraTweenFrame = requestAnimationFrame(animate);
+            } else {
+                this.cameraTweenFrame = null;
+                this.updateValidationState();
+                this.updateValidationCapture();
             }
         };
         
@@ -446,17 +836,21 @@ export class CastFormViewport {
         );
         
         this.controls.update();
+        this.requestRender({ settle: true });
     }
 
     /**
      * Clear all children from a group
      * @param {THREE.Group} group 
      */
-    clearGroup(group) {
+    clearGroup(group, options = {}) {
+        const { disposeGeometry = true, disposeMaterial = true } = options;
         while (group.children.length > 0) {
             const child = group.children[0];
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) {
+            if (disposeGeometry && child.geometry && !child.userData?.externalGeometry) {
+                child.geometry.dispose();
+            }
+            if (disposeMaterial && child.material) {
                 if (Array.isArray(child.material)) {
                     child.material.forEach(m => m.dispose());
                 } else {
@@ -476,7 +870,10 @@ export class CastFormViewport {
     captureThumbnail(width = 256, height = 256) {
         // Render current frame
         this.renderer.render(this.scene, this.camera);
-        
+        return this.captureCurrentFrame(width, height);
+    }
+
+    captureCurrentFrame(width = 256, height = 256) {
         // Get canvas
         const canvas = this.renderer.domElement;
         
@@ -494,7 +891,7 @@ export class CastFormViewport {
 
     /**
      * Highlight specific part
-     * @param {string} partName - 'foot', 'wall1', 'wall2', 'wall3', or null
+     * @param {string} partName - 'foot', 'wall1'...'wall4', or null
      */
     highlightPart(partName) {
         this.moldGroup.children.forEach(mesh => {
@@ -510,15 +907,66 @@ export class CastFormViewport {
                 mesh.material.needsUpdate = true;
             }
         });
+        this.requestRender();
     }
 
     /**
-     * Animation loop
+     * Request a single render on the next animation frame
      */
-    animate() {
-        requestAnimationFrame(() => this.animate());
-        this.controls.update();
-        this.renderer.render(this.scene, this.camera);
+    requestRender(options = {}) {
+        this.renderScheduler?.request(options);
+    }
+
+    /**
+     * Camera access for the Studio Shell view cube (additive; no behavior change).
+     * cancelTween stops an in-flight preset tween so cube drags take over cleanly.
+     */
+    getCameraRig() {
+        if (!this.camera || !this.controls) return null;
+        return {
+            camera: this.camera,
+            controls: this.controls,
+            scene: this.scene,
+            createWorldAxes: () => createWorldAxes(THREE, this.scene, 400),
+            requestRender: (options) => this.requestRender(options),
+            cancelTween: () => {
+                if (this.cameraTweenFrame) {
+                    cancelAnimationFrame(this.cameraTweenFrame);
+                    this.cameraTweenFrame = null;
+                }
+            }
+        };
+    }
+
+    setPanMode(active) {
+        return this.panController?.setPanMode(active) || false;
+    }
+
+    togglePanMode() {
+        return this.panController?.togglePanMode() || false;
+    }
+
+    setTemporaryPan(active) {
+        this.panController?.setSpacePanning(active);
+    }
+
+    isPanMode() {
+        return this.panController?.isPanMode() || false;
+    }
+
+    onPanModeChange(listener) {
+        return this.panController?.onPanModeChange(listener) || (() => {});
+    }
+
+    /**
+     * Show/hide a named mold part (Studio Shell parts panel).
+     */
+    setPartVisible(name, visible) {
+        const mesh = this.moldGroup && this.moldGroup.children.find(c => c.name === name);
+        if (mesh) {
+            mesh.visible = visible;
+            this.requestRender();
+        }
     }
 
     /**
@@ -531,6 +979,7 @@ export class CastFormViewport {
         this.camera.aspect = width / height;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(width, height);
+        this.requestRender();
     }
 
     /**
@@ -545,14 +994,15 @@ export class CastFormViewport {
      * Press 'D' to toggle debug visualization of hollow shell caps
      */
     setupDebugKeyboardShortcut() {
-        window.addEventListener('keydown', (e) => {
+        this.keydownHandler = (e) => {
             // Only trigger if not typing in an input field
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             
             if (e.key === 'd' || e.key === 'D') {
                 this.toggleDebugMode();
             }
-        });
+        };
+        window.addEventListener('keydown', this.keydownHandler);
     }
 
     /**
@@ -636,6 +1086,7 @@ export class CastFormViewport {
         });
         
         this.debugGroup.visible = true;
+        this.requestRender();
     }
 
     /**
@@ -671,6 +1122,7 @@ export class CastFormViewport {
             });
             const points = new THREE.Points(geometry, pointsMaterial);
             points.name = 'debug_foot_points';  // Contains 'points' for visibility toggle
+            points.userData.externalGeometry = true;
             points.visible = this.debugVisibility.points;
             this.debugGroup.add(points);
         }
@@ -901,6 +1353,7 @@ export class CastFormViewport {
             this.inputGroup.visible = true;
         }
         this.debugVisibility.inputGeometry = true;
+        this.requestRender();
     }
 
     /**
@@ -1047,6 +1500,7 @@ export class CastFormViewport {
                 child.visible = this.debugVisibility.points;
             }
         });
+        this.requestRender();
     }
 
     /**
@@ -1063,14 +1517,29 @@ export class CastFormViewport {
      * Dispose of viewport resources
      */
     dispose() {
+        this.renderScheduler?.dispose();
+        this.panController?.dispose();
+        if (this.cameraTweenFrame) {
+            cancelAnimationFrame(this.cameraTweenFrame);
+            this.cameraTweenFrame = null;
+        }
+        if (this.resizeHandler) {
+            window.removeEventListener('resize', this.resizeHandler);
+        }
+        if (this.keydownHandler) {
+            window.removeEventListener('keydown', this.keydownHandler);
+        }
+        this.unsubscribers.forEach((unsubscribe) => unsubscribe?.());
+        this.unsubscribers = [];
         this.controls.dispose();
         this.renderer.dispose();
-        this.clearGroup(this.inputGroup);
-        this.clearGroup(this.moldGroup);
+        this.clearGroup(this.inputGroup, { disposeGeometry: false, disposeMaterial: true });
+        this.clearGroup(this.moldGroup, { disposeGeometry: false, disposeMaterial: true });
         this.clearGroup(this.debugGroup);
+        this.clearGroup(this.caseBoxGroup, { disposeGeometry: true, disposeMaterial: true });
         this.hideDebugLegend();
+        this.renderer.domElement.remove();
     }
 }
 
 export default CastFormViewport;
-

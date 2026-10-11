@@ -19,7 +19,7 @@ import {
  * @param {Object} mugData - Mug reference data
  * @returns {THREE.BufferGeometry} - The handle geometry
  */
-export function generateHandleMesh(handleParams, mugData) {
+export function generateHandleMesh(handleParams, mugData, options = {}) {
     const {
         crossSectionWidth,
         crossSectionHeight,
@@ -61,7 +61,8 @@ export function generateHandleMesh(handleParams, mugData) {
         handleWidth,
         filletZones,
         attachmentRadius,      // Fillet curve radius
-        crossSectionRadius     // Cross-section radius for scale calculation
+        crossSectionRadius,    // Cross-section radius for scale calculation
+        options.capEnds !== false
     );
     
     return geometry;
@@ -149,7 +150,15 @@ function getFilletFactors(t, filletZones, filletRadius, crossSectionRadius) {
  * @param {number} crossSectionRadius - Average radius of cross-section for fillet calculation
  * @returns {THREE.BufferGeometry}
  */
-function sweepCrossSectionAlongPath(crossSection2D, pathPoints, handleWidth = 25, filletZones = null, filletRadius = 8, crossSectionRadius = 10) {
+function sweepCrossSectionAlongPath(
+    crossSection2D,
+    pathPoints,
+    handleWidth = 25,
+    filletZones = null,
+    filletRadius = 8,
+    crossSectionRadius = 10,
+    capEnds = true
+) {
     const vertices = [];
     const indices = [];
     const normals = [];
@@ -227,6 +236,45 @@ function sweepCrossSectionAlongPath(crossSection2D, pathPoints, handleWidth = 25
             indices.push(currentNextJ, next, nextNextJ);
         }
     }
+
+    // Cap both ends so STL export is watertight.
+    const addCap = (ringStart, reverseWinding = false) => {
+        let cx = 0;
+        let cy = 0;
+        let cz = 0;
+
+        for (let j = 0; j < numCrossSectionPoints; j++) {
+            const base = (ringStart + j) * 3;
+            cx += vertices[base];
+            cy += vertices[base + 1];
+            cz += vertices[base + 2];
+        }
+
+        cx /= numCrossSectionPoints;
+        cy /= numCrossSectionPoints;
+        cz /= numCrossSectionPoints;
+
+        const centerIndex = vertices.length / 3;
+        vertices.push(cx, cy, cz);
+        normals.push(0, 0, 0);
+        uvs.push(0.5, 0.5);
+
+        for (let j = 0; j < numCrossSectionPoints; j++) {
+            const current = ringStart + j;
+            const next = ringStart + ((j + 1) % numCrossSectionPoints);
+
+            if (reverseWinding) {
+                indices.push(centerIndex, next, current);
+            } else {
+                indices.push(centerIndex, current, next);
+            }
+        }
+    };
+
+    if (capEnds) {
+        addCap(0, false);
+        addCap((numPathPoints - 1) * numCrossSectionPoints, true);
+    }
     
     // Create geometry
     const geometry = new THREE.BufferGeometry();
@@ -234,6 +282,11 @@ function sweepCrossSectionAlongPath(crossSection2D, pathPoints, handleWidth = 25
     geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     geometry.setIndex(indices);
+    geometry.userData.handleSweep = {
+        pathPointCount: numPathPoints,
+        crossSectionPointCount: numCrossSectionPoints,
+        capEnds
+    };
     
     // Recompute normals for better shading
     geometry.computeVertexNormals();
@@ -386,4 +439,3 @@ export function getMeshStats(geometry) {
         triangles: index ? index.count / 3 : 0,
     };
 }
-

@@ -4,16 +4,42 @@
  */
 
 import { init as initThemeManager } from '../ui/themeManager.js';
-import { handleStateManager, DEFAULT_HANDLE_PARAMS, PARAM_CONSTRAINTS } from './state/handleState.js';
+import {
+    handleStateManager,
+    DEFAULT_HANDLE_PARAMS,
+    PARAM_CONSTRAINTS
+} from './state/handleState.js';
 import { initHandleViewport, getHandleViewport } from './ui/handleViewport.js';
 import { initCrossSectionPreview, getCrossSectionPreview } from './ui/crossSectionPreview.js';
 import { initDimensionOverlays, getDimensionOverlays } from './ui/dimensionOverlays.js';
-import { showMugImportModal, getDinnerwareProjects } from './ui/mugImporter.js';
-import { exportHandleToSTL, downloadSTL, getSuggestedFilename } from './geometry/handleSTLExporter.js';
+import { showMugImportModal, getDinnerwareProjects, getVesselV2Projects, getVesselV3Projects } from './ui/mugImporter.js';
 import { ProjectFileFormat } from '../storage/fileFormat.js';
+import { resolveAppUrl } from '../utils/navigation.js';
+import {
+    DEFAULT_MOLD_CONSTRUCTION_VIEW,
+    mergeMoldConstructionViewSettings
+} from './mold/handleMoldConstructionView.js';
 
 // Storage key for handle projects
 const HANDLE_STORAGE_KEY = 'playground_ceramics_handle_projects';
+const FINAL_HANDLE_UPDATE_DELAY_MS = 140;
+let finalHandleUpdateTimer = null;
+let handleExporterPromise = null;
+let handleMoldExporterPromise = null;
+
+function loadHandleExporter() {
+    if (!handleExporterPromise) {
+        handleExporterPromise = import('./geometry/handleSTLExporter.js');
+    }
+    return handleExporterPromise;
+}
+
+function loadHandleMoldExporter() {
+    if (!handleMoldExporterPromise) {
+        handleMoldExporterPromise = import('./mold/handleMoldSTLExporter.js');
+    }
+    return handleMoldExporterPromise;
+}
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
@@ -32,6 +58,7 @@ async function init() {
     
     // Initialize dimension overlays
     const dimensionOverlays = initDimensionOverlays('dimensionOverlays');
+    viewport.setOverlayUpdater(() => updateDimensionOverlays());
     
     // Initialize parameter controls
     initParameterControls();
@@ -44,6 +71,9 @@ async function init() {
     
     // Initialize footer controls
     initFooterControls();
+
+    // Initialize mold construction controls
+    initMoldConstructionControls();
     
     // Subscribe to state changes
     handleStateManager.subscribe(onStateChange);
@@ -58,9 +88,11 @@ async function init() {
         updateUI();
         regenerateHandle();
     } else {
-        // New project - must select a mug first
-        const projects = getDinnerwareProjects();
-        if (projects.length > 0) {
+        // New project - must select a mug or vessel first
+        const hasImportSource = getDinnerwareProjects().length > 0
+            || getVesselV2Projects().length > 0
+            || getVesselV3Projects().length > 0;
+        if (hasImportSource) {
             // Show mug import modal - required
             showMugImportModal().then(mugData => {
                 if (mugData) {
@@ -82,12 +114,12 @@ async function init() {
                 }
             });
         } else {
-            // No dinnerware projects - show prompt to create one
+            // No dinnerware or vessel projects - show prompt to create one
             showConfirmModal(
-                'No Mug Projects Found',
-                'To create a handle, you first need to create a mug in the Dinnerware Generator.',
+                'No Mug or Vessel Projects Found',
+                'To create a handle, you first need a mug (Dinnerware Generator) or a vessel (Vessel V2/V3) to attach it to.',
                 () => {
-                    window.location.href = '/index.html';
+                    window.location.href = resolveAppUrl('index.html');
                 },
                 'Go to Dinnerware Generator',
                 'Use Default Mug'
@@ -127,6 +159,10 @@ function initParameterControls() {
             // Sync range and number inputs
             rangeInput.addEventListener('input', () => {
                 numberInput.value = rangeInput.value;
+                handleParameterChange(param, parseFloat(rangeInput.value), { preview: true });
+            });
+
+            rangeInput.addEventListener('change', () => {
                 handleParameterChange(param, parseFloat(rangeInput.value));
             });
             
@@ -134,7 +170,7 @@ function initParameterControls() {
                 const value = parseFloat(numberInput.value);
                 if (!isNaN(value)) {
                     rangeInput.value = value;
-                    handleParameterChange(param, value);
+                    handleParameterChange(param, value, { preview: true });
                 }
             });
             
@@ -204,7 +240,6 @@ function initCrossSectionTypeSelector() {
                 cornerRadiusRow.style.display = type === 'rectangular' ? 'flex' : 'none';
             }
             
-            // Regenerate handle
             regenerateHandle();
         });
     });
@@ -278,21 +313,30 @@ function updateMatchMugWallAngle(enabled) {
 /**
  * Handle parameter changes
  */
-function handleParameterChange(param, value) {
+function handleParameterChange(param, value, options = {}) {
+    clearTimeout(finalHandleUpdateTimer);
+    finalHandleUpdateTimer = null;
     handleStateManager.setHandleParam(param, value);
-    regenerateHandle();
+    regenerateHandle({ preview: options.preview === true });
+
+    if (options.preview) {
+        finalHandleUpdateTimer = setTimeout(() => {
+            finalHandleUpdateTimer = null;
+            regenerateHandle({ preview: false });
+        }, FINAL_HANDLE_UPDATE_DELAY_MS);
+    }
 }
 
 /**
  * Regenerate handle mesh
  */
-function regenerateHandle() {
+function regenerateHandle(options = {}) {
     const state = handleStateManager.getState();
     const viewport = getHandleViewport();
     const crossSectionPreview = getCrossSectionPreview();
     
     if (viewport) {
-        viewport.updateHandle(state.handleParams, state.mugData);
+        viewport.updateHandle(state.handleParams, state.mugData, { preview: options.preview === true });
         viewport.updateMug(state.mugData);
     }
     
@@ -310,6 +354,9 @@ function regenerateHandle() {
     
     // Update footer summary
     updateDimensionsSummary();
+
+    // Update mold kit summary
+    updateMoldKitSummary();
     
     // Update warnings
     updateWarnings();
@@ -350,14 +397,16 @@ function initHeaderButtons() {
     // New Project - requires mug selection
     document.getElementById('btnNewProject').addEventListener('click', () => {
         const createNewWithMug = async () => {
-            // First check if there are any dinnerware projects
-            const projects = getDinnerwareProjects();
-            if (projects.length === 0) {
+            // First check if there are any dinnerware or vessel projects
+            const hasImportSource = getDinnerwareProjects().length > 0
+                || getVesselV2Projects().length > 0
+                || getVesselV3Projects().length > 0;
+            if (!hasImportSource) {
                 showConfirmModal(
-                    'No Mug Projects Found',
-                    'You need to create a mug in the Dinnerware Generator first. Would you like to go there now?',
+                    'No Mug or Vessel Projects Found',
+                    'You need a mug (Dinnerware Generator) or a vessel (Vessel V2/V3) first. Would you like to go there now?',
                     () => {
-                        window.location.href = '/index.html';
+                        window.location.href = resolveAppUrl('index.html');
                     },
                     'Go to Dinnerware Generator',
                     'Cancel'
@@ -395,6 +444,9 @@ function initHeaderButtons() {
     
     // Export STL
     document.getElementById('btnExportSTL').addEventListener('click', showExportModal);
+
+    // Export Mold Kit
+    document.getElementById('btnExportMoldKit')?.addEventListener('click', showMoldExportModal);
     
     // Change Mug
     document.getElementById('btnChangeMug').addEventListener('click', () => {
@@ -529,9 +581,24 @@ function initViewMenu() {
     // Display toggles
     const toggles = {
         'btnCrossSection': { setting: 'showCrossSection', toggle: 'crossSectionToggle', action: (v) => getHandleViewport()?.setShowCrossSection(v) },
-        'btnToggleDimensions': { setting: 'showDimensions', toggle: 'dimensionsToggle', action: (v) => getDimensionOverlays()?.setVisible(v) },
+        'btnToggleDimensions': {
+            setting: 'showDimensions',
+            toggle: 'dimensionsToggle',
+            action: (v) => {
+                getDimensionOverlays()?.setVisible(v);
+                updateDimensionOverlays();
+                getHandleViewport()?.requestRender();
+            }
+        },
         'btnToggleOutlines': { setting: 'showAttachmentOutlines', toggle: 'outlinesToggle', action: (v) => getHandleViewport()?.setShowAttachmentOutlines(v) },
         'btnToggleGrid': { setting: 'showGrid', toggle: 'gridToggle', action: (v) => getHandleViewport()?.setShowGrid(v) },
+        'btnMoldPreview': {
+            setting: 'showMoldPreview',
+            toggle: 'moldPreviewToggle',
+            action: (v) => {
+                setMoldPreviewState(v);
+            }
+        },
     };
     
     Object.entries(toggles).forEach(([btnId, config]) => {
@@ -602,12 +669,211 @@ function updateWarnings() {
 function updateDimensionsSummary() {
     const state = handleStateManager.getState();
     const { topAttachmentHeight, bottomAttachmentHeight, handleProtrusion, handleWidth } = state.handleParams;
-    
+    const summaryEl = document.getElementById('handleDimensionsSummary');
+    if (!summaryEl) return;
+
     // Handle height is derived from attachment points
     const handleHeight = topAttachmentHeight - bottomAttachmentHeight;
-    
-    const summaryEl = document.getElementById('handleDimensionsSummary');
     summaryEl.textContent = `${handleHeight} × ${handleProtrusion} × ${handleWidth}mm`;
+}
+
+function getMoldConstructionSettingsFromState(state = handleStateManager.getState()) {
+    return mergeMoldConstructionViewSettings({
+        explode: state.viewSettings.moldExplode ?? DEFAULT_MOLD_CONSTRUCTION_VIEW.explode,
+        opacity: state.viewSettings.moldOpacity ?? DEFAULT_MOLD_CONSTRUCTION_VIEW.opacity,
+        showProof: state.viewSettings.moldShowProof ?? DEFAULT_MOLD_CONSTRUCTION_VIEW.showProof,
+        showHandleMold: state.viewSettings.moldShowHandleMold ?? DEFAULT_MOLD_CONSTRUCTION_VIEW.showHandleMold,
+        showWalls: state.viewSettings.moldShowWalls ?? DEFAULT_MOLD_CONSTRUCTION_VIEW.showWalls,
+        showBottom: state.viewSettings.moldShowBottom ?? DEFAULT_MOLD_CONSTRUCTION_VIEW.showBottom
+    });
+}
+
+function setMoldPreviewState(show) {
+    const state = handleStateManager.getState();
+
+    handleStateManager.setViewSetting('showMoldPreview', show);
+    document.getElementById('moldPreviewToggle')?.classList.toggle('active', show);
+    getHandleViewport()?.setShowMoldPreview(
+        show,
+        state.handleParams,
+        state.mugData,
+        getMoldConstructionSettingsFromState(state)
+    );
+    getDimensionOverlays()?.setVisible(!show && state.viewSettings.showDimensions);
+    updateMoldConstructionControls();
+    updateMoldKitSummary();
+}
+
+function updateMoldConstructionViewport() {
+    const state = handleStateManager.getState();
+    const settings = getMoldConstructionSettingsFromState(state);
+    updateMoldConstructionControls();
+
+    if (!state.viewSettings.showMoldPreview) {
+        return;
+    }
+
+    getHandleViewport()?.setMoldConstructionSettings(settings);
+}
+
+function initMoldConstructionControls() {
+    document.getElementById('btnViewMoldConstruction')?.addEventListener('click', () => {
+        setMoldPreviewState(!handleStateManager.getState().viewSettings.showMoldPreview);
+    });
+
+    const rangeBindings = [
+        ['moldExplodeRange', 'moldExplodeValue', 'moldExplode'],
+        ['moldOpacityRange', 'moldOpacityValue', 'moldOpacity']
+    ];
+
+    rangeBindings.forEach(([inputId, valueId, setting]) => {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+
+        input.addEventListener('input', () => {
+            handleStateManager.setViewSetting(setting, Number(input.value) / 100);
+            document.getElementById(valueId).textContent = `${input.value}%`;
+            updateMoldConstructionViewport();
+        });
+    });
+
+    const checkboxBindings = [
+        ['moldShowProof', 'moldShowProof'],
+        ['moldShowHandleMold', 'moldShowHandleMold'],
+        ['moldShowWalls', 'moldShowWalls'],
+        ['moldShowBottom', 'moldShowBottom']
+    ];
+
+    checkboxBindings.forEach(([inputId, setting]) => {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+
+        input.addEventListener('change', () => {
+            handleStateManager.setViewSetting(setting, input.checked);
+            updateMoldConstructionViewport();
+        });
+    });
+
+    updateMoldConstructionControls();
+}
+
+function updateMoldConstructionControls() {
+    const state = handleStateManager.getState();
+    const settings = getMoldConstructionSettingsFromState();
+    const moldVisible = state.viewSettings.showMoldPreview === true;
+    const explodePercent = Math.round(settings.explode * 100);
+    const opacityPercent = Math.round(settings.opacity * 100);
+
+    const button = document.getElementById('btnViewMoldConstruction');
+    const buttonLabel = document.getElementById('moldConstructionButtonLabel');
+    if (button) {
+        button.setAttribute('aria-pressed', String(moldVisible));
+        button.classList.toggle('active', moldVisible);
+    }
+    if (buttonLabel) {
+        buttonLabel.textContent = moldVisible ? 'Hide Visualization' : 'Show Visualization';
+    }
+    document.getElementById('moldPreviewToggle')?.classList.toggle('active', moldVisible);
+    document.querySelector('.mold-construction-panel')?.classList.toggle('mold-preview-hidden', !moldVisible);
+
+    const explodeInput = document.getElementById('moldExplodeRange');
+    const opacityInput = document.getElementById('moldOpacityRange');
+    if (explodeInput) {
+        explodeInput.value = String(explodePercent);
+        explodeInput.disabled = !moldVisible;
+    }
+    if (opacityInput) {
+        opacityInput.value = String(opacityPercent);
+        opacityInput.disabled = !moldVisible;
+    }
+
+    const explodeValue = document.getElementById('moldExplodeValue');
+    const opacityValue = document.getElementById('moldOpacityValue');
+    if (explodeValue) explodeValue.textContent = `${explodePercent}%`;
+    if (opacityValue) opacityValue.textContent = `${opacityPercent}%`;
+
+    const checkboxValues = {
+        moldShowProof: settings.showProof,
+        moldShowHandleMold: settings.showHandleMold,
+        moldShowWalls: settings.showWalls,
+        moldShowBottom: settings.showBottom
+    };
+
+    Object.entries(checkboxValues).forEach(([id, checked]) => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.checked = checked;
+            input.disabled = !moldVisible;
+        }
+    });
+}
+
+function formatMoldSize(size) {
+    return `${size.x.toFixed(1)} × ${size.y.toFixed(1)} × ${size.z.toFixed(1)}mm`;
+}
+
+export function updateMoldKitSummary(viewport = getHandleViewport()) {
+    const proofEl = document.getElementById('moldProofSize');
+    const formerEl = document.getElementById('moldFormerSize');
+    const wallEl = document.getElementById('moldWallSize');
+    const bottomEl = document.getElementById('moldBottomSize');
+    const plasterEl = document.getElementById('moldPlasterEstimate');
+    const fitEl = document.getElementById('moldFitStatus');
+
+    if (!proofEl || !formerEl || !wallEl || !bottomEl || !plasterEl) {
+        return;
+    }
+
+    const state = handleStateManager.getState();
+    if (!state.viewSettings.showMoldPreview) {
+        proofEl.textContent = '-';
+        formerEl.textContent = '-';
+        wallEl.textContent = '-';
+        bottomEl.textContent = '-';
+        plasterEl.textContent = '-';
+        if (fitEl) {
+            fitEl.textContent = 'Visualization off';
+            fitEl.classList.remove('warning');
+            fitEl.classList.add('paused');
+        }
+        return;
+    }
+
+    try {
+        const summary = viewport?.getMoldSummary();
+        if (!summary) throw new Error('No current mold preview');
+
+        proofEl.textContent = formatMoldSize(summary.sizes.proof);
+        formerEl.textContent = formatMoldSize(summary.sizes.handleMold);
+        wallEl.textContent = formatMoldSize(summary.sizes.wallA);
+        bottomEl.textContent = formatMoldSize(summary.sizes.bottom);
+        plasterEl.textContent = `${summary.plasterVolumeL.toFixed(2)} L`;
+
+        if (fitEl) {
+            const diagnostics = summary.diagnostics;
+            const wellWallGap = Number.isFinite(diagnostics.wellWallGap)
+                ? diagnostics.wellWallGap.toFixed(2)
+                : 'n/a';
+            fitEl.textContent = diagnostics.formerContainsProofHalf && diagnostics.wallContactOk
+                ? `Half-form OK · well-wall gap ${wellWallGap}mm · taper delta ${diagnostics.attachmentDeltaX.toFixed(1)}mm`
+                : diagnostics.formerContainsProofHalf
+                    ? `Fit issue · well-wall gap ${wellWallGap}mm`
+                    : 'Fit issue · proof half exceeds handle mold bounds';
+            fitEl.classList.toggle('warning', !diagnostics.formerContainsProofHalf || !diagnostics.wallContactOk);
+            fitEl.classList.remove('paused');
+        }
+    } catch (error) {
+        proofEl.textContent = '-';
+        formerEl.textContent = '-';
+        wallEl.textContent = '-';
+        bottomEl.textContent = '-';
+        plasterEl.textContent = 'Check parameters';
+        if (fitEl) {
+            fitEl.textContent = 'Fit unavailable';
+            fitEl.classList.add('warning');
+            fitEl.classList.remove('paused');
+        }
+    }
 }
 
 /**
@@ -696,7 +962,9 @@ function updateUI() {
     if (state.handleParams.matchMugWallAngle) {
         updateMatchMugWallAngle(true);
     }
-    
+
+    updateMoldKitSummary();
+    updateMoldConstructionControls();
 }
 
 /**
@@ -1040,13 +1308,19 @@ function loadProjectById(projectId) {
 /**
  * Show export modal
  */
-function showExportModal() {
+async function showExportModal() {
     const modal = document.getElementById('exportModal');
-    const state = handleStateManager.getState();
+    const { getSuggestedFilename } = await loadHandleExporter();
     
-    // Update filename preview
+    modal.querySelector('.modal-header h2').textContent = 'Export STL';
+    document.getElementById('handleExportOptions').style.display = 'block';
+    document.getElementById('btnConfirmExport').textContent = 'Export';
+
     const filenameEl = document.getElementById('exportFilename');
-    filenameEl.textContent = getSuggestedFilename(state.project.name);
+    const exportNote = document.getElementById('exportNote');
+
+    filenameEl.textContent = getSuggestedFilename(handleStateManager.getState().project.name);
+    exportNote.textContent = 'Handle will be exported with attachment geometry for boolean union with mug.';
     
     modal.style.display = 'flex';
     
@@ -1056,7 +1330,13 @@ function showExportModal() {
     const backdrop = modal.querySelector('.modal-backdrop');
     
     const handleExport = async () => {
-        const orientation = document.querySelector('input[name="exportOrientation"]:checked').value;
+        const orientation = document.querySelector('input[name="exportOrientation"]:checked')?.value || 'mug-relative';
+        const {
+            downloadSTL,
+            exportHandleToSTL,
+            getSuggestedFilename
+        } = await loadHandleExporter();
+        const exportState = handleStateManager.getState();
         
         // Show progress
         const progressEl = document.getElementById('exportProgress');
@@ -1068,22 +1348,22 @@ function showExportModal() {
         progressFill.style.width = '30%';
         
         // Generate and export
-        setTimeout(() => {
+        setTimeout(async () => {
             try {
                 progressText.textContent = 'Creating STL...';
                 progressFill.style.width = '60%';
-                
+
                 const blob = exportHandleToSTL(
-                    state.handleParams,
-                    state.mugData,
+                    exportState.handleParams,
+                    exportState.mugData,
                     { orientation }
                 );
-                
+
                 progressText.textContent = 'Downloading...';
                 progressFill.style.width = '90%';
-                
-                downloadSTL(blob, getSuggestedFilename(state.project.name));
-                
+
+                await downloadSTL(blob, getSuggestedFilename(exportState.project.name));
+
                 progressFill.style.width = '100%';
                 progressText.textContent = 'Complete!';
                 
@@ -1113,6 +1393,95 @@ function showExportModal() {
         backdrop.removeEventListener('click', handleClose);
     };
     
+    confirmBtn.addEventListener('click', handleExport);
+    cancelBtn.addEventListener('click', handleClose);
+    closeBtn.addEventListener('click', handleClose);
+    backdrop.addEventListener('click', handleClose);
+}
+
+/**
+ * Show mold-kit export modal
+ */
+async function showMoldExportModal() {
+    const modal = document.getElementById('exportModal');
+    const moldExporter = await loadHandleMoldExporter();
+    const state = handleStateManager.getState();
+    const previewPackage = moldExporter.generateHandleMoldPackage(state.handleParams, state.mugData);
+
+    try {
+        modal.querySelector('.modal-header h2').textContent = 'Export Mold Kit';
+        document.getElementById('handleExportOptions').style.display = 'none';
+        document.getElementById('btnConfirmExport').textContent = 'Export Mold Kit';
+
+        const filenameEl = document.getElementById('exportFilename');
+        const exportNote = document.getElementById('exportNote');
+
+        filenameEl.textContent = moldExporter.getSuggestedMoldPackageFilename(state.project.name);
+        exportNote.textContent = `Includes Proof, Handle Mold, WallA, WallB, Bottom, and readme. Plaster estimate ${previewPackage.plaster.plasterVolumeL.toFixed(2)} L.`;
+    } finally {
+        moldExporter.disposeHandleMoldPackage(previewPackage);
+    }
+
+    modal.style.display = 'flex';
+
+    const confirmBtn = document.getElementById('btnConfirmExport');
+    const cancelBtn = document.getElementById('btnCancelExport');
+    const closeBtn = document.getElementById('btnCloseExportModal');
+    const backdrop = modal.querySelector('.modal-backdrop');
+
+    const handleExport = async () => {
+        const exportState = handleStateManager.getState();
+        const progressEl = document.getElementById('exportProgress');
+        const progressFill = document.getElementById('exportProgressFill');
+        const progressText = document.getElementById('exportProgressText');
+
+        progressEl.style.display = 'block';
+        progressText.textContent = 'Generating mold package...';
+        progressFill.style.width = '25%';
+
+        setTimeout(async () => {
+            try {
+                progressText.textContent = 'Validating STL parts...';
+                progressFill.style.width = '55%';
+
+                await moldExporter.exportHandleMoldPackageAsZip(
+                    exportState.handleParams,
+                    exportState.mugData,
+                    exportState.project.name
+                );
+
+                progressText.textContent = 'Downloading ZIP...';
+                progressFill.style.width = '90%';
+
+                progressFill.style.width = '100%';
+                progressText.textContent = 'Complete!';
+
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                    progressEl.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    cleanup();
+                }, 500);
+            } catch (error) {
+                console.error('Mold export error:', error);
+                alert('Mold export failed: ' + error.message);
+                progressEl.style.display = 'none';
+            }
+        }, 100);
+    };
+
+    const handleClose = () => {
+        modal.style.display = 'none';
+        cleanup();
+    };
+
+    const cleanup = () => {
+        confirmBtn.removeEventListener('click', handleExport);
+        cancelBtn.removeEventListener('click', handleClose);
+        closeBtn.removeEventListener('click', handleClose);
+        backdrop.removeEventListener('click', handleClose);
+    };
+
     confirmBtn.addEventListener('click', handleExport);
     cancelBtn.addEventListener('click', handleClose);
     closeBtn.addEventListener('click', handleClose);
@@ -1173,4 +1542,3 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
-

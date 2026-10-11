@@ -1,15 +1,19 @@
 <!DOCTYPE html>
-<html lang="en" data-mode="dark">
+<html lang="en" data-mode="light">
 <head>
+    <script>(function(){try{var p=new URLSearchParams(location.search).get('ui');var m=(p==='studio'||p==='classic'||p==='line')?p:localStorage.getItem('playground-ceramics-ui');if(p==='line'||(p==='classic'&&localStorage.getItem('playground-ceramics-ui')==='line'))localStorage.setItem('playground-ceramics-ui',p);document.documentElement.dataset.ui=(m==='studio'||m==='line')?m:'classic';}catch(e){document.documentElement.dataset.ui='classic';}})();</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cast Form Generator - Playground Ceramics</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../styles/shared.css">
+    <link rel="stylesheet" href="../styles/studio-shell.css">
     <link rel="stylesheet" href="../styles/themes.css">
     <link rel="stylesheet" href="../styles/cast-form-generator.css">
+    <link rel="stylesheet" href="../styles/line-base.css">
+    <link rel="stylesheet" href="../styles/line-app.css">
 </head>
 <body>
     <!-- Header -->
@@ -119,84 +123,123 @@
                         </div>
                     </div>
                     <div class="param-row">
-                        <label>Corner Cut Width</label>
+                        <label>Wall Sections</label>
                         <div class="param-control">
-                            <input type="range" id="cornerCutWidth" min="0" max="100" step="1" value="20">
+                            <input type="range" id="wallCount" min="1" max="4" step="1" value="3">
                             <div class="value-input">
-                                <input type="number" id="cornerCutWidthValue" min="0" max="100" step="1" value="20">
-                                <span class="unit">mm</span>
+                                <input type="number" id="wallCountValue" min="1" max="4" step="1" value="3">
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- Registration Keys Section -->
-            <section class="param-section" data-section="natches">
-                <div class="section-header" data-collapse="natches">
+            <!-- Master Mold Fill Volume Section -->
+            <section class="param-section" data-section="materialVolume">
+                <div class="section-header" data-collapse="materialVolume">
                     <span class="collapse-icon">▼</span>
-                    <h3>Registration Keys</h3>
+                    <h3>Material Required</h3>
                 </div>
-                <div class="section-content" id="natchesSection">
-                    <div class="param-row">
-                        <label>Natch Diameter</label>
-                        <div class="param-control">
-                            <input type="range" id="natchDiameter" min="6" max="15" step="1" value="10">
-                            <div class="value-input">
-                                <input type="number" id="natchDiameterValue" min="6" max="15" step="1" value="10">
-                                <span class="unit">mm</span>
-                            </div>
-                        </div>
+                <div class="section-content">
+                    <div class="material-volume-card is-empty" id="materialVolumeCard" aria-live="polite">
+                        <span class="material-volume-label">Polymer required for all molds</span>
+                        <strong class="material-volume-total" id="materialVolumeTotal">—</strong>
+                        <span class="material-volume-empty" id="materialVolumeEmpty">Generate a mold to calculate</span>
+                        <table class="material-volume-breakdown" id="materialVolumeBreakdown" hidden>
+                            <tbody id="materialVolumeRows"></tbody>
+                        </table>
                     </div>
-                    <div class="param-row">
-                        <label>Natch Depth</label>
-                        <div class="param-control">
-                            <input type="range" id="natchDepth" min="3" max="10" step="0.5" value="5">
-                            <div class="value-input">
-                                <input type="number" id="natchDepthValue" min="3" max="10" step="0.5" value="5">
-                                <span class="unit">mm</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="param-row">
-                        <label>Tolerance</label>
-                        <div class="param-control">
-                            <input type="range" id="natchTolerance" min="0.1" max="0.5" step="0.05" value="0.2">
-                            <div class="value-input">
-                                <input type="number" id="natchToleranceValue" min="0.1" max="0.5" step="0.05" value="0.2">
-                                <span class="unit">mm</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="param-row">
-                        <label>Natches Per Seam</label>
-                        <select id="natchCount" class="param-select">
-                            <option value="1">1</option>
-                            <option value="2" selected>2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                        </select>
-                    </div>
+                    <p class="material-volume-note">Calculated to the case-box brim after form displacement. Add your preferred mixing and waste allowance.</p>
                 </div>
             </section>
 
-            <!-- Shell Properties Section -->
-            <section class="param-section" data-section="shell">
-                <div class="section-header" data-collapse="shell">
+            <!-- Polymer Case Box Section -->
+            <section class="param-section" data-section="caseBox">
+                <div class="section-header" data-collapse="caseBox">
                     <span class="collapse-icon">▼</span>
-                    <h3>Shell Properties</h3>
+                    <h3>Polymer Case Box</h3>
                 </div>
-                <div class="section-content" id="shellSection">
-                    <div class="param-row">
-                        <label>Shell Thickness</label>
-                        <div class="param-control">
-                            <input type="range" id="shellThickness" min="1.2" max="3.0" step="0.1" value="1.5">
-                            <div class="value-input">
-                                <input type="number" id="shellThicknessValue" min="1.2" max="3.0" step="0.1" value="1.5">
-                                <span class="unit">mm</span>
+                <div class="section-content" id="caseBoxSection">
+                    <div class="casebox-toggle-row">
+                        <div class="casebox-toggle-label">
+                            <strong>Preview casting box</strong>
+                            <small>pauses the mold preview</small>
+                        </div>
+                        <label class="casebox-switch">
+                            <input type="checkbox" id="caseBoxPreviewToggle">
+                            <span class="casebox-switch-ui"></span>
+                        </label>
+                    </div>
+                    <div class="casebox-seg" id="caseBoxTargetSeg">
+                        <button type="button" data-target="wall" class="on">Wall box</button>
+                        <button type="button" data-target="foot">Foot box</button>
+                    </div>
+                    <div id="caseBoxParams" class="casebox-params dimmed">
+                        <div class="param-row">
+                            <label>Side Gap</label>
+                            <div class="param-control">
+                                <input type="range" id="caseBoxGap" min="4" max="25" step="1" value="10">
+                                <div class="value-input">
+                                    <input type="number" id="caseBoxGapValue" min="4" max="25" step="1" value="10">
+                                    <span class="unit">mm</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="param-row">
+                            <label>Headspace Above Form</label>
+                            <div class="param-control">
+                                <input type="range" id="caseBoxHeadspace" min="10" max="50" step="0.2" value="25.4">
+                                <div class="value-input">
+                                    <input type="number" id="caseBoxHeadspaceValue" min="10" max="50" step="0.2" value="25.4">
+                                    <span class="unit">mm</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="param-row">
+                            <label>Box Wall Thickness</label>
+                            <div class="param-control">
+                                <input type="range" id="caseBoxWallThickness" min="0.5" max="6" step="0.1" value="3">
+                                <div class="value-input">
+                                    <input type="number" id="caseBoxWallThicknessValue" min="0.5" max="6" step="0.1" value="3">
+                                    <span class="unit">mm</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="param-row">
+                            <label>Floor Thickness</label>
+                            <div class="param-control">
+                                <input type="range" id="caseBoxFloorThickness" min="0.5" max="8" step="0.5" value="3">
+                                <div class="value-input">
+                                    <input type="number" id="caseBoxFloorThicknessValue" min="0.5" max="8" step="0.5" value="3">
+                                    <span class="unit">mm</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="param-row">
+                            <label>Indent Depth</label>
+                            <div class="param-control">
+                                <input type="range" id="caseBoxIndentDepth" min="0" max="6" step="0.5" value="2.5">
+                                <div class="value-input">
+                                    <input type="number" id="caseBoxIndentDepthValue" min="0" max="6" step="0.5" value="2.5">
+                                    <span class="unit">mm</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="param-row">
+                            <label>Indent Fit Clearance</label>
+                            <div class="param-control">
+                                <input type="range" id="caseBoxFitClearance" min="0" max="0.6" step="0.05" value="0.25">
+                                <div class="value-input">
+                                    <input type="number" id="caseBoxFitClearanceValue" min="0" max="0.6" step="0.05" value="0.25">
+                                    <span class="unit">mm</span>
+                                </div>
                             </div>
                         </div>
                     </div>
+                    <div class="casebox-readout hidden" id="caseBoxReadout"></div>
+                    <p class="casebox-note">These values drive the exported
+                        <code>…_Case_Box_Wall.stl</code> and <code>…_Case_Box_Foot.stl</code> —
+                        what you preview is what exports.</p>
                 </div>
             </section>
 
@@ -223,18 +266,11 @@
                     <span class="legend-color" style="background: #C45C26;"></span>
                     <span class="legend-label">Foot</span>
                 </div>
-                <div class="legend-item" data-part="wall1">
-                    <span class="legend-color" style="background: #7D9B76;"></span>
-                    <span class="legend-label">Wall 1</span>
-                </div>
-                <div class="legend-item" data-part="wall2">
-                    <span class="legend-color" style="background: #6B8BA4;"></span>
-                    <span class="legend-label">Wall 2</span>
-                </div>
-                <div class="legend-item" data-part="wall3">
-                    <span class="legend-color" style="background: #9C9588;"></span>
-                    <span class="legend-label">Wall 3</span>
-                </div>
+            </div>
+
+            <!-- Case Box Preview Banner -->
+            <div class="casebox-banner hidden" id="caseBoxBanner">
+                Case box preview — mold preview paused
             </div>
 
             <!-- Loading Overlay -->
@@ -283,10 +319,6 @@
                         </div>
                     </div>
                     <div class="dropdown-divider"></div>
-                    <label class="dropdown-item checkbox-item">
-                        <input type="checkbox" id="showNatches" checked>
-                        <span>Show Registration Keys</span>
-                    </label>
                     <label class="dropdown-item checkbox-item">
                         <input type="checkbox" id="showGrid" checked>
                         <span>Show Grid</span>
@@ -363,27 +395,12 @@
                 <button class="modal-close" id="exportModalClose">×</button>
             </div>
             <div class="modal-body">
-                <p class="export-description">Export 4 STL files for 3D printing:</p>
+                <p class="export-description" id="exportDescription">Export STL files for 3D printing:</p>
                 <div class="export-files">
                     <label class="export-file-item">
                         <input type="checkbox" checked data-part="foot">
                         <span class="file-icon" style="color: #C45C26;">◼</span>
                         <span class="file-name" id="exportFootName">_Shell_Foot.stl</span>
-                    </label>
-                    <label class="export-file-item">
-                        <input type="checkbox" checked data-part="wall1">
-                        <span class="file-icon" style="color: #7D9B76;">◼</span>
-                        <span class="file-name" id="exportWall1Name">_Shell_Wall_1.stl</span>
-                    </label>
-                    <label class="export-file-item">
-                        <input type="checkbox" checked data-part="wall2">
-                        <span class="file-icon" style="color: #6B8BA4;">◼</span>
-                        <span class="file-name" id="exportWall2Name">_Shell_Wall_2.stl</span>
-                    </label>
-                    <label class="export-file-item">
-                        <input type="checkbox" checked data-part="wall3">
-                        <span class="file-icon" style="color: #9C9588;">◼</span>
-                        <span class="file-name" id="exportWall3Name">_Shell_Wall_3.stl</span>
                     </label>
                 </div>
                 <div class="export-actions">
@@ -449,5 +466,8 @@
 
     <!-- Scripts -->
     <script type="module" src="../scripts/castForm/castFormMain.js"></script>
+    <script type="module" src="../scripts/ui/studio/adapters/castFormAdapter.js"></script>
+    <script type="module" src="../scripts/ui/line/adapters/castFormLine.js"></script>
+    <script type="module" src="../scripts/ui/pageComments/pageComments.js"></script>
 </body>
 </html>

@@ -1,10 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>(function(){try{var p=new URLSearchParams(location.search).get('ui');var m=(p==='studio'||p==='classic'||p==='line')?p:localStorage.getItem('playground-ceramics-ui');if(p==='line'||(p==='classic'&&localStorage.getItem('playground-ceramics-ui')==='line'))localStorage.setItem('playground-ceramics-ui',p);document.documentElement.dataset.ui=(m==='studio'||m==='line')?m:'classic';}catch(e){document.documentElement.dataset.ui='classic';}})();</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Playground Ceramics</title>
-    <link rel="stylesheet" href="/styles/dashboard.css">
+    <link rel="stylesheet" href="./styles/dashboard.css">
+    <link rel="stylesheet" href="./styles/studio-shell.css">
+    <link rel="stylesheet" href="./styles/studio-home.css">
+    <link rel="stylesheet" href="./styles/line-base.css">
+    <link rel="stylesheet" href="./styles/line-dashboard.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&family=Lato:wght@300;400;500;700&family=DM+Sans:wght@300;400;500;600&family=Source+Sans+3:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -179,8 +184,24 @@
     <div class="modal-dashboard" id="appSelectModal" style="display: none;">
         <div class="modal-dashboard-backdrop"></div>
         <div class="modal-dashboard-content modal-dashboard-large">
-            <h2 class="modal-dashboard-title">Create New Project</h2>
-            <p class="modal-dashboard-text">Choose which type of project you'd like to create:</p>
+            <div class="app-select-heading">
+                <div>
+                    <h2 class="modal-dashboard-title">Create a new project</h2>
+                    <p class="modal-dashboard-text">Choose a tool — you can link projects together later.</p>
+                </div>
+                <button class="app-select-close" type="button" id="btnCloseAppSelect" aria-label="Close project selector">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                        <path d="M6 6l12 12"/>
+                        <path d="M18 6L6 18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="app-icon-style-switcher" role="group" aria-label="Icon variation">
+                <button class="app-icon-style-option active" type="button" data-icon-variant="line" aria-pressed="true">Line</button>
+                <button class="app-icon-style-option" type="button" data-icon-variant="object" aria-pressed="false">3D</button>
+                <button class="app-icon-style-option" type="button" data-icon-variant="signature" aria-pressed="false">Signal</button>
+                <button class="app-icon-style-option" type="button" data-icon-variant="plate" aria-pressed="false">Plate</button>
+            </div>
             
             <div class="app-select-grid">
                 <button class="app-select-card" data-app="dinnerware">
@@ -300,7 +321,67 @@
                         <p class="app-select-description">Design vessels with bezier curve controls and multi-section body.</p>
                     </div>
                 </button>
-                
+
+                <button class="app-select-card" data-app="vessel-v2">
+                    <div class="app-select-icon">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <defs>
+                                <linearGradient id="v2-front" x1="14" y1="8" x2="34" y2="42" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#C9F7F5"/>
+                                    <stop offset="1" stop-color="#00A6A6"/>
+                                </linearGradient>
+                                <linearGradient id="v2-pen" x1="30" y1="4" x2="43" y2="17" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#FFE7B8"/>
+                                    <stop offset="1" stop-color="#F59E0B"/>
+                                </linearGradient>
+                            </defs>
+                            <ellipse cx="24" cy="41" rx="15" ry="4" fill="#000" opacity="0.10"/>
+                            <path d="M19 10c0 4 3 6 2 10-.8 3.3-5 5.7-5 12v2.5c0 2.5 2 4.5 4.5 4.5h8c2.5 0 4.5-2 4.5-4.5V32c0-6.3-4.2-8.7-5-12-1-4 2-6 2-10H19z" fill="url(#v2-front)"/>
+                            <path d="M10 39V8" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="3 3"/>
+                            <path d="M10 39c5-1 7-4 6-8s2-9 10-12" stroke="#FFFFFF" stroke-opacity="0.72" stroke-width="2.5" stroke-linecap="round"/>
+                            <circle cx="10" cy="39" r="2" fill="#FFFFFF"/>
+                            <circle cx="16" cy="31" r="2" fill="#FFFFFF"/>
+                            <circle cx="26" cy="19" r="2" fill="#FFFFFF"/>
+                            <path d="M34 6l8 8-8 8-8-8 8-8z" fill="url(#v2-pen)"/>
+                            <path d="M31 17l-4 7 7-4" fill="#6B4A13" opacity="0.75"/>
+                        </svg>
+                    </div>
+                    <div class="app-select-info">
+                        <h3 class="app-select-title">Vessel V2</h3>
+                        <p class="app-select-description">Draw a vessel profile with pen points and bezier handles, then revolve it into a radial form.</p>
+                    </div>
+                </button>
+
+                <button class="app-select-card" data-app="vessel-v3">
+                    <div class="app-select-icon">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <defs>
+                                <linearGradient id="v3-front" x1="14" y1="8" x2="34" y2="42" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#C9F7F5"/>
+                                    <stop offset="1" stop-color="#00A6A6"/>
+                                </linearGradient>
+                                <linearGradient id="v3-pen" x1="30" y1="4" x2="43" y2="17" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#FFE7B8"/>
+                                    <stop offset="1" stop-color="#F59E0B"/>
+                                </linearGradient>
+                            </defs>
+                            <ellipse cx="24" cy="41" rx="15" ry="4" fill="#000" opacity="0.10"/>
+                            <path d="M19 10c0 4 3 6 2 10-.8 3.3-5 5.7-5 12v2.5c0 2.5 2 4.5 4.5 4.5h8c2.5 0 4.5-2 4.5-4.5V32c0-6.3-4.2-8.7-5-12-1-4 2-6 2-10H19z" fill="url(#v3-front)"/>
+                            <path d="M10 39V8" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="2" stroke-dasharray="3 3"/>
+                            <path d="M10 39c5-1 7-4 6-8s2-9 10-12" stroke="#FFFFFF" stroke-opacity="0.72" stroke-width="2.5" stroke-linecap="round"/>
+                            <circle cx="10" cy="39" r="2" fill="#FFFFFF"/>
+                            <circle cx="16" cy="31" r="2" fill="#FFFFFF"/>
+                            <circle cx="26" cy="19" r="2" fill="#FFFFFF"/>
+                            <path d="M34 6l8 8-8 8-8-8 8-8z" fill="url(#v3-pen)"/>
+                            <path d="M31 17l-4 7 7-4" fill="#6B4A13" opacity="0.75"/>
+                        </svg>
+                    </div>
+                    <div class="app-select-info">
+                        <h3 class="app-select-title">Vessel V3</h3>
+                        <p class="app-select-description">V2's profile editor, plus a foundation for spout, lid, and handle attachments coming next.</p>
+                    </div>
+                </button>
+
                 <button class="app-select-card" data-app="castform">
                     <div class="app-select-icon">
                         <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -356,12 +437,14 @@
             </div>
             
             <div class="modal-dashboard-actions">
+                <span class="app-select-footnote">Projects are saved to your browser — no account needed.</span>
                 <button class="btn-dashboard btn-dashboard-secondary" id="btnCancelAppSelect">Cancel</button>
             </div>
         </div>
     </div>
 
-    <script type="module" src="/scripts/dashboard/dashboard.js"></script>
+    <script type="module" src="./scripts/dashboard/dashboard.js"></script>
+    <script type="module" src="./scripts/ui/line/lineDashboard.js"></script>
+    <script type="module" src="./scripts/ui/pageComments/pageComments.js"></script>
 </body>
 </html>
-

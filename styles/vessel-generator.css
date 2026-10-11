@@ -262,7 +262,7 @@ body::after {
     flex-direction: column;
     overflow: hidden;
     z-index: 50;
-    box-shadow: var(--th-shadow-xl);
+    box-shadow: none;
 }
 
 .panel-content {
@@ -1095,4 +1095,3 @@ input[type="range"]::-webkit-slider-thumb:active {
         display: none;
     }
 }
-

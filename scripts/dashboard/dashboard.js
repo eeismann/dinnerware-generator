@@ -12,8 +12,11 @@ import {
     countVisibleItems
 } from './projectStorage.js';
 import { init as initTheme } from '../ui/themeManager.js';
-import { ProjectFileFormat } from '../storage/fileFormat.js';
+import { parseProjectFile, importProjectData, duplicateStoredProject } from '../storage/projectTransfer.js';
+import { startDinnerwareProject } from '../storage/dinnerwareDrafts.js';
 import { DragDropHandler } from '../storage/dragDropHandler.js';
+import { resolveAppUrl } from '../utils/navigation.js';
+import { APP_ICON_VARIANTS, getAppIconSvg } from './appIcons.js';
 
 // DOM Elements
 let elements = {};
@@ -22,12 +25,33 @@ let elements = {};
 let projectToDelete = null;
 let searchQuery = '';
 let dragDropHandler = null;
+let selectedAppIconVariant = document.documentElement.dataset.ui === 'studio'
+    ? APP_ICON_VARIANTS.object
+    : APP_ICON_VARIANTS.line;
+
+function buildAppUrl(relativePath, queryParams) {
+    const resolved = resolveAppUrl(relativePath);
+    if (!queryParams) {
+        return resolved;
+    }
+
+    const params =
+        typeof queryParams === 'string' ? queryParams : queryParams.toString();
+
+    if (!params) {
+        return resolved;
+    }
+
+    const separator = resolved.includes('?') ? '&' : '?';
+    return `${resolved}${separator}${params}`;
+}
 
 /**
  * Initialize the dashboard
  */
 function init() {
     cacheElements();
+    selectAppIconVariant(selectedAppIconVariant);
     bindEvents();
     initDragDrop();
     renderProjects();
@@ -52,8 +76,10 @@ function cacheElements() {
         btnConfirmDelete: document.getElementById('btnConfirmDelete'),
         // App selection modal
         appSelectModal: document.getElementById('appSelectModal'),
+        btnCloseAppSelect: document.getElementById('btnCloseAppSelect'),
         btnCancelAppSelect: document.getElementById('btnCancelAppSelect'),
-        appSelectCards: document.querySelectorAll('.app-select-card')
+        appSelectCards: document.querySelectorAll('.app-select-card'),
+        appIconStyleOptions: document.querySelectorAll('.app-icon-style-option')
     };
 }
 
@@ -67,7 +93,13 @@ function bindEvents() {
     
     // App selection modal
     elements.btnCancelAppSelect.addEventListener('click', closeAppSelectModal);
+    elements.btnCloseAppSelect.addEventListener('click', closeAppSelectModal);
     elements.appSelectModal.querySelector('.modal-dashboard-backdrop').addEventListener('click', closeAppSelectModal);
+    elements.appIconStyleOptions.forEach(button => {
+        button.addEventListener('click', () => {
+            selectAppIconVariant(button.dataset.iconVariant);
+        });
+    });
     elements.appSelectCards.forEach(card => {
         card.addEventListener('click', () => {
             const app = card.dataset.app;
@@ -78,6 +110,10 @@ function bindEvents() {
                 createNewHandleProject();
             } else if (app === 'vessel') {
                 createNewVesselProject();
+            } else if (app === 'vessel-v2') {
+                createNewVesselV2Project();
+            } else if (app === 'vessel-v3') {
+                createNewVesselV3Project();
             } else if (app === 'castform') {
                 createNewCastFormProject();
             }
@@ -111,6 +147,7 @@ function bindEvents() {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeDeleteModal();
+            closeAppSelectModal();
         }
     });
 }
@@ -137,23 +174,7 @@ async function handleFilesDropped(files) {
     for (const file of files) {
         try {
             const text = await file.text();
-            const data = JSON.parse(text);
-
-            // Detect format (enhanced or legacy)
-            const format = ProjectFileFormat.detectFormat(data);
-
-            let projectData;
-            if (format === 'enhanced') {
-                // New enhanced format
-                const deserialized = ProjectFileFormat.deserialize(data);
-                projectData = deserialized;
-            } else {
-                // Legacy format - migrate
-                projectData = ProjectFileFormat.migrateFromLegacy(data);
-            }
-
-            // Import based on app type
-            await importProjectData(projectData);
+            importProjectData(parseProjectFile(text));
             successCount++;
         } catch (error) {
             console.error(`Failed to import ${file.name}:`, error);
@@ -171,61 +192,6 @@ async function handleFilesDropped(files) {
         alert(`Imported ${successCount} project(s) successfully.\n${errorCount} file(s) failed:\n${errors.join('\n')}`);
     } else {
         alert(`Successfully imported ${successCount} project(s)!`);
-    }
-}
-
-/**
- * Import project data based on app type
- * @param {Object} projectData - Enhanced format project data
- */
-async function importProjectData(projectData) {
-    const appType = projectData.fileFormat.appType;
-    const { saveProject, saveVesselProject } = await import('./projectStorage.js');
-
-    if (appType === 'dinnerware') {
-        // Import dinnerware project
-        const project = {
-            id: null,
-            projectName: projectData.project.name,
-            dateCreated: projectData.fileFormat.created,
-            lastModified: new Date().toISOString(),
-            thumbnail: projectData.metadata.thumbnailDataUrl,
-            state: projectData.state
-        };
-        saveProject(project);
-    } else if (appType === 'vessel') {
-        // Import vessel project
-        const project = {
-            id: null,
-            thumbnail: projectData.metadata.thumbnailDataUrl,
-            ...projectData.state
-        };
-        saveVesselProject(project);
-    } else if (appType === 'handle' || appType === 'castform') {
-        // For handle and castform, save directly to their respective storage keys
-        const storageKey = appType === 'handle'
-            ? 'playground_ceramics_handle_projects'
-            : 'playground_ceramics_castform_projects';
-
-        let projects = [];
-        try {
-            const stored = localStorage.getItem(storageKey);
-            if (stored) projects = JSON.parse(stored);
-        } catch (e) {
-            console.error('Error loading projects:', e);
-        }
-
-        const project = {
-            ...projectData.state,
-            thumbnail: projectData.metadata.thumbnailDataUrl,
-            project: {
-                ...projectData.project,
-                id: `${appType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-            }
-        };
-
-        projects.push(project);
-        localStorage.setItem(storageKey, JSON.stringify(projects));
     }
 }
 
@@ -299,11 +265,16 @@ function createProjectCard(project, index) {
     
     const isHandleProject = project.appType === 'handle';
     const isVesselProject = project.appType === 'vessel';
+    const isVesselV2Project = project.appType === 'vessel-v2';
+    const isVesselV3Project = project.appType === 'vessel-v3';
     const isCastFormProject = project.appType === 'castform';
     const appType = getProjectAppType(project);
-    const itemCount = isHandleProject || isVesselProject || isCastFormProject ? 1 : countVisibleItems(project);
+    const supportsCastFormHandoff = appType === 'dinnerware' || appType === 'vessel';
+    const itemCount = isHandleProject || isVesselProject || isVesselV2Project || isVesselV3Project || isCastFormProject ? 1 : countVisibleItems(project);
     const dateStr = formatDate(project.lastModified);
-    const appIconSvg = getAppIconSvg(appType, `proj-${project.id || index}`, 20);
+    const appIconSvg = getAppIconSvg(appType, `proj-${project.id || index}`, 20, APP_ICON_VARIANTS.line);
+    card.dataset.app = appType;
+    card.dataset.items = String(itemCount);
     
     // Create thumbnail or placeholder based on project type
     let previewContent;
@@ -319,6 +290,19 @@ function createProjectCard(project, index) {
                     <path d="M17 5v2c0 1.5-1 3-2 4"/>
                     <path d="M9 11c-2 2-3 5-3 8v1a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-1c0-3-1-6-3-8"/>
                     <path d="M7 14h10"/>
+                </svg>
+            </div>
+        `;
+    } else if (isVesselV2Project || isVesselV3Project) {
+        previewContent = `
+            <div class="card-preview-placeholder vessel-placeholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M5 20V4" stroke-dasharray="3 3"/>
+                    <path d="M5 20c5-1 6-4 5-7s2-7 7-9"/>
+                    <circle cx="5" cy="20" r="1.5" fill="currentColor"/>
+                    <circle cx="10" cy="13" r="1.5" fill="currentColor"/>
+                    <circle cx="17" cy="4" r="1.5" fill="currentColor"/>
+                    <path d="M13 6l5-5 3 3-5 5"/>
                 </svg>
             </div>
         `;
@@ -369,10 +353,17 @@ function createProjectCard(project, index) {
                         <path d="M5 3l14 9-14 9V3z"/>
                     </svg>
                 </button>
-                <button class="card-action-btn" data-action="duplicate" title="Duplicate project" ${(isHandleProject || isVesselProject || isCastFormProject) ? 'disabled style="opacity: 0.3; cursor: not-allowed;"' : ''}>
+                <button class="card-action-btn" data-action="duplicate" title="Duplicate project">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="9" y="9" width="13" height="13" rx="2"/>
                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                </button>
+                <button class="card-action-btn" data-action="castform" title="Open in cast form" ${supportsCastFormHandoff ? '' : 'disabled style="opacity: 0.3; cursor: not-allowed;"'}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 7h6v13H4z"/>
+                        <path d="M14 7h6v13h-6z"/>
+                        <path d="M10 11h4"/>
                     </svg>
                 </button>
                 <button class="card-action-btn danger" data-action="delete" title="Delete project">
@@ -393,7 +384,7 @@ function createProjectCard(project, index) {
                     </div>
                     <div class="card-app-text">
                         <h3 class="card-title">${escapeHtml(project.projectName)}</h3>
-                        <div class="card-date">${dateStr}</div>
+                        <div class="card-date">${project.draftOnly ? 'Unsaved draft · ' : ''}${dateStr}</div>
                     </div>
                 </div>
                 <span class="card-items">
@@ -417,13 +408,15 @@ function createProjectCard(project, index) {
                     openProject(project.id);
                     break;
                 case 'duplicate':
-                    // Skip duplicate for handle, vessel, and castform projects (not yet supported)
-                    if (project.appType !== 'handle' && project.appType !== 'vessel' && project.appType !== 'castform') {
-                        duplicateProject(project);
-                    }
+                    duplicateProject(project);
                     break;
                 case 'delete':
                     showDeleteModal(project);
+                    break;
+                case 'castform':
+                    if (supportsCastFormHandoff) {
+                        openProjectInCastForm(project);
+                    }
                     break;
             }
         });
@@ -441,111 +434,39 @@ function createProjectCard(project, index) {
 function getProjectAppType(project) {
     if (project?.appType === 'handle') return 'handle';
     if (project?.appType === 'vessel') return 'vessel';
+    if (project?.appType === 'vessel-v2') return 'vessel-v2';
+    if (project?.appType === 'vessel-v3') return 'vessel-v3';
     if (project?.appType === 'castform') return 'castform';
     return 'dinnerware';
 }
 
 /**
- * Small 3D app icons for dashboard thumbnails (unique gradient IDs per instance).
+ * Render the current icon direction across all app selection cards.
  */
-function getAppIconSvg(appType, idSuffix, size = 20) {
-    const safe = String(idSuffix).replace(/[^a-zA-Z0-9_-]/g, '');
-    
-    if (appType === 'handle') {
-        const front = `mh-front-${safe}`;
-        const side = `mh-side-${safe}`;
-        return `
-            <svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <linearGradient id="${front}" x1="16" y1="12" x2="32" y2="38" gradientUnits="userSpaceOnUse">
-                        <stop stop-color="#FFD1F4"/>
-                        <stop offset="1" stop-color="#FF2AD4"/>
-                    </linearGradient>
-                    <linearGradient id="${side}" x1="26" y1="18" x2="40" y2="38" gradientUnits="userSpaceOnUse">
-                        <stop stop-color="#FF2AD4"/>
-                        <stop offset="1" stop-color="#A8007F"/>
-                    </linearGradient>
-                </defs>
-                <path d="M14 14.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5V33c0 3.3-2.7 6-6 6H20c-3.3 0-6-2.7-6-6V14.5z" fill="url(#${front})"/>
-                <path fill-rule="evenodd" clip-rule="evenodd"
-                    d="M34.2 17.2h1.6c5.4 0 9.2 3.6 9.2 8.8v0.8c0 5.2-3.8 8.8-9.2 8.8h-1.6c-2.3 0-4.2-1.9-4.2-4.2V21.4c0-2.3 1.9-4.2 4.2-4.2Zm0.6 4.4h0.9c3.1 0 4.8 2.0 4.8 4.6v0.4c0 2.6-1.7 4.6-4.8 4.6h-0.9c-0.3 0-0.6-0.3-0.6-0.6V22.2c0-0.3 0.3-0.6 0.6-0.6Z"
-                    fill="url(#${side})"/>
-                <path d="M18.4 18.2c0.8-1.8 2.6-3 4.7-3h2.0" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="2.6" stroke-linecap="round"/>
-            </svg>
-        `;
-    }
-    
-    if (appType === 'vessel') {
-        const front = `vs-front-${safe}`;
-        const side = `vs-side-${safe}`;
-        return `
-            <svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <linearGradient id="${front}" x1="16" y1="10" x2="34" y2="42" gradientUnits="userSpaceOnUse">
-                        <stop stop-color="#E6D6FF"/>
-                        <stop offset="1" stop-color="#A259FF"/>
-                    </linearGradient>
-                    <linearGradient id="${side}" x1="22" y1="14" x2="40" y2="42" gradientUnits="userSpaceOnUse">
-                        <stop stop-color="#A259FF"/>
-                        <stop offset="1" stop-color="#5B2FA8"/>
-                    </linearGradient>
-                </defs>
-                <path d="M18 11.8c0 3.3 2.6 5.6 2.6 8.2c0 1.5-1 2.6-2.4 3.8c-2.6 2.3-4.2 5.2-4.2 9.3v1.9c0 2.4 1.9 4.3 4.3 4.3h11.4c2.4 0 4.3-1.9 4.3-4.3v-1.9c0-4.1-1.6-7-4.2-9.3c-1.4-1.2-2.4-2.3-2.4-3.8c0-2.6 2.6-4.9 2.6-8.2H18z" fill="url(#${front})"/>
-                <path d="M27.8 11.8c0 3.2-2.4 5.3-2.4 8.2c0 1.9 1.3 3.1 2.8 4.4c2.2 1.9 3.4 4.3 3.4 8.7v1.9c0 2.4-1.9 4.3-4.3 4.3h2.4c2.4 0 4.3-1.9 4.3-4.3v-1.9c0-4.1-1.6-7-4.2-9.3c-1.4-1.2-2.4-2.3-2.4-3.8c0-2.6 2.6-4.9 2.6-8.2h-2.1Z" fill="url(#${side})" opacity="0.9"/>
-                <path d="M19.6 20.6c1.0-2.8 3.1-4.5 6.3-4.8" stroke="#FFFFFF" stroke-opacity="0.30" stroke-width="2.8" stroke-linecap="round"/>
-            </svg>
-        `;
-    }
-    
-    if (appType === 'castform') {
-        const outer = `cf-outer-${safe}`;
-        const wall1 = `cf-wall1-${safe}`;
-        const wall2 = `cf-wall2-${safe}`;
-        return `
-            <svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <linearGradient id="${outer}" x1="8" y1="12" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-                        <stop stop-color="#FFE0C2"/>
-                        <stop offset="1" stop-color="#C45C26"/>
-                    </linearGradient>
-                    <linearGradient id="${wall1}" x1="8" y1="20" x2="20" y2="36" gradientUnits="userSpaceOnUse">
-                        <stop stop-color="#B8D4B0"/>
-                        <stop offset="1" stop-color="#7D9B76"/>
-                    </linearGradient>
-                    <linearGradient id="${wall2}" x1="28" y1="20" x2="40" y2="36" gradientUnits="userSpaceOnUse">
-                        <stop stop-color="#A8C8D8"/>
-                        <stop offset="1" stop-color="#6B8BA4"/>
-                    </linearGradient>
-                </defs>
-                <ellipse cx="24" cy="38" rx="12" ry="4" fill="url(#${outer})"/>
-                <path d="M8 18c0-2 1.5-3.5 3.5-3.5h6c1 0 2 .8 2 1.8v16c0 1.5-1.2 2.7-2.7 2.7H11c-1.7 0-3-1.3-3-3V18z" fill="url(#${wall1})"/>
-                <path d="M28.5 14.5h6c2 0 3.5 1.5 3.5 3.5v14c0 1.7-1.3 3-3 3h-5.8c-1.5 0-2.7-1.2-2.7-2.7v-16c0-1 1-1.8 2-1.8z" fill="url(#${wall2})"/>
-                <circle cx="20" cy="22" r="2" fill="#D4A84B"/>
-                <circle cx="28" cy="22" r="2" fill="#D4A84B"/>
-            </svg>
-        `;
-    }
-    
-    // Dinnerware (default)
-    const top = `dw-top-${safe}`;
-    const side = `dw-side-${safe}`;
-    return `
-        <svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <linearGradient id="${top}" x1="14" y1="16" x2="36" y2="32" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#B7F1FF"/>
-                    <stop offset="1" stop-color="#1ABCFE"/>
-                </linearGradient>
-                <linearGradient id="${side}" x1="16" y1="24" x2="36" y2="42" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#159FD6"/>
-                    <stop offset="1" stop-color="#0B6FA2"/>
-                </linearGradient>
-            </defs>
-            <path d="M10 24c0 3.6 6.3 6.5 14 6.5S38 27.6 38 24v8c0 3.6-6.3 6.5-14 6.5S10 35.6 10 32v-8z" fill="url(#${side})"/>
-            <ellipse cx="24" cy="24" rx="14" ry="6.5" fill="url(#${top})"/>
-            <ellipse cx="24" cy="24" rx="8.5" ry="3.8" fill="#FFFFFF" opacity="0.22"/>
-        </svg>
-    `;
+function renderAppSelectIcons() {
+    elements.appSelectCards.forEach((card, index) => {
+        const icon = card.querySelector('.app-select-icon');
+        if (!icon) return;
+
+        icon.innerHTML = getAppIconSvg(
+            card.dataset.app,
+            `modal-${card.dataset.app}-${selectedAppIconVariant}-${index}`,
+            48,
+            selectedAppIconVariant
+        );
+    });
+}
+
+function selectAppIconVariant(variant) {
+    if (!APP_ICON_VARIANTS[variant]) return;
+
+    selectedAppIconVariant = variant;
+    elements.appIconStyleOptions.forEach(button => {
+        const isActive = button.dataset.iconVariant === variant;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', String(isActive));
+    });
+    renderAppSelectIcons();
 }
 
 /**
@@ -566,12 +487,10 @@ function closeAppSelectModal() {
  * Create a new dinnerware project and navigate to generator
  */
 function createNewDinnerwareProject() {
-    // Clear current project from localStorage
-    localStorage.removeItem('dinnerware_current_project');
-    localStorage.removeItem('dinnerware_editing_project_id');
-    
-    // Navigate to dinnerware generator
-    window.location.href = '/index.html';
+    try {
+        const projectId = startDinnerwareProject(null);
+        window.location.href = buildAppUrl('index.html', new URLSearchParams({ project: projectId }));
+    } catch (error) { alert(error.message); }
 }
 
 /**
@@ -579,7 +498,7 @@ function createNewDinnerwareProject() {
  */
 function createNewHandleProject() {
     // Navigate to handle generator
-    window.location.href = '/handle-generator/index.html';
+    window.location.href = resolveAppUrl('handle-generator/index.html');
 }
 
 /**
@@ -589,7 +508,23 @@ function createNewVesselProject() {
     // Clear any existing autosave
     localStorage.removeItem('vessel_autosave');
     // Navigate to vessel generator
-    window.location.href = '/vessel-generator/index.html';
+    window.location.href = resolveAppUrl('vessel-generator/index.html');
+}
+
+/**
+ * Create a new Vessel Designer V2 project and navigate to the pen profile app.
+ */
+function createNewVesselV2Project() {
+    localStorage.removeItem('vessel_v2_autosave');
+    window.location.href = resolveAppUrl('vessel-v2-generator/index.html');
+}
+
+/**
+ * Create a new Vessel Designer V3 project and navigate to the pen profile app.
+ */
+function createNewVesselV3Project() {
+    localStorage.removeItem('vessel_v3_autosave');
+    window.location.href = resolveAppUrl('vessel-v3-generator/index.html');
 }
 
 /**
@@ -597,7 +532,7 @@ function createNewVesselProject() {
  */
 function createNewCastFormProject() {
     // Navigate to cast form generator
-    window.location.href = '/cast-form-generator/index.html';
+    window.location.href = resolveAppUrl('cast-form-generator/index.html');
 }
 
 /**
@@ -620,49 +555,63 @@ function openProject(projectId) {
     
     // Check project type and navigate to appropriate generator
     if (project.appType === 'handle') {
-        // Navigate to handle generator with project ID
-        window.location.href = `/handle-generator/index.html?project=${projectId}`;
+        const params = new URLSearchParams({ project: projectId });
+        window.location.href = buildAppUrl('handle-generator/index.html', params);
     } else if (project.appType === 'vessel') {
-        // Navigate to vessel generator with project ID
-        window.location.href = `/vessel-generator/index.html?project=${projectId}`;
+        const params = new URLSearchParams({ project: projectId });
+        window.location.href = buildAppUrl('vessel-generator/index.html', params);
+    } else if (project.appType === 'vessel-v2') {
+        const params = new URLSearchParams({ project: projectId });
+        window.location.href = buildAppUrl('vessel-v2-generator/index.html', params);
+    } else if (project.appType === 'vessel-v3') {
+        const params = new URLSearchParams({ project: projectId });
+        window.location.href = buildAppUrl('vessel-v3-generator/index.html', params);
     } else if (project.appType === 'castform') {
-        // Navigate to cast form generator with project ID
-        window.location.href = `/cast-form-generator/index.html?project=${projectId}`;
+        const params = new URLSearchParams({ project: projectId });
+        window.location.href = buildAppUrl('cast-form-generator/index.html', params);
     } else {
-        // Dinnerware project - use existing flow
-        localStorage.setItem('dinnerware_editing_project_id', projectId);
-        
-        if (project.state) {
-            const currentData = {
-                state: project.state,
-                timestamp: new Date().toISOString()
-            };
-            localStorage.setItem('dinnerware_current_project', JSON.stringify(currentData));
-        }
-        
+        try { startDinnerwareProject(projectId); }
+        catch (error) { alert(error.message); return; }
+
         // Navigate to dinnerware generator
-        window.location.href = '/index.html';
+        window.location.href = buildAppUrl('index.html', new URLSearchParams({ project: projectId }));
     }
+}
+
+/**
+ * Open a dinnerware/vessel project directly in Cast Form generator.
+ * Passes source app + project identity so cast form can reconstruct geometry in-place.
+ */
+function openProjectInCastForm(project) {
+    const appType = getProjectAppType(project);
+    if (appType !== 'dinnerware' && appType !== 'vessel') {
+        return;
+    }
+
+    const params = new URLSearchParams();
+    params.set('sourceApp', appType);
+    params.set('sourceProject', project.id);
+
+    if (appType === 'dinnerware') {
+        const visibleItems = project.state?.ui?.visibleItems || [];
+        const fallbackItem = visibleItems.find(Boolean) || 'mug';
+        params.set('sourceItem', fallbackItem);
+    }
+
+    window.location.href = buildAppUrl('cast-form-generator/index.html', params);
 }
 
 /**
  * Duplicate a project
  */
 function duplicateProject(project) {
-    const projects = getAllProjects();
-    
-    // Create copy with new ID and name
-    const duplicate = JSON.parse(JSON.stringify(project));
-    duplicate.id = null; // Will be assigned new ID
-    duplicate.projectName = `${project.projectName} (Copy)`;
-    duplicate.dateCreated = new Date().toISOString();
-    duplicate.lastModified = new Date().toISOString();
-    
-    // Save and re-render
-    import('./projectStorage.js').then(({ saveProject }) => {
-        saveProject(duplicate);
+    try {
+        duplicateStoredProject(project);
         renderProjects();
-    });
+    } catch (error) {
+        alert(`Could not duplicate project: ${error.message}`);
+    }
+
 }
 
 /**
@@ -702,57 +651,12 @@ function importProject() {
     input.type = 'file';
     input.accept = '.json';
     
-    input.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        try {
-            const text = await file.text();
-            const data = JSON.parse(text);
-            
-            // Validate project data
-            if (!data.version || !data.projectName) {
-                throw new Error('Invalid project file format');
-            }
-            
-            // Import project
-            const { saveProject } = await import('./projectStorage.js');
-            const project = {
-                id: null,
-                projectName: data.projectName,
-                dateCreated: data.dateCreated || new Date().toISOString(),
-                lastModified: new Date().toISOString(),
-                thumbnail: null,
-                state: {
-                    globalParameters: data.globalParameters,
-                    itemRatios: data.itemRatios,
-                    itemMultipliers: data.itemMultipliers,
-                    itemOverrides: data.itemOverrides,
-                    saucerSettings: data.saucerSettings,
-                    ui: {
-                        visibleItems: data.visibleItems || ['plate', 'soup_bowl', 'pasta_bowl', 'mug', 'tumbler', 'saucer', 'serving_bowl'],
-                        layoutMode: 'row',
-                        crossSectionEnabled: false,
-                        expandedPanels: ['global-scaling'],
-                        cameraPreset: 'three-quarter'
-                    },
-                    project: {
-                        name: data.projectName,
-                        dateCreated: data.dateCreated,
-                        lastModified: new Date().toISOString(),
-                        isDirty: false
-                    }
-                }
-            };
-            
-            saveProject(project);
-            renderProjects();
-            
-        } catch (error) {
-            alert('Failed to import project: ' + error.message);
-        }
+    input.multiple = true;
+    input.addEventListener('change', (event) => {
+        handleFilesDropped(Array.from(event.target.files));
     });
     
+
     input.click();
 }
 
@@ -775,4 +679,3 @@ if (document.readyState === 'loading') {
     init();
     initTheme();
 }
-

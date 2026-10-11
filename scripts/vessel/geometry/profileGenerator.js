@@ -358,9 +358,9 @@ export class ProfileGenerator {
         const midRadius = foot.midDiameter / 2;
         
         // Footring geometry calculations (following dinnerware generator architecture)
-        const footringWidth = foot.footringWidth || 8;
-        const innerFootringAngle = foot.innerFootringAngle || -15;
-        const baseRecessDepth = foot.baseRecessDepth || -2; // negative = recessed into vessel, 0 = flat
+        const footringWidth = foot.footringWidth ?? 8;
+        const innerFootringAngle = foot.innerFootringAngle ?? -15;
+        const baseRecessDepth = foot.baseRecessDepth ?? -2; // negative = recessed into vessel, 0 = flat
         const sharpFootringCorners = foot.sharpFootringCorners !== false; // default to true for sharp corners
         
         // Footring inner radius at y=0
@@ -978,4 +978,3 @@ export class ProfileGenerator {
 }
 
 export default ProfileGenerator;
-
