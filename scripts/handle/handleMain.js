@@ -4,11 +4,7 @@
  */
 
 import { init as initThemeManager } from '../ui/themeManager.js';
-import {
-    handleStateManager,
-    DEFAULT_HANDLE_PARAMS,
-    PARAM_CONSTRAINTS
-} from './state/handleState.js';
+import { handleStateManager } from './state/handleState.js';
 import { initHandleViewport, getHandleViewport } from './ui/handleViewport.js';
 import { initCrossSectionPreview, getCrossSectionPreview } from './ui/crossSectionPreview.js';
 import { initDimensionOverlays, getDimensionOverlays } from './ui/dimensionOverlays.js';
@@ -19,6 +15,8 @@ import {
     DEFAULT_MOLD_CONSTRUCTION_VIEW,
     mergeMoldConstructionViewSettings
 } from './mold/handleMoldConstructionView.js';
+import { openDialog, closeDialog } from '../ui/accessibility.js';
+import { initDkMenu, initPanelToggle } from '../ui/dialkit/dkChrome.js';
 
 // Storage key for handle projects
 const HANDLE_STORAGE_KEY = 'playground_ceramics_handle_projects';
@@ -26,6 +24,15 @@ const FINAL_HANDLE_UPDATE_DELAY_MS = 140;
 let finalHandleUpdateTimer = null;
 let handleExporterPromise = null;
 let handleMoldExporterPromise = null;
+
+// Mug used when no source project is chosen
+const DEFAULT_MUG = {
+    height: 95,
+    topDiameter: 80,
+    bottomDiameter: 60,
+    wallThickness: 2.5,
+    wallAngle: 5,
+};
 
 function loadHandleExporter() {
     if (!handleExporterPromise) {
@@ -49,206 +56,121 @@ document.addEventListener('DOMContentLoaded', () => {
 async function init() {
     // Initialize theme manager
     initThemeManager();
-    
+
     // Initialize viewport
     const viewport = initHandleViewport('viewport');
-    
-    // Initialize cross-section preview
-    const crossSectionPreview = initCrossSectionPreview('crossSectionCanvas');
-    
-    // Initialize dimension overlays
-    const dimensionOverlays = initDimensionOverlays('dimensionOverlays');
-    viewport.setOverlayUpdater(() => updateDimensionOverlays());
-    
-    // Initialize parameter controls
-    initParameterControls();
-    
-    // Initialize panel sections
-    initPanelSections();
-    
-    // Initialize header buttons
-    initHeaderButtons();
-    
-    // Initialize footer controls
-    initFooterControls();
 
-    // Initialize mold construction controls
-    initMoldConstructionControls();
-    
+    // Initialize cross-section preview
+    initCrossSectionPreview('crossSectionCanvas');
+
+    // Initialize dimension overlays
+    initDimensionOverlays('dimensionOverlays');
+    viewport.setOverlayUpdater(() => updateDimensionOverlays());
+
+    // Header, dialogs, readout cards and DialKit controls
+    initHeaderButtons();
+    initProjectNameEditing();
+    initDialogs();
+    initThemeSync();
+    initReadouts();
+    await initDials();
+    initHeaderChrome();
+
     // Subscribe to state changes
     handleStateManager.subscribe(onStateChange);
-    
+
     // Check if we should show mug import modal on startup
     const urlParams = new URLSearchParams(window.location.search);
     const projectId = urlParams.get('project');
-    
+
     if (projectId) {
         // Load existing handle project
         loadProjectById(projectId);
         updateUI();
         regenerateHandle();
-    } else {
-        // New project - must select a mug or vessel first
-        const hasImportSource = getDinnerwareProjects().length > 0
-            || getVesselV2Projects().length > 0
-            || getVesselV3Projects().length > 0;
-        if (hasImportSource) {
-            // Show mug import modal - required
-            showMugImportModal().then(mugData => {
-                if (mugData) {
-                    updateUI();
-                    regenerateHandle();
-                } else {
-                    // User cancelled - show message and use defaults for preview
-                    handleStateManager.setMugData({
-                        loaded: false,
-                        projectName: 'No mug selected',
-                        height: 95,
-                        topDiameter: 80,
-                        bottomDiameter: 60,
-                        wallThickness: 2.5,
-                        wallAngle: 5,
-                    });
-                    updateUI();
-                    regenerateHandle();
-                }
-            });
-        } else {
-            // No dinnerware or vessel projects - show prompt to create one
-            showConfirmModal(
-                'No Mug or Vessel Projects Found',
-                'To create a handle, you first need a mug (Dinnerware Generator) or a vessel (Vessel V2/V3) to attach it to.',
-                () => {
-                    window.location.href = resolveAppUrl('index.html');
-                },
-                'Go to Dinnerware Generator',
-                'Use Default Mug'
-            );
-            
-            // Use default mug data for now
-            handleStateManager.setMugData({
-                loaded: false,
-                projectName: 'Default mug (no project)',
-                height: 95,
-                topDiameter: 80,
-                bottomDiameter: 60,
-                wallThickness: 2.5,
-                wallAngle: 5,
-            });
+    } else if (hasImportSource()) {
+        // New project - choose a mug or vessel; dismissing uses the default mug
+        showMugImportModal({ cancelLabel: 'Use Default Mug' }).then(mugData => {
+            if (!mugData) {
+                handleStateManager.setMugData({
+                    ...DEFAULT_MUG,
+                    loaded: false,
+                    projectName: 'No mug selected',
+                });
+            }
             updateUI();
             regenerateHandle();
-        }
-    }
-}
-
-/**
- * Initialize parameter controls
- */
-function initParameterControls() {
-    // Get all parameter rows
-    const parameterRows = document.querySelectorAll('.parameter-row[data-param]');
-    
-    parameterRows.forEach(row => {
-        const param = row.dataset.param;
-        const rangeInput = row.querySelector('input[type="range"]');
-        const numberInput = row.querySelector('input[type="number"]');
-        const checkboxInput = row.querySelector('input[type="checkbox"]');
-        const resetBtn = row.querySelector('.btn-reset');
-        
-        if (rangeInput && numberInput) {
-            // Sync range and number inputs
-            rangeInput.addEventListener('input', () => {
-                numberInput.value = rangeInput.value;
-                handleParameterChange(param, parseFloat(rangeInput.value), { preview: true });
-            });
-
-            rangeInput.addEventListener('change', () => {
-                handleParameterChange(param, parseFloat(rangeInput.value));
-            });
-            
-            numberInput.addEventListener('input', () => {
-                const value = parseFloat(numberInput.value);
-                if (!isNaN(value)) {
-                    rangeInput.value = value;
-                    handleParameterChange(param, value, { preview: true });
-                }
-            });
-            
-            numberInput.addEventListener('change', () => {
-                // Clamp value on blur
-                const constraints = PARAM_CONSTRAINTS[param];
-                if (constraints) {
-                    let value = parseFloat(numberInput.value);
-                    value = Math.max(constraints.min, Math.min(constraints.max, value));
-                    numberInput.value = value;
-                    rangeInput.value = value;
-                    handleParameterChange(param, value);
-                }
-            });
-        }
-        
-        // Handle checkbox inputs
-        if (checkboxInput) {
-            checkboxInput.addEventListener('change', () => {
-                handleParameterChange(param, checkboxInput.checked);
-                
-                // Special handling for matchMugWallAngle
-                if (param === 'matchMugWallAngle') {
-                    updateMatchMugWallAngle(checkboxInput.checked);
-                }
-            });
-        }
-        
-        // Reset button
-        if (resetBtn) {
-            resetBtn.addEventListener('click', () => {
-                const defaultValue = DEFAULT_HANDLE_PARAMS[param];
-                if (defaultValue !== undefined) {
-                    if (rangeInput) rangeInput.value = defaultValue;
-                    if (numberInput) numberInput.value = defaultValue;
-                    handleParameterChange(param, defaultValue);
-                }
-            });
-        }
-    });
-    
-    // Initialize cross-section type selector
-    initCrossSectionTypeSelector();
-}
-
-/**
- * Initialize cross-section type selector
- */
-function initCrossSectionTypeSelector() {
-    const typeButtons = document.querySelectorAll('.cross-section-type-btn');
-    const cornerRadiusRow = document.getElementById('cornerRadiusRow');
-    
-    typeButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            // Update button states
-            typeButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            // Get selected type
-            const type = btn.dataset.type;
-            
-            // Update state
-            handleStateManager.setHandleParam('crossSectionType', type);
-            
-            // Show/hide corner radius row
-            if (cornerRadiusRow) {
-                cornerRadiusRow.style.display = type === 'rectangular' ? 'flex' : 'none';
-            }
-            
-            regenerateHandle();
         });
-    });
-    
-    // Set initial visibility based on current state
-    const state = handleStateManager.getState();
-    if (cornerRadiusRow) {
-        cornerRadiusRow.style.display = state.handleParams.crossSectionType === 'rectangular' ? 'flex' : 'none';
+    } else {
+        // No dinnerware or vessel projects - show prompt to create one
+        showConfirmModal(
+            'No Mug or Vessel Projects Found',
+            'To create a handle, you first need a mug (Dinnerware Generator) or a vessel (Vessel V2/V3) to attach it to.',
+            () => {
+                window.location.href = resolveAppUrl('index.html');
+            },
+            'Go to Dinnerware Generator',
+            'Use Default Mug'
+        );
+
+        // Use default mug data for now
+        handleStateManager.setMugData({
+            ...DEFAULT_MUG,
+            loaded: false,
+            projectName: 'Default mug (no project)',
+        });
+        updateUI();
+        regenerateHandle();
     }
+}
+
+function hasImportSource() {
+    return getDinnerwareProjects().length > 0
+        || getVesselV2Projects().length > 0
+        || getVesselV3Projects().length > 0;
+}
+
+// === DialKit controls ===
+
+let dials = null;
+
+async function initDials() {
+    // Loaded on demand so headless gates can import this module without a DOM
+    const { initHandleDials } = await import('../ui/dialkit/handleDials.js');
+    dials = initHandleDials({
+        container: document.getElementById('parameterPanel'),
+        setParam: (param, value, { interactive }) => handleParameterChange(param, value, { preview: interactive }),
+        setMatchMugWallAngle,
+        setMoldPreview: setMoldPreviewState,
+        setMoldSetting: (setting, value) => {
+            handleStateManager.setViewSetting(setting, value);
+            updateMoldConstructionViewport();
+        },
+        getMoldSettings: () => getMoldConstructionSettingsFromState(),
+        setViewSetting,
+        setCameraView: (view) => {
+            handleStateManager.setViewSetting('cameraView', view);
+            getHandleViewport()?.setCameraView(view);
+        },
+        resetView: () => getHandleViewport()?.resetView(),
+        // Drags preview at interactive resolution; the release rebuilds at full resolution
+        onGestureStart: () => {},
+        onGestureEnd: (changed) => {
+            if (!changed) return;
+            clearTimeout(finalHandleUpdateTimer);
+            finalHandleUpdateTimer = null;
+            regenerateHandle({ preview: false });
+        }
+    });
+}
+
+// === Header chrome ===
+
+let panelToggle = null;
+
+function initHeaderChrome() {
+    panelToggle = initPanelToggle(document.getElementById('btnTogglePanel'), 'handle_dials_visible');
+    initDkMenu(document.getElementById('fileMenu'));
 }
 
 /**
@@ -258,56 +180,44 @@ function initCrossSectionTypeSelector() {
 function calculateMugWallAngle() {
     const state = handleStateManager.getState();
     const { mugData } = state;
-    
+
     if (!mugData.loaded) {
         // Use default mug dimensions
         const topRadius = 40;  // default topDiameter/2
         const bottomRadius = 30;  // default bottomDiameter/2
         const height = 95;
-        
+
         const radiusDiff = topRadius - bottomRadius;
         const angleRad = Math.atan(radiusDiff / height);
         return angleRad * 180 / Math.PI;
     }
-    
+
     const topRadius = mugData.topDiameter / 2;
     const bottomRadius = mugData.bottomDiameter / 2;
     const height = mugData.height;
-    
+
     const radiusDiff = topRadius - bottomRadius;
     const angleRad = Math.atan(radiusDiff / height);
     return angleRad * 180 / Math.PI;
 }
 
 /**
- * Update vertical arm angle to match mug wall angle
+ * Set the vertical arm angle to the mug's wall angle (clamped to the dial range)
  */
-function updateMatchMugWallAngle(enabled) {
-    const verticalAngleRow = document.querySelector('.parameter-row[data-param="verticalArmAngle"]');
-    const rangeInput = verticalAngleRow?.querySelector('input[type="range"]');
-    const numberInput = verticalAngleRow?.querySelector('input[type="number"]');
-    
-    if (enabled) {
-        // Calculate and apply mug wall angle
-        const mugWallAngle = calculateMugWallAngle();
-        const clampedAngle = Math.max(-30, Math.min(30, Math.round(mugWallAngle)));
-        
-        if (rangeInput) {
-            rangeInput.value = clampedAngle;
-            rangeInput.disabled = true;
-        }
-        if (numberInput) {
-            numberInput.value = clampedAngle;
-            numberInput.disabled = true;
-        }
-        
+function applyMatchedArmAngle() {
+    const clampedAngle = Math.max(-30, Math.min(30, Math.round(calculateMugWallAngle())));
+    if (handleStateManager.getState().handleParams.verticalArmAngle !== clampedAngle) {
         handleStateManager.setHandleParam('verticalArmAngle', clampedAngle);
-        regenerateHandle();
-    } else {
-        // Re-enable manual control
-        if (rangeInput) rangeInput.disabled = false;
-        if (numberInput) numberInput.disabled = false;
     }
+}
+
+/**
+ * Toggle matching the vertical arm angle to the mug wall angle
+ */
+function setMatchMugWallAngle(enabled) {
+    handleStateManager.setHandleParam('matchMugWallAngle', enabled);
+    if (enabled) applyMatchedArmAngle();
+    regenerateHandle();
 }
 
 /**
@@ -333,33 +243,35 @@ function handleParameterChange(param, value, options = {}) {
 function regenerateHandle(options = {}) {
     const state = handleStateManager.getState();
     const viewport = getHandleViewport();
-    const crossSectionPreview = getCrossSectionPreview();
-    
+
     if (viewport) {
         viewport.updateHandle(state.handleParams, state.mugData, { preview: options.preview === true });
         viewport.updateMug(state.mugData);
     }
-    
-    if (crossSectionPreview) {
-        crossSectionPreview.render(
-            state.handleParams.crossSectionWidth,
-            state.handleParams.crossSectionHeight,
-            state.handleParams.crossSectionType,
-            state.handleParams.crossSectionCornerRadius
-        );
-    }
-    
+
+    renderCrossSectionPreview();
+
     // Update dimension overlays
     updateDimensionOverlays();
-    
-    // Update footer summary
+
+    // Update handle size readout
     updateDimensionsSummary();
 
     // Update mold kit summary
     updateMoldKitSummary();
-    
+
     // Update warnings
     updateWarnings();
+}
+
+function renderCrossSectionPreview() {
+    const { handleParams } = handleStateManager.getState();
+    getCrossSectionPreview()?.render(
+        handleParams.crossSectionWidth,
+        handleParams.crossSectionHeight,
+        handleParams.crossSectionType,
+        handleParams.crossSectionCornerRadius
+    );
 }
 
 /**
@@ -369,39 +281,21 @@ function updateDimensionOverlays() {
     const overlays = getDimensionOverlays();
     const viewport = getHandleViewport();
     const state = handleStateManager.getState();
-    
+
     if (overlays && viewport && state.viewSettings.showDimensions) {
         overlays.update(state.handleParams, viewport.camera, state.mugData);
     }
 }
 
 /**
- * Initialize panel sections (collapsible)
- */
-function initPanelSections() {
-    const sections = document.querySelectorAll('.panel-section');
-    
-    sections.forEach(section => {
-        const header = section.querySelector('.section-header');
-        
-        header.addEventListener('click', () => {
-            section.classList.toggle('expanded');
-        });
-    });
-}
-
-/**
- * Initialize header buttons
+ * Initialize header buttons (File menu items)
  */
 function initHeaderButtons() {
     // New Project - requires mug selection
     document.getElementById('btnNewProject').addEventListener('click', () => {
         const createNewWithMug = async () => {
             // First check if there are any dinnerware or vessel projects
-            const hasImportSource = getDinnerwareProjects().length > 0
-                || getVesselV2Projects().length > 0
-                || getVesselV3Projects().length > 0;
-            if (!hasImportSource) {
+            if (!hasImportSource()) {
                 showConfirmModal(
                     'No Mug or Vessel Projects Found',
                     'You need a mug (Dinnerware Generator) or a vessel (Vessel V2/V3) first. Would you like to go there now?',
@@ -413,18 +307,19 @@ function initHeaderButtons() {
                 );
                 return;
             }
-            
+
             // Show mug import modal - required for new project
             const mugData = await showMugImportModal();
             if (mugData) {
                 handleStateManager.resetToNew();
                 handleStateManager.setMugData(mugData);
+                applyViewSettings();
                 updateUI();
                 regenerateHandle();
             }
             // If cancelled, don't create new project
         };
-        
+
         if (handleStateManager.getState().ui.hasUnsavedChanges) {
             showConfirmModal(
                 'Unsaved Changes',
@@ -435,200 +330,148 @@ function initHeaderButtons() {
             createNewWithMug();
         }
     });
-    
+
     // Load Project
     document.getElementById('btnLoadProject').addEventListener('click', loadProjectFromFile);
-    
+
     // Save Project
     document.getElementById('btnSaveProject').addEventListener('click', showSaveModal);
-    
+
     // Export STL
     document.getElementById('btnExportSTL').addEventListener('click', showExportModal);
 
     // Export Mold Kit
-    document.getElementById('btnExportMoldKit')?.addEventListener('click', showMoldExportModal);
-    
-    // Change Mug
-    document.getElementById('btnChangeMug').addEventListener('click', () => {
-        if (handleStateManager.getState().ui.hasUnsavedChanges) {
-            showConfirmModal(
-                'Unsaved Changes',
-                'Changing the mug will affect handle dimensions. Continue?',
-                () => {
-                    showMugImportModal().then(mugData => {
-                        if (mugData) {
-                            updateUI();
-                            regenerateHandle();
-                        }
-                    });
-                }
-            );
-        } else {
-            showMugImportModal().then(mugData => {
-                if (mugData) {
-                    updateUI();
-                    regenerateHandle();
-                }
-            });
+    document.getElementById('btnExportMoldKit').addEventListener('click', showMoldExportModal);
+
+    // Change Source (mug or vessel)
+    document.getElementById('btnChangeMug').addEventListener('click', changeSource);
+}
+
+function changeSource() {
+    const pickSource = () => {
+        showMugImportModal().then(mugData => {
+            if (mugData) {
+                updateUI();
+                regenerateHandle();
+            }
+        });
+    };
+    if (handleStateManager.getState().ui.hasUnsavedChanges) {
+        showConfirmModal(
+            'Unsaved Changes',
+            'Changing the mug will affect handle dimensions. Continue?',
+            pickSource
+        );
+    } else {
+        pickSource();
+    }
+}
+
+/**
+ * Rename the project from the header
+ */
+function initProjectNameEditing() {
+    const nameEl = document.getElementById('projectName');
+    let originalName = '';
+    let cancelEdit = false;
+
+    nameEl.addEventListener('focus', () => {
+        originalName = handleStateManager.getState().project.name || 'Untitled Handle';
+        cancelEdit = false;
+        requestAnimationFrame(() => {
+            const range = document.createRange();
+            range.selectNodeContents(nameEl);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+        });
+    });
+
+    nameEl.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            nameEl.blur();
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            cancelEdit = true;
+            nameEl.blur();
         }
+    });
+
+    nameEl.addEventListener('blur', () => {
+        if (cancelEdit) {
+            cancelEdit = false;
+            nameEl.textContent = originalName;
+            return;
+        }
+        const nextName = nameEl.textContent.replace(/\s+/g, ' ').trim() || originalName;
+        nameEl.textContent = nextName;
+        if (nextName === handleStateManager.getState().project.name) return;
+        handleStateManager.setProject({ name: nextName });
+        handleStateManager.setState(state => ({
+            ...state,
+            ui: { ...state.ui, hasUnsavedChanges: true },
+        }), ['ui']);
     });
 }
 
 /**
- * Initialize footer controls
+ * Keep the viewport and cross-section preview in step with light/dark mode
  */
-function initFooterControls() {
-    // NOTE: Settings menu toggle and theme handling is done by themeManager.js initSettingsMenu()
-    // We only need to watch for theme changes to update the viewport
-    
-    // Watch for theme mode changes to update viewport
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (mutation.attributeName === 'data-mode') {
-                const isDark = document.documentElement.getAttribute('data-mode') === 'dark';
-                getHandleViewport()?.setTheme(isDark);
-            }
-        });
-    });
-    
-    observer.observe(document.documentElement, {
+function initThemeSync() {
+    const applyTheme = () => {
+        const isDark = document.documentElement.getAttribute('data-mode') !== 'light';
+        getHandleViewport()?.setTheme(isDark);
+        renderCrossSectionPreview();
+    };
+    new MutationObserver(applyTheme).observe(document.documentElement, {
         attributes: true,
         attributeFilter: ['data-mode']
     });
-    
-    // Set initial viewport theme based on current mode
-    const isDark = document.documentElement.getAttribute('data-mode') === 'dark';
-    getHandleViewport()?.setTheme(isDark);
-    
-    // Mug display options
-    document.querySelectorAll('.mug-display-option').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.mug-display-option').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            const mode = btn.dataset.mode;
-            handleStateManager.setViewSetting('mugDisplayMode', mode);
-            getHandleViewport()?.setMugDisplayMode(mode);
-        });
-    });
-    
-    // Panel toggle
-    const panelToggle = document.getElementById('btnTogglePanel');
-    const panelToggleLabel = document.getElementById('panelToggleLabel');
-    const parameterPanel = document.querySelector('.parameter-panel');
-    
-    if (panelToggle && panelToggleLabel && parameterPanel) {
-        panelToggle.addEventListener('click', () => {
-            const isHidden = parameterPanel.classList.toggle('hidden');
-            panelToggleLabel.textContent = isHidden ? 'Show Parameter Panel' : 'Hide Parameter Panel';
-            // Resize viewport when panel is toggled
-            setTimeout(() => {
-                getHandleViewport()?.handleResize();
-            }, 300);
-        });
-    }
-    
-    // View menu
-    initViewMenu();
-    
-    // Warnings menu
-    initWarningsMenu();
+    applyTheme();
 }
 
 /**
- * Initialize view menu
+ * Source and warnings readout cards
  */
-function initViewMenu() {
-    const viewContainer = document.querySelector('.view-menu-container');
-    const viewBtn = document.getElementById('btnViewMenu');
-    
-    viewBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        viewContainer.classList.toggle('open');
-    });
-    
-    document.addEventListener('click', () => {
-        viewContainer.classList.remove('open');
-    });
-    
-    // Camera views
-    const viewButtons = {
-        'btnViewSide': 'side',
-        'btnViewThreeQuarter': 'threeQuarter',
-        'btnViewTop': 'top',
-        'btnViewBottom': 'bottom',
-    };
-    
-    Object.entries(viewButtons).forEach(([btnId, view]) => {
-        const btn = document.getElementById(btnId);
-        btn.addEventListener('click', () => {
-            // Update active state
-            Object.keys(viewButtons).forEach(id => {
-                document.getElementById(id).classList.remove('active');
-            });
-            btn.classList.add('active');
-            
-            handleStateManager.setViewSetting('cameraView', view);
-            getHandleViewport()?.setCameraView(view);
-        });
-    });
-    
-    // Reset view
-    document.getElementById('btnResetView').addEventListener('click', () => {
-        getHandleViewport()?.resetView();
-    });
-    
-    // Display toggles
-    const toggles = {
-        'btnCrossSection': { setting: 'showCrossSection', toggle: 'crossSectionToggle', action: (v) => getHandleViewport()?.setShowCrossSection(v) },
-        'btnToggleDimensions': {
-            setting: 'showDimensions',
-            toggle: 'dimensionsToggle',
-            action: (v) => {
-                getDimensionOverlays()?.setVisible(v);
-                updateDimensionOverlays();
-                getHandleViewport()?.requestRender();
-            }
-        },
-        'btnToggleOutlines': { setting: 'showAttachmentOutlines', toggle: 'outlinesToggle', action: (v) => getHandleViewport()?.setShowAttachmentOutlines(v) },
-        'btnToggleGrid': { setting: 'showGrid', toggle: 'gridToggle', action: (v) => getHandleViewport()?.setShowGrid(v) },
-        'btnMoldPreview': {
-            setting: 'showMoldPreview',
-            toggle: 'moldPreviewToggle',
-            action: (v) => {
-                setMoldPreviewState(v);
-            }
-        },
-    };
-    
-    Object.entries(toggles).forEach(([btnId, config]) => {
-        const btn = document.getElementById(btnId);
-        const toggle = document.getElementById(config.toggle);
-        
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isActive = toggle.classList.toggle('active');
-            handleStateManager.setViewSetting(config.setting, isActive);
-            config.action(isActive);
-        });
+function initReadouts() {
+    document.getElementById('btnChangeSource').addEventListener('click', changeSource);
+    document.getElementById('warningsList').addEventListener('click', (event) => {
+        const item = event.target.closest('.warning-item[data-param]');
+        if (!item) return;
+        panelToggle?.setVisible(true);
+        dials?.revealParam(item.dataset.param);
     });
 }
 
+// View settings applied to the viewport (mold preview is handled separately)
+const VIEW_SETTING_ACTIONS = {
+    mugDisplayMode: (mode) => getHandleViewport()?.setMugDisplayMode(mode),
+    showCrossSection: (show) => getHandleViewport()?.setShowCrossSection(show),
+    showDimensions: (show) => {
+        getDimensionOverlays()?.setVisible(show && !handleStateManager.getState().viewSettings.showMoldPreview);
+        updateDimensionOverlays();
+        getHandleViewport()?.requestRender();
+    },
+    showAttachmentOutlines: (show) => getHandleViewport()?.setShowAttachmentOutlines(show),
+    showGrid: (show) => getHandleViewport()?.setShowGrid(show),
+};
+
+function setViewSetting(setting, value) {
+    handleStateManager.setViewSetting(setting, value);
+    VIEW_SETTING_ACTIONS[setting]?.(value);
+}
+
 /**
- * Initialize warnings menu
+ * Apply loaded/reset view settings to the viewport so it matches the dials
  */
-function initWarningsMenu() {
-    const warningsContainer = document.getElementById('warningsMenuContainer');
-    const warningsBtn = document.getElementById('btnWarningsMenu');
-    
-    warningsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        warningsContainer.classList.toggle('open');
-    });
-    
-    document.addEventListener('click', () => {
-        warningsContainer.classList.remove('open');
-    });
+function applyViewSettings() {
+    const viewport = getHandleViewport();
+    if (!viewport?.webglAvailable) return;
+    const { viewSettings } = handleStateManager.getState();
+    Object.entries(VIEW_SETTING_ACTIONS).forEach(([setting, apply]) => apply(viewSettings[setting]));
+    const showMold = viewSettings.showMoldPreview === true;
+    if (viewport.showMoldPreview !== showMold) setMoldPreviewState(showMold);
 }
 
 /**
@@ -636,35 +479,36 @@ function initWarningsMenu() {
  */
 function updateWarnings() {
     const warnings = handleStateManager.getWarnings();
-    const container = document.getElementById('warningsMenuContainer');
+    const card = document.getElementById('warningsCard');
     const countEl = document.getElementById('warningCount');
     const listEl = document.getElementById('warningsList');
-    
+    if (!card || !countEl || !listEl) return;
+
+    card.hidden = warnings.length === 0;
     if (warnings.length === 0) {
-        container.style.display = 'none';
+        listEl.innerHTML = '';
         return;
     }
-    
-    container.style.display = 'block';
+
     countEl.textContent = `${warnings.length} warning${warnings.length > 1 ? 's' : ''}`;
-    
+
     listEl.innerHTML = warnings.map(warning => `
-        <div class="warning-item" data-param="${warning.param}">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button type="button" class="warning-item severity-${warning.type === 'error' ? 'error' : 'warning'}" data-param="${escapeHtml(warning.param)}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                 <line x1="12" y1="9" x2="12" y2="13"/>
                 <line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
-            <div class="warning-item-content">
-                <div class="warning-item-title">${warning.title}</div>
-                <div class="warning-item-message">${warning.message}</div>
-            </div>
-        </div>
+            <span class="warning-item-content">
+                <span class="warning-item-title">${escapeHtml(warning.title)}</span>
+                <span class="warning-item-message">${escapeHtml(warning.message)}</span>
+            </span>
+        </button>
     `).join('');
 }
 
 /**
- * Update dimensions summary in footer
+ * Update the handle size readout
  */
 function updateDimensionsSummary() {
     const state = handleStateManager.getState();
@@ -689,10 +533,9 @@ function getMoldConstructionSettingsFromState(state = handleStateManager.getStat
 }
 
 function setMoldPreviewState(show) {
+    handleStateManager.setViewSetting('showMoldPreview', show);
     const state = handleStateManager.getState();
 
-    handleStateManager.setViewSetting('showMoldPreview', show);
-    document.getElementById('moldPreviewToggle')?.classList.toggle('active', show);
     getHandleViewport()?.setShowMoldPreview(
         show,
         state.handleParams,
@@ -700,112 +543,17 @@ function setMoldPreviewState(show) {
         getMoldConstructionSettingsFromState(state)
     );
     getDimensionOverlays()?.setVisible(!show && state.viewSettings.showDimensions);
-    updateMoldConstructionControls();
+    updateDimensionOverlays();
     updateMoldKitSummary();
 }
 
 function updateMoldConstructionViewport() {
     const state = handleStateManager.getState();
-    const settings = getMoldConstructionSettingsFromState(state);
-    updateMoldConstructionControls();
-
     if (!state.viewSettings.showMoldPreview) {
         return;
     }
 
-    getHandleViewport()?.setMoldConstructionSettings(settings);
-}
-
-function initMoldConstructionControls() {
-    document.getElementById('btnViewMoldConstruction')?.addEventListener('click', () => {
-        setMoldPreviewState(!handleStateManager.getState().viewSettings.showMoldPreview);
-    });
-
-    const rangeBindings = [
-        ['moldExplodeRange', 'moldExplodeValue', 'moldExplode'],
-        ['moldOpacityRange', 'moldOpacityValue', 'moldOpacity']
-    ];
-
-    rangeBindings.forEach(([inputId, valueId, setting]) => {
-        const input = document.getElementById(inputId);
-        if (!input) return;
-
-        input.addEventListener('input', () => {
-            handleStateManager.setViewSetting(setting, Number(input.value) / 100);
-            document.getElementById(valueId).textContent = `${input.value}%`;
-            updateMoldConstructionViewport();
-        });
-    });
-
-    const checkboxBindings = [
-        ['moldShowProof', 'moldShowProof'],
-        ['moldShowHandleMold', 'moldShowHandleMold'],
-        ['moldShowWalls', 'moldShowWalls'],
-        ['moldShowBottom', 'moldShowBottom']
-    ];
-
-    checkboxBindings.forEach(([inputId, setting]) => {
-        const input = document.getElementById(inputId);
-        if (!input) return;
-
-        input.addEventListener('change', () => {
-            handleStateManager.setViewSetting(setting, input.checked);
-            updateMoldConstructionViewport();
-        });
-    });
-
-    updateMoldConstructionControls();
-}
-
-function updateMoldConstructionControls() {
-    const state = handleStateManager.getState();
-    const settings = getMoldConstructionSettingsFromState();
-    const moldVisible = state.viewSettings.showMoldPreview === true;
-    const explodePercent = Math.round(settings.explode * 100);
-    const opacityPercent = Math.round(settings.opacity * 100);
-
-    const button = document.getElementById('btnViewMoldConstruction');
-    const buttonLabel = document.getElementById('moldConstructionButtonLabel');
-    if (button) {
-        button.setAttribute('aria-pressed', String(moldVisible));
-        button.classList.toggle('active', moldVisible);
-    }
-    if (buttonLabel) {
-        buttonLabel.textContent = moldVisible ? 'Hide Visualization' : 'Show Visualization';
-    }
-    document.getElementById('moldPreviewToggle')?.classList.toggle('active', moldVisible);
-    document.querySelector('.mold-construction-panel')?.classList.toggle('mold-preview-hidden', !moldVisible);
-
-    const explodeInput = document.getElementById('moldExplodeRange');
-    const opacityInput = document.getElementById('moldOpacityRange');
-    if (explodeInput) {
-        explodeInput.value = String(explodePercent);
-        explodeInput.disabled = !moldVisible;
-    }
-    if (opacityInput) {
-        opacityInput.value = String(opacityPercent);
-        opacityInput.disabled = !moldVisible;
-    }
-
-    const explodeValue = document.getElementById('moldExplodeValue');
-    const opacityValue = document.getElementById('moldOpacityValue');
-    if (explodeValue) explodeValue.textContent = `${explodePercent}%`;
-    if (opacityValue) opacityValue.textContent = `${opacityPercent}%`;
-
-    const checkboxValues = {
-        moldShowProof: settings.showProof,
-        moldShowHandleMold: settings.showHandleMold,
-        moldShowWalls: settings.showWalls,
-        moldShowBottom: settings.showBottom
-    };
-
-    Object.entries(checkboxValues).forEach(([id, checked]) => {
-        const input = document.getElementById(id);
-        if (input) {
-            input.checked = checked;
-            input.disabled = !moldVisible;
-        }
-    });
+    getHandleViewport()?.setMoldConstructionSettings(getMoldConstructionSettingsFromState(state));
 }
 
 function formatMoldSize(size) {
@@ -825,6 +573,9 @@ export function updateMoldKitSummary(viewport = getHandleViewport()) {
     }
 
     const state = handleStateManager.getState();
+    // The readout card is only shown while the mold is visualized
+    const card = document.getElementById('moldKitSummary');
+    if (card) card.hidden = !state.viewSettings.showMoldPreview;
     if (!state.viewSettings.showMoldPreview) {
         proofEl.textContent = '-';
         formerEl.textContent = '-';
@@ -876,95 +627,55 @@ export function updateMoldKitSummary(viewport = getHandleViewport()) {
     }
 }
 
+function formatMm(value) {
+    return `${Number(Number(value).toFixed(1))}mm`;
+}
+
 /**
  * Update mug info display
  */
 function updateMugInfo() {
     const state = handleStateManager.getState();
     const mugInfo = document.getElementById('mugInfo');
-    
-    if (!state.mugData.loaded) {
-        mugInfo.innerHTML = `
-            <div class="mug-info-placeholder">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="6" y="4" width="10" height="14" rx="2"/>
-                    <path d="M16 8h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2"/>
-                </svg>
-                <span>No mug loaded</span>
-            </div>
-        `;
-    } else {
-        mugInfo.innerHTML = `
-            <div class="mug-info-loaded">
-                <div class="mug-info-name">${escapeHtml(state.mugData.projectName || 'Imported Mug')}</div>
-                <div class="mug-info-dims">
-                    <div class="mug-info-dim">
-                        <label>H:</label>
-                        <span>${state.mugData.height}mm</span>
-                    </div>
-                    <div class="mug-info-dim">
-                        <label>Ø Top:</label>
-                        <span>${state.mugData.topDiameter}mm</span>
-                    </div>
-                    <div class="mug-info-dim">
-                        <label>Ø Bot:</label>
-                        <span>${state.mugData.bottomDiameter}mm</span>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
+    const { mugData } = state;
+
+    const name = mugData.loaded
+        ? (mugData.projectName || 'Imported Mug')
+        : (mugData.projectName || 'No mug loaded');
+    mugInfo.innerHTML = `
+        <div class="mug-info-name">${escapeHtml(name)}</div>
+        <dl class="mug-info-dims">
+            <div><dt>Height</dt><dd>${formatMm(mugData.height)}</dd></div>
+            <div><dt>Ø Top</dt><dd>${formatMm(mugData.topDiameter)}</dd></div>
+            <div><dt>Ø Base</dt><dd>${formatMm(mugData.bottomDiameter)}</dd></div>
+        </dl>
+    `;
 }
 
 /**
  * Update UI to reflect current state
  */
 function updateUI() {
-    const state = handleStateManager.getState();
-    
-    // Update project name
-    document.getElementById('projectName').textContent = state.project.name;
-    
-    // Update unsaved indicator
-    document.getElementById('unsavedIndicator').style.display = 
-        state.ui.hasUnsavedChanges ? 'inline' : 'none';
-    
-    // Update mug info
-    updateMugInfo();
-    
-    // Update parameter controls
-    Object.entries(state.handleParams).forEach(([param, value]) => {
-        const row = document.querySelector(`.parameter-row[data-param="${param}"]`);
-        if (row) {
-            const rangeInput = row.querySelector('input[type="range"]');
-            const numberInput = row.querySelector('input[type="number"]');
-            const checkboxInput = row.querySelector('input[type="checkbox"]');
-            
-            if (rangeInput) rangeInput.value = value;
-            if (numberInput) numberInput.value = value;
-            if (checkboxInput) checkboxInput.checked = value;
-        }
-    });
-    
-    // Update cross-section type selector
-    const typeButtons = document.querySelectorAll('.cross-section-type-btn');
-    typeButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.type === state.handleParams.crossSectionType);
-    });
-    
-    // Show/hide corner radius row based on type
-    const cornerRadiusRow = document.getElementById('cornerRadiusRow');
-    if (cornerRadiusRow) {
-        cornerRadiusRow.style.display = state.handleParams.crossSectionType === 'rectangular' ? 'flex' : 'none';
-    }
-    
-    // Handle matchMugWallAngle state
-    if (state.handleParams.matchMugWallAngle) {
-        updateMatchMugWallAngle(true);
+    // Matching the mug's wall angle follows the current source
+    if (handleStateManager.getState().handleParams.matchMugWallAngle) {
+        applyMatchedArmAngle();
     }
 
+    const state = handleStateManager.getState();
+
+    // Update project name
+    document.getElementById('projectName').textContent = state.project.name;
+
+    // Update unsaved indicator
+    document.getElementById('unsavedIndicator').hidden = !state.ui.hasUnsavedChanges;
+
+    // Update mug info
+    updateMugInfo();
+
+    // Update every dial from the state
+    dials?.sync();
+
     updateMoldKitSummary();
-    updateMoldConstructionControls();
 }
 
 /**
@@ -972,62 +683,74 @@ function updateUI() {
  */
 function onStateChange(state, changedPaths) {
     // Update unsaved indicator
-    document.getElementById('unsavedIndicator').style.display = 
-        state.ui.hasUnsavedChanges ? 'inline' : 'none';
-    
+    document.getElementById('unsavedIndicator').hidden = !state.ui.hasUnsavedChanges;
+
     // Update warnings if handle params changed
     if (changedPaths.includes('handleParams')) {
         updateWarnings();
     }
 }
 
+// === Dialogs ===
+
+/**
+ * Close buttons, Cancel buttons and backdrops close their dialog; the
+ * confirm buttons act on the dialog's current purpose. Escape is handled by
+ * accessibility.js.
+ */
+function initDialogs() {
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.querySelectorAll('.btn-close, .modal-backdrop').forEach(el => {
+            el.addEventListener('click', () => closeDialog(modal));
+        });
+    });
+    [
+        ['btnCancelExport', 'exportModal'],
+        ['btnCancelSave', 'saveModal'],
+        ['btnConfirmCancel', 'confirmModal'],
+        ['btnCancelMugImport', 'mugImportModal']
+    ].forEach(([buttonId, modalId]) => {
+        document.getElementById(buttonId).addEventListener('click', () => {
+            closeDialog(document.getElementById(modalId));
+        });
+    });
+
+    // Save
+    document.getElementById('btnConfirmSave').addEventListener('click', confirmSave);
+    document.getElementById('saveProjectName').addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') confirmSave();
+    });
+
+    // Export (STL or mold kit)
+    document.getElementById('btnConfirmExport').addEventListener('click', () => {
+        if (exportMode === 'mold') exportMoldKit();
+        else exportHandleSTL();
+    });
+
+    // Confirm
+    document.getElementById('btnConfirmOk').addEventListener('click', () => {
+        const callback = confirmCallback;
+        confirmCallback = null;
+        closeDialog(document.getElementById('confirmModal'));
+        callback?.();
+    });
+}
+
 /**
  * Show save modal
  */
 function showSaveModal() {
-    const modal = document.getElementById('saveModal');
     const nameInput = document.getElementById('saveProjectName');
-    const state = handleStateManager.getState();
-    
-    nameInput.value = state.project.name;
-    modal.style.display = 'flex';
-    nameInput.focus();
-    nameInput.select();
-    
-    const confirmBtn = document.getElementById('btnConfirmSave');
-    const cancelBtn = document.getElementById('btnCancelSave');
-    const closeBtn = document.getElementById('btnCloseSaveModal');
-    const backdrop = modal.querySelector('.modal-backdrop');
-    
-    const handleSave = () => {
-        const name = nameInput.value.trim() || 'Untitled Handle';
-        const downloadFile = document.getElementById('saveAsFile')?.checked || false;
-        saveProject(name, downloadFile);
-        modal.style.display = 'none';
-        cleanup();
-    };
-    
-    const handleClose = () => {
-        modal.style.display = 'none';
-        cleanup();
-    };
-    
-    const cleanup = () => {
-        confirmBtn.removeEventListener('click', handleSave);
-        cancelBtn.removeEventListener('click', handleClose);
-        closeBtn.removeEventListener('click', handleClose);
-        backdrop.removeEventListener('click', handleClose);
-    };
-    
-    confirmBtn.addEventListener('click', handleSave);
-    cancelBtn.addEventListener('click', handleClose);
-    closeBtn.addEventListener('click', handleClose);
-    backdrop.addEventListener('click', handleClose);
-    
-    // Enter key to save
-    nameInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') handleSave();
-    });
+    nameInput.value = handleStateManager.getState().project.name;
+    openDialog(document.getElementById('saveModal'), { initialFocus: '#saveProjectName' });
+    requestAnimationFrame(() => nameInput.select());
+}
+
+function confirmSave() {
+    const name = document.getElementById('saveProjectName').value.trim() || 'Untitled Handle';
+    const downloadFile = document.getElementById('saveAsFile').checked;
+    closeDialog(document.getElementById('saveModal'));
+    saveProject(name, downloadFile);
 }
 
 /**
@@ -1091,50 +814,27 @@ function saveProject(name, downloadFile = false) {
     updateUI();
 
     // Show success feedback
-    showSaveSuccessToast(name);
+    showToast(`“${name}” saved`);
 }
 
 /**
- * Show a success toast message after saving
+ * Brief confirmation toast at the bottom of the viewport
  */
-function showSaveSuccessToast(projectName) {
-    // Create toast element if it doesn't exist
+let toastTimer = null;
+
+function showToast(message) {
     let toast = document.getElementById('saveToast');
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'saveToast';
-        toast.style.cssText = `
-            position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: var(--th-success, #10b981);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            z-index: 10000;
-            transition: transform 0.3s ease, opacity 0.3s ease;
-            opacity: 0;
-        `;
+        toast.className = 'dk-toast';
+        toast.setAttribute('role', 'status');
         document.body.appendChild(toast);
     }
-    
-    toast.textContent = `✓ "${projectName}" saved successfully`;
-    
-    // Show toast
-    requestAnimationFrame(() => {
-        toast.style.transform = 'translateX(-50%) translateY(0)';
-        toast.style.opacity = '1';
-    });
-    
-    // Hide after 3 seconds
-    setTimeout(() => {
-        toast.style.transform = 'translateX(-50%) translateY(100px)';
-        toast.style.opacity = '0';
-    }, 3000);
+    toast.textContent = message;
+    toast.classList.add('visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('visible'), 3000);
 }
 
 /**
@@ -1221,7 +921,7 @@ function loadProjectFromFile() {
 
             // Load the project
             loadProject(projectData);
-            showSaveSuccessToast(projectData.project?.name || 'Imported Project');
+            showToast(`“${projectData.project?.name || 'Imported Project'}” loaded`);
         } catch (error) {
             console.error('Load project file error:', error);
             alert('Failed to load project file: ' + error.message);
@@ -1232,56 +932,11 @@ function loadProjectFromFile() {
 }
 
 /**
- * Show load modal
- */
-function showLoadModal() {
-    // Get saved projects
-    let projects = [];
-    try {
-        const stored = localStorage.getItem(HANDLE_STORAGE_KEY);
-        if (stored) projects = JSON.parse(stored);
-    } catch (e) {
-        console.error('Error loading projects:', e);
-    }
-    
-    if (projects.length === 0) {
-        alert('No saved handle projects found.');
-        return;
-    }
-    
-    // Create simple project selection
-    const projectNames = projects.map(p => p.project.name);
-    const selected = prompt(
-        'Enter project name to load:\n\n' + 
-        projectNames.map((n, i) => `${i + 1}. ${n}`).join('\n'),
-        projectNames[0]
-    );
-    
-    if (selected) {
-        const project = projects.find(p => p.project.name === selected);
-        if (project) {
-            if (handleStateManager.getState().ui.hasUnsavedChanges) {
-                showConfirmModal(
-                    'Unsaved Changes',
-                    'You have unsaved changes. Are you sure you want to load a different project?',
-                    () => {
-                        loadProject(project);
-                    }
-                );
-            } else {
-                loadProject(project);
-            }
-        } else {
-            alert('Project not found.');
-        }
-    }
-}
-
-/**
  * Load a project
  */
 function loadProject(projectData) {
     handleStateManager.loadProject(projectData);
+    applyViewSettings();
     updateUI();
     regenerateHandle();
 }
@@ -1293,10 +948,10 @@ function loadProjectById(projectId) {
     try {
         const stored = localStorage.getItem(HANDLE_STORAGE_KEY);
         if (!stored) return;
-        
+
         const projects = JSON.parse(stored);
         const project = projects.find(p => p.project.id === projectId);
-        
+
         if (project) {
             loadProject(project);
         }
@@ -1305,231 +960,144 @@ function loadProjectById(projectId) {
     }
 }
 
+// === Export ===
+
+// The export dialog serves both the handle STL and the mold kit ZIP
+let exportMode = 'stl';
+
+function prepareExportDialog({ mode, title, confirmLabel, filename, note }) {
+    exportMode = mode;
+    document.getElementById('exportTitle').textContent = title;
+    document.getElementById('handleExportOptions').hidden = mode !== 'stl';
+    const confirmBtn = document.getElementById('btnConfirmExport');
+    confirmBtn.textContent = confirmLabel;
+    confirmBtn.disabled = false;
+    document.getElementById('exportFilename').textContent = filename;
+    document.getElementById('exportNote').textContent = note;
+    document.getElementById('exportError').hidden = true;
+    document.getElementById('exportProgress').hidden = true;
+    document.getElementById('exportProgressFill').style.width = '0%';
+    openDialog(document.getElementById('exportModal'), { initialFocus: '#btnConfirmExport' });
+}
+
+function setExportProgress(percent, text) {
+    document.getElementById('exportProgress').hidden = false;
+    document.getElementById('exportProgressFill').style.width = `${percent}%`;
+    document.getElementById('exportProgressText').textContent = text;
+}
+
+function showExportError(message) {
+    const errorEl = document.getElementById('exportError');
+    errorEl.textContent = message;
+    errorEl.hidden = false;
+    document.getElementById('exportProgress').hidden = true;
+}
+
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 /**
  * Show export modal
  */
 async function showExportModal() {
-    const modal = document.getElementById('exportModal');
     const { getSuggestedFilename } = await loadHandleExporter();
-    
-    modal.querySelector('.modal-header h2').textContent = 'Export STL';
-    document.getElementById('handleExportOptions').style.display = 'block';
-    document.getElementById('btnConfirmExport').textContent = 'Export';
+    prepareExportDialog({
+        mode: 'stl',
+        title: 'Export STL',
+        confirmLabel: 'Export',
+        filename: getSuggestedFilename(handleStateManager.getState().project.name),
+        note: 'Handle will be exported with attachment geometry for boolean union with mug.'
+    });
+}
 
-    const filenameEl = document.getElementById('exportFilename');
-    const exportNote = document.getElementById('exportNote');
-
-    filenameEl.textContent = getSuggestedFilename(handleStateManager.getState().project.name);
-    exportNote.textContent = 'Handle will be exported with attachment geometry for boolean union with mug.';
-    
-    modal.style.display = 'flex';
-    
+async function exportHandleSTL() {
+    const modal = document.getElementById('exportModal');
     const confirmBtn = document.getElementById('btnConfirmExport');
-    const cancelBtn = document.getElementById('btnCancelExport');
-    const closeBtn = document.getElementById('btnCloseExportModal');
-    const backdrop = modal.querySelector('.modal-backdrop');
-    
-    const handleExport = async () => {
-        const orientation = document.querySelector('input[name="exportOrientation"]:checked')?.value || 'mug-relative';
-        const {
-            downloadSTL,
-            exportHandleToSTL,
-            getSuggestedFilename
-        } = await loadHandleExporter();
-        const exportState = handleStateManager.getState();
-        
-        // Show progress
-        const progressEl = document.getElementById('exportProgress');
-        const progressFill = document.getElementById('exportProgressFill');
-        const progressText = document.getElementById('exportProgressText');
-        
-        progressEl.style.display = 'block';
-        progressText.textContent = 'Generating mesh...';
-        progressFill.style.width = '30%';
-        
-        // Generate and export
-        setTimeout(async () => {
-            try {
-                progressText.textContent = 'Creating STL...';
-                progressFill.style.width = '60%';
+    const orientation = document.getElementById('exportOrientation').value || 'mug-relative';
+    const { downloadSTL, exportHandleToSTL, getSuggestedFilename } = await loadHandleExporter();
+    const exportState = handleStateManager.getState();
 
-                const blob = exportHandleToSTL(
-                    exportState.handleParams,
-                    exportState.mugData,
-                    { orientation }
-                );
-
-                progressText.textContent = 'Downloading...';
-                progressFill.style.width = '90%';
-
-                await downloadSTL(blob, getSuggestedFilename(exportState.project.name));
-
-                progressFill.style.width = '100%';
-                progressText.textContent = 'Complete!';
-                
-                setTimeout(() => {
-                    modal.style.display = 'none';
-                    progressEl.style.display = 'none';
-                    progressFill.style.width = '0%';
-                    cleanup();
-                }, 500);
-            } catch (error) {
-                console.error('Export error:', error);
-                alert('Export failed: ' + error.message);
-                progressEl.style.display = 'none';
-            }
-        }, 100);
-    };
-    
-    const handleClose = () => {
-        modal.style.display = 'none';
-        cleanup();
-    };
-    
-    const cleanup = () => {
-        confirmBtn.removeEventListener('click', handleExport);
-        cancelBtn.removeEventListener('click', handleClose);
-        closeBtn.removeEventListener('click', handleClose);
-        backdrop.removeEventListener('click', handleClose);
-    };
-    
-    confirmBtn.addEventListener('click', handleExport);
-    cancelBtn.addEventListener('click', handleClose);
-    closeBtn.addEventListener('click', handleClose);
-    backdrop.addEventListener('click', handleClose);
+    confirmBtn.disabled = true;
+    document.getElementById('exportError').hidden = true;
+    setExportProgress(30, 'Generating mesh...');
+    try {
+        // Let the progress bar paint before the synchronous mesh build
+        await wait(100);
+        setExportProgress(60, 'Creating STL...');
+        const blob = exportHandleToSTL(exportState.handleParams, exportState.mugData, { orientation });
+        setExportProgress(90, 'Downloading...');
+        await downloadSTL(blob, getSuggestedFilename(exportState.project.name));
+        setExportProgress(100, 'Complete!');
+        await wait(500);
+        closeDialog(modal);
+    } catch (error) {
+        console.error('Export error:', error);
+        showExportError(`Export failed: ${error.message}`);
+    } finally {
+        confirmBtn.disabled = false;
+    }
 }
 
 /**
  * Show mold-kit export modal
  */
 async function showMoldExportModal() {
-    const modal = document.getElementById('exportModal');
     const moldExporter = await loadHandleMoldExporter();
     const state = handleStateManager.getState();
     const previewPackage = moldExporter.generateHandleMoldPackage(state.handleParams, state.mugData);
 
     try {
-        modal.querySelector('.modal-header h2').textContent = 'Export Mold Kit';
-        document.getElementById('handleExportOptions').style.display = 'none';
-        document.getElementById('btnConfirmExport').textContent = 'Export Mold Kit';
-
-        const filenameEl = document.getElementById('exportFilename');
-        const exportNote = document.getElementById('exportNote');
-
-        filenameEl.textContent = moldExporter.getSuggestedMoldPackageFilename(state.project.name);
-        exportNote.textContent = `Includes Proof, Handle Mold, WallA, WallB, Bottom, and readme. Plaster estimate ${previewPackage.plaster.plasterVolumeL.toFixed(2)} L.`;
+        prepareExportDialog({
+            mode: 'mold',
+            title: 'Export Mold Kit',
+            confirmLabel: 'Export Mold Kit',
+            filename: moldExporter.getSuggestedMoldPackageFilename(state.project.name),
+            note: `Includes Proof, Handle Mold, WallA, WallB, Bottom, and readme. Plaster estimate ${previewPackage.plaster.plasterVolumeL.toFixed(2)} L.`
+        });
     } finally {
         moldExporter.disposeHandleMoldPackage(previewPackage);
     }
+}
 
-    modal.style.display = 'flex';
-
+async function exportMoldKit() {
+    const modal = document.getElementById('exportModal');
     const confirmBtn = document.getElementById('btnConfirmExport');
-    const cancelBtn = document.getElementById('btnCancelExport');
-    const closeBtn = document.getElementById('btnCloseExportModal');
-    const backdrop = modal.querySelector('.modal-backdrop');
+    const moldExporter = await loadHandleMoldExporter();
+    const exportState = handleStateManager.getState();
 
-    const handleExport = async () => {
-        const exportState = handleStateManager.getState();
-        const progressEl = document.getElementById('exportProgress');
-        const progressFill = document.getElementById('exportProgressFill');
-        const progressText = document.getElementById('exportProgressText');
-
-        progressEl.style.display = 'block';
-        progressText.textContent = 'Generating mold package...';
-        progressFill.style.width = '25%';
-
-        setTimeout(async () => {
-            try {
-                progressText.textContent = 'Validating STL parts...';
-                progressFill.style.width = '55%';
-
-                await moldExporter.exportHandleMoldPackageAsZip(
-                    exportState.handleParams,
-                    exportState.mugData,
-                    exportState.project.name
-                );
-
-                progressText.textContent = 'Downloading ZIP...';
-                progressFill.style.width = '90%';
-
-                progressFill.style.width = '100%';
-                progressText.textContent = 'Complete!';
-
-                setTimeout(() => {
-                    modal.style.display = 'none';
-                    progressEl.style.display = 'none';
-                    progressFill.style.width = '0%';
-                    cleanup();
-                }, 500);
-            } catch (error) {
-                console.error('Mold export error:', error);
-                alert('Mold export failed: ' + error.message);
-                progressEl.style.display = 'none';
-            }
-        }, 100);
-    };
-
-    const handleClose = () => {
-        modal.style.display = 'none';
-        cleanup();
-    };
-
-    const cleanup = () => {
-        confirmBtn.removeEventListener('click', handleExport);
-        cancelBtn.removeEventListener('click', handleClose);
-        closeBtn.removeEventListener('click', handleClose);
-        backdrop.removeEventListener('click', handleClose);
-    };
-
-    confirmBtn.addEventListener('click', handleExport);
-    cancelBtn.addEventListener('click', handleClose);
-    closeBtn.addEventListener('click', handleClose);
-    backdrop.addEventListener('click', handleClose);
+    confirmBtn.disabled = true;
+    document.getElementById('exportError').hidden = true;
+    setExportProgress(25, 'Generating mold package...');
+    try {
+        await wait(100);
+        setExportProgress(55, 'Validating STL parts...');
+        await moldExporter.exportHandleMoldPackageAsZip(
+            exportState.handleParams,
+            exportState.mugData,
+            exportState.project.name
+        );
+        setExportProgress(100, 'Complete!');
+        await wait(500);
+        closeDialog(modal);
+    } catch (error) {
+        console.error('Mold export error:', error);
+        showExportError(`Mold export failed: ${error.message}`);
+    } finally {
+        confirmBtn.disabled = false;
+    }
 }
 
 /**
  * Show confirmation modal
  */
+let confirmCallback = null;
+
 function showConfirmModal(title, message, onConfirm, confirmLabel = 'OK', cancelLabel = 'Cancel') {
-    const modal = document.getElementById('confirmModal');
-    
     document.getElementById('confirmTitle').textContent = title;
     document.getElementById('confirmMessage').textContent = message;
-    
-    const confirmBtn = document.getElementById('btnConfirmOk');
-    const cancelBtn = document.getElementById('btnConfirmCancel');
-    const closeBtn = document.getElementById('btnCloseConfirmModal');
-    const backdrop = modal.querySelector('.modal-backdrop');
-    
-    // Set button labels
-    confirmBtn.textContent = confirmLabel;
-    cancelBtn.textContent = cancelLabel;
-    
-    modal.style.display = 'flex';
-    
-    const handleConfirm = () => {
-        modal.style.display = 'none';
-        cleanup();
-        onConfirm();
-    };
-    
-    const handleClose = () => {
-        modal.style.display = 'none';
-        cleanup();
-    };
-    
-    const cleanup = () => {
-        confirmBtn.removeEventListener('click', handleConfirm);
-        cancelBtn.removeEventListener('click', handleClose);
-        closeBtn.removeEventListener('click', handleClose);
-        backdrop.removeEventListener('click', handleClose);
-    };
-    
-    confirmBtn.addEventListener('click', handleConfirm);
-    cancelBtn.addEventListener('click', handleClose);
-    closeBtn.addEventListener('click', handleClose);
-    backdrop.addEventListener('click', handleClose);
+    document.getElementById('btnConfirmOk').textContent = confirmLabel;
+    document.getElementById('btnConfirmCancel').textContent = cancelLabel;
+    confirmCallback = onConfirm;
+    openDialog(document.getElementById('confirmModal'));
 }
 
 // Helper functions
