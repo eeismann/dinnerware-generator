@@ -1,18 +1,16 @@
 /**
  * Vessel Designer V2 - Per-Segment Surface Motif Inspector
  *
- * A contextual panel driven entirely by ui.selectedSegmentId. When a wall
- * segment is selected it exposes the motif type and its variation controls,
- * writes edits back onto that segment's owning profile point, and shows a live
- * unwrapped preview plus per-segment print-safety warnings.
+ * Driven entirely by ui.selectedSegmentId. The motif controls are DialKit
+ * dials (scripts/ui/dialkit/vesselV2Dials.js) that write through
+ * writeMotif()/applyToAll()/copyToAdjacent() here, onto the segment's owning
+ * profile point. The floating card shows the selected segment's live
+ * unwrapped preview plus its print-safety warning.
  */
 
 import vesselV2State from '../state/vesselV2State.js';
 import {
     MOTIF_TYPE_OPTIONS,
-    MOTIF_PROFILE_OPTIONS,
-    MOTIF_VISIBLE_SUFFIXES,
-    MOTIF_CONSTRAINTS,
     getDefaultMotif,
     isMotifActive
 } from '../../geometry/surfacePatternOptions.js';
@@ -27,6 +25,19 @@ const FAMILY_COLOR = {
 const FLAT_EPS = 1e-6;
 const TWO_PI = Math.PI * 2;
 
+/**
+ * Wall segments in profile order. Each point owns the segment beneath it;
+ * flat runs (the base) carry no motif.
+ */
+export function getWallSegments(points) {
+    const segments = [];
+    for (let i = 1; i < points.length; i++) {
+        if (Math.abs((points[i].h || 0) - (points[i - 1].h || 0)) < FLAT_EPS) continue;
+        segments.push({ id: points[i].id, index: i, number: segments.length + 1, point: points[i], prev: points[i - 1] });
+    }
+    return segments;
+}
+
 export class MotifInspector {
     constructor() {
         this.el = {
@@ -34,41 +45,21 @@ export class MotifInspector {
             title: document.getElementById('motifSegTitle'),
             sub: document.getElementById('motifSegSub'),
             close: document.getElementById('motifClose'),
-            type: document.getElementById('motifType'),
-            depth: document.getElementById('motifDepth'),
-            depthVal: document.getElementById('motifDepthVal'),
-            relief: document.getElementById('motifRelief'),
-            count: document.getElementById('motifCount'),
-            countVal: document.getElementById('motifCountVal'),
-            pitch: document.getElementById('motifPitch'),
-            pitchVal: document.getElementById('motifPitchVal'),
-            lineWidth: document.getElementById('motifLineWidth'),
-            lineWidthVal: document.getElementById('motifLineWidthVal'),
-            profile: document.getElementById('motifProfile'),
-            angle: document.getElementById('motifAngle'),
-            angleVal: document.getElementById('motifAngleVal'),
-            direction: document.getElementById('motifDirection'),
+            previewWrap: document.getElementById('motifPreviewWrap'),
             previewName: document.getElementById('motifPreviewName'),
             preview: document.getElementById('motifPreview'),
             warn: document.getElementById('motifWarn'),
-            warnText: document.getElementById('motifWarnText'),
-            smooth: document.getElementById('motifSmooth'),
-            copyAdjacent: document.getElementById('motifCopyAdjacent'),
-            applyAll: document.getElementById('motifApplyAll')
+            warnText: document.getElementById('motifWarnText')
         };
 
         if (!this.el.panel) return;
 
         this.pctx = this.el.preview ? this.el.preview.getContext('2d') : null;
-        this.populateSelects();
-        this.bind();
+        this.el.close?.addEventListener('click', () => {
+            vesselV2State.setState('ui.selectedSegmentId', null, { history: false });
+        });
         this.unsubscribe = vesselV2State.subscribe('*', () => this.sync());
         this.sync();
-    }
-
-    populateSelects() {
-        MOTIF_TYPE_OPTIONS.forEach((o) => this.el.type.add(new Option(o.label, o.value)));
-        MOTIF_PROFILE_OPTIONS.forEach((o) => this.el.profile.add(new Option(o.label, o.value)));
     }
 
     // ----- selection context -----
@@ -77,26 +68,18 @@ export class MotifInspector {
         const state = vesselV2State.getState();
         const ownerId = state.ui.selectedSegmentId;
         if (!ownerId) return null;
-        const points = state.profile.points;
-        const index = points.findIndex((p) => p.id === ownerId);
-        if (index <= 0) return null;
-        const point = points[index];
-        const prev = points[index - 1];
-        if (Math.abs((point.h || 0) - (prev.h || 0)) < FLAT_EPS) return null; // flat/base
-        return { points, index, point, prev, ownerId };
+        const segment = getWallSegments(state.profile.points).find((entry) => entry.id === ownerId);
+        if (!segment) return null;
+        return { points: state.profile.points, index: segment.index, point: segment.point, prev: segment.prev, ownerId, number: segment.number };
     }
 
-    segNumber(points, ownerId) {
-        let n = 0;
-        for (let i = 1; i < points.length; i++) {
-            if (Math.abs((points[i].h || 0) - (points[i - 1].h || 0)) < FLAT_EPS) continue;
-            n += 1;
-            if (points[i].id === ownerId) return n;
-        }
-        return n;
+    /** The selected segment's motif (defaults filled in), or null. */
+    getMotif() {
+        const ctx = this.getContext();
+        return ctx ? { ...getDefaultMotif(), ...(ctx.point.motif || {}) } : null;
     }
 
-    // ----- writing edits -----
+    // ----- writing edits (called by the Surface Motif dials) -----
 
     writeMotif(patch, commit) {
         const ctx = this.getContext();
@@ -109,9 +92,7 @@ export class MotifInspector {
         }));
         const target = points[ctx.index];
         target.motif = { ...(target.motif || getDefaultMotif()), ...patch };
-        this.suppressSync = true;
         vesselV2State.setProfilePoints(points, { history: commit });
-        this.suppressSync = false;
     }
 
     setMotifOnPoint(points, index, motif) {
@@ -121,48 +102,8 @@ export class MotifInspector {
         };
     }
 
-    bind() {
-        this.el.close.addEventListener('click', () => {
-            vesselV2State.setState('ui.selectedSegmentId', null, { history: false });
-        });
-
-        this.el.type.addEventListener('change', () => {
-            this.writeMotif({ type: this.el.type.value }, true);
-        });
-        this.el.profile.addEventListener('change', () => {
-            this.writeMotif({ profile: this.el.profile.value }, true);
-        });
-
-        this.bindRange('depth', 'depth');
-        this.bindRange('count', 'count');
-        this.bindRange('pitch', 'pitch');
-        this.bindRange('lineWidth', 'lineWidth');
-        this.bindRange('angle', 'angle');
-
-        this.bindSeg('relief', 'relief');
-        this.bindSeg('direction', 'direction');
-
-        this.el.smooth.addEventListener('click', () => this.writeMotif({ type: 'none' }, true));
-        this.el.applyAll.addEventListener('click', () => this.applyToAll());
-        this.el.copyAdjacent.addEventListener('click', () => this.copyToAdjacent());
-    }
-
-    bindRange(elKey, field) {
-        const input = this.el[elKey];
-        input.addEventListener('input', () => {
-            const value = field === 'count' ? Math.round(Number(input.value)) : Number(input.value);
-            this.writeMotif({ [field]: value }, false);
-        });
-        input.addEventListener('change', () => {
-            const value = field === 'count' ? Math.round(Number(input.value)) : Number(input.value);
-            this.writeMotif({ [field]: value }, true);
-        });
-    }
-
-    bindSeg(elKey, field) {
-        this.el[elKey].querySelectorAll('button').forEach((btn) => {
-            btn.addEventListener('click', () => this.writeMotif({ [field]: btn.dataset.v }, true));
-        });
+    smooth() {
+        this.writeMotif({ type: 'none' }, true);
     }
 
     applyToAll() {
@@ -170,10 +111,7 @@ export class MotifInspector {
         if (!ctx) return;
         const motif = ctx.point.motif;
         const points = ctx.points.map((p) => ({ ...p }));
-        for (let i = 1; i < points.length; i++) {
-            if (Math.abs((points[i].h || 0) - (points[i - 1].h || 0)) < FLAT_EPS) continue;
-            this.setMotifOnPoint(points, i, motif);
-        }
+        getWallSegments(points).forEach(({ index }) => this.setMotifOnPoint(points, index, motif));
         vesselV2State.setProfilePoints(points, { history: true });
     }
 
@@ -204,53 +142,15 @@ export class MotifInspector {
         }
 
         this.el.panel.classList.remove('hidden');
-
-        const num = this.segNumber(ctx.points, ctx.ownerId);
-        this.el.title.childNodes[0].nodeValue = `Segment ${num} `;
+        this.el.title.childNodes[0].nodeValue = `Segment ${ctx.number} `;
         this.el.sub.textContent = `h ${Math.round(ctx.prev.h)}–${Math.round(ctx.point.h)} mm`;
 
         const motif = ctx.point.motif || getDefaultMotif();
-        this.setValue(this.el.type, motif.type);
-        this.setValue(this.el.profile, motif.profile);
-        this.setValue(this.el.depth, motif.depth);
-        this.setValue(this.el.count, motif.count);
-        this.setValue(this.el.pitch, motif.pitch);
-        this.setValue(this.el.lineWidth, motif.lineWidth);
-        this.setValue(this.el.angle, motif.angle);
-        this.setSeg(this.el.relief, motif.relief);
-        this.setSeg(this.el.direction, motif.direction);
-
-        this.updateVisibility(motif.type);
-        this.updateLabels(motif);
-        this.updateWarnings(ctx, motif);
-        this.drawPreview(motif);
-    }
-
-    setValue(el, value) {
-        if (document.activeElement === el) return; // don't fight an active drag/typing
-        el.value = value;
-    }
-
-    setSeg(group, value) {
-        group.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === value));
-    }
-
-    updateVisibility(type) {
-        const visible = MOTIF_VISIBLE_SUFFIXES[type] || [];
-        this.el.panel.querySelectorAll('.mi-hideable').forEach((node) => {
-            const suffix = node.dataset.suffix;
-            node.hidden = suffix === 'preview' ? type === 'none' : !visible.includes(suffix);
-        });
-    }
-
-    updateLabels(motif) {
-        this.el.depthVal.textContent = `${Number(motif.depth).toFixed(2)} mm`;
-        this.el.countVal.textContent = String(motif.count);
-        this.el.pitchVal.textContent = `${motif.pitch} mm`;
-        this.el.lineWidthVal.textContent = `${motif.lineWidth} %`;
-        this.el.angleVal.textContent = `${motif.angle}°`;
         const label = MOTIF_TYPE_OPTIONS.find((o) => o.value === motif.type);
         this.el.previewName.textContent = label ? label.label : 'Motif';
+        this.el.previewWrap.hidden = motif.type === 'none';
+        this.updateWarnings(ctx, motif);
+        this.drawPreview(motif);
     }
 
     updateWarnings(ctx, motif) {
@@ -318,16 +218,22 @@ export class MotifInspector {
         const fam = FAMILY_COLOR[motif.type] || '#8a90a0';
         const rgb = [parseInt(fam.slice(1, 3), 16), parseInt(fam.slice(3, 5), 16), parseInt(fam.slice(5, 7), 16)];
         const sign = motif.relief === 'recessed' ? -1 : 1;
+        // Light mode: ridges tint a pale ground instead of glowing on a dark one
+        const light = document.documentElement.dataset.mode === 'light';
+        const ground = light ? 236 : 26;
+        const strength = light ? (sign > 0 ? 0.85 : 0.5) : 0;
 
         for (let y = 0; y < H; y++) {
             for (let x = 0; x < W; x++) {
                 const a = motif.type === 'none' ? 0 : this.amplitude(x / W, 1 - y / H, motif);
-                const base = 26;
                 const lift = sign * a * 100;
                 const idx = (y * W + x) * 4;
-                img.data[idx] = Math.max(0, Math.min(255, base + (rgb[0] / 255) * lift + a * rgb[0] * 0.35));
-                img.data[idx + 1] = Math.max(0, Math.min(255, base + (rgb[1] / 255) * lift + a * rgb[1] * 0.35));
-                img.data[idx + 2] = Math.max(0, Math.min(255, base + (rgb[2] / 255) * lift + a * rgb[2] * 0.35));
+                for (let c = 0; c < 3; c++) {
+                    const value = light
+                        ? ground + (rgb[c] - ground) * a * strength
+                        : ground + (rgb[c] / 255) * lift + a * rgb[c] * 0.35;
+                    img.data[idx + c] = Math.max(0, Math.min(255, value));
+                }
                 img.data[idx + 3] = 255;
             }
         }

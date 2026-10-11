@@ -10,6 +10,9 @@ import { ProfileEditor } from './ui/profileEditor.js';
 import { MotifInspector } from './ui/motifInspector.js';
 import { VesselViewport } from '../vessel/ui/vesselViewport.js';
 import { init as initThemeManager } from '../ui/themeManager.js';
+import { openDialog, closeDialog } from '../ui/accessibility.js';
+import { initVesselV2Dials } from '../ui/dialkit/vesselV2Dials.js';
+import { initDkMenu, initPanelToggle } from '../ui/dialkit/dkChrome.js';
 
 let vesselExporterPromise = null;
 
@@ -27,6 +30,9 @@ class VesselV2App {
         this.autosaveInterval = null;
         this.pendingViewportUpdate = null;
         this.viewportUpdateDelayMs = 40;
+        this.dials = null;
+        this.confirmCallback = null;
+        this.lastSegmentId = null;
         this.init();
     }
 
@@ -45,10 +51,10 @@ class VesselV2App {
         this.initViewport();
         this.initProfileEditor();
         this.motifInspector = new MotifInspector();
+        this.initDials();
+        this.initHeaderChrome();
         this.bindHeaderButtons();
         this.bindToolButtons();
-        this.bindGlobalControls();
-        this.bindViewControls();
         this.bindModals();
         this.bindKeyboard();
         this.subscribeToState();
@@ -83,7 +89,7 @@ class VesselV2App {
         document.getElementById('btnNewProject')?.addEventListener('click', () => this.newProject());
         document.getElementById('btnLoadProject')?.addEventListener('click', () => this.loadProject());
         document.getElementById('btnSaveProject')?.addEventListener('click', () => this.showSaveModal());
-        document.getElementById('btnExportSTL')?.addEventListener('click', () => this.exportSTL());
+        document.getElementById('btnExportSTL')?.addEventListener('click', () => this.showExportModal());
     }
 
     bindToolButtons() {
@@ -94,8 +100,8 @@ class VesselV2App {
 
             const collapsed = workspace.classList.toggle('configurator-collapsed');
             button.setAttribute('aria-expanded', String(!collapsed));
-            button.setAttribute('aria-label', collapsed ? 'Show configurator' : 'Hide configurator');
-            button.title = collapsed ? 'Show configurator' : 'Hide configurator';
+            button.setAttribute('aria-label', collapsed ? 'Show profile editor' : 'Hide profile editor');
+            button.title = collapsed ? 'Show profile editor' : 'Hide profile editor';
         });
 
         document.querySelectorAll('[data-tool]').forEach((button) => {
@@ -138,164 +144,154 @@ class VesselV2App {
         });
     }
 
-    bindGlobalControls() {
-        this.bindNumberControl('wallThickness', 'global.wallThickness');
-        this.bindNumberControl('snapSize', 'global.snapSize');
-        this.bindNumberControl('radialSegments', 'global.radialSegments');
-        this.bindGridStepButton('btnGridSmaller', -1);
-        this.bindGridStepButton('btnGridLarger', 1);
-        this.bindProfileModeButtons();
-        this.bindCornerRadiusControl();
+    // === DialKit controls ===
 
-        document.getElementById('snapToggle')?.addEventListener('change', (event) => {
-            vesselV2State.setState('global.snapEnabled', event.target.checked, { history: false });
-        });
-
-        document.getElementById('footerOverlapToggle')?.addEventListener('change', (event) => {
-            vesselV2State.setState('profile.allowFooterOverlap', event.target.checked);
-            vesselV2State.setProfilePoints(vesselV2State.getState('profile.points'));
-            this.setStatus(event.target.checked ? 'Footer overlap on' : 'Footer overlap off');
-        });
-    }
-
-    bindNumberControl(id, path) {
-        const input = document.getElementById(id);
-        if (!input) return;
-        input.addEventListener('input', () => {
-            let value = Number(input.value);
-            if (Number.isFinite(value)) {
-                const min = Number(input.min);
-                const max = Number(input.max);
-                if (Number.isFinite(min)) value = Math.max(min, value);
-                if (Number.isFinite(max)) value = Math.min(max, value);
-                if (input.step && !String(input.step).includes('.')) value = Math.round(value);
-                input.value = value;
-                vesselV2State.setState(path, value, { history: false });
-            }
-        });
-    }
-
-    bindGridStepButton(id, direction) {
-        const button = document.getElementById(id);
-        const input = document.getElementById('snapSize');
-        if (!button || !input) return;
-
-        button.addEventListener('click', () => {
-            const step = Number(input.step) || 1;
-            const min = Number(input.min) || 1;
-            const max = Number(input.max) || 50;
-            const current = Number(vesselV2State.getState('global.snapSize')) || 5;
-            const next = Math.max(min, Math.min(max, current + direction * step));
-            vesselV2State.setState('global.snapSize', next, { history: false });
-            this.setStatus(`Grid ${next} mm`);
-        });
-    }
-
-    bindProfileModeButtons() {
-        document.querySelectorAll('[data-profile-mode]').forEach((button) => {
-            button.addEventListener('click', () => {
-                const mode = button.dataset.profileMode === 'straight-rounded'
-                    ? 'straight-rounded'
-                    : 'bezier';
-                vesselV2State.setState('profile.mode', mode);
+    initDials() {
+        this.dials = initVesselV2Dials({
+            container: document.getElementById('parameterPanel'),
+            motif: this.motifInspector,
+            setGlobal: (param, value) => {
+                vesselV2State.setState(`global.${param}`, value, { history: false });
+            },
+            setProfileMode: (mode) => {
+                vesselV2State.setState('profile.mode', mode === 'straight-rounded' ? 'straight-rounded' : 'bezier');
                 vesselV2State.setState('ui.selectedHandle', null, { history: false });
                 this.setStatus(mode === 'straight-rounded' ? 'Straight mode' : 'Bezier mode');
-            });
-        });
-    }
-
-    bindCornerRadiusControl() {
-        const input = document.getElementById('cornerRadius');
-        if (!input) return;
-
-        input.addEventListener('input', () => {
-            const selectedId = vesselV2State.getState('ui.selectedPointId');
-            if (!selectedId) return;
-
-            const min = Number(input.min) || 0;
-            const max = Number(input.max) || 80;
-            const value = Math.max(min, Math.min(max, Number(input.value) || 0));
-            const points = vesselV2State.getState('profile.points').map((point) => ({ ...point }));
-            const index = points.findIndex((point) => point.id === selectedId);
-            if (index < 0) return;
-
-            points[index] = {
-                ...points[index],
-                cornerRadius: value
-            };
-            input.value = value;
-            vesselV2State.setProfilePoints(points);
-        });
-    }
-
-    bindViewControls() {
-        const viewMenuContainer = document.getElementById('viewMenuContainer');
-        document.getElementById('btnViewMenu')?.addEventListener('click', (event) => {
-            event.stopPropagation();
-            viewMenuContainer?.classList.toggle('open');
-        });
-
-        document.addEventListener('click', (event) => {
-            if (!viewMenuContainer?.contains(event.target)) {
-                viewMenuContainer?.classList.remove('open');
+            },
+            setFooterOverlap: (enabled) => {
+                vesselV2State.setState('profile.allowFooterOverlap', enabled);
+                vesselV2State.setProfilePoints(vesselV2State.getState('profile.points'));
+                this.setStatus(enabled ? 'Footer overlap on' : 'Footer overlap off');
+            },
+            setCornerRadius: (value, { interactive }) => this.setCornerRadius(value, !interactive),
+            selectSegment: (id) => {
+                vesselV2State.setState('ui.selectedSegmentId', id, { history: false });
+            },
+            setCamera: (preset) => this.viewport?.setCameraPreset(preset),
+            resetView: () => this.viewport?.resetCamera(),
+            setCrossSection: (enabled) => this.viewport?.toggleCrossSection(enabled),
+            setGrid: (visible) => this.viewport?.toggleGrid(visible),
+            // Profile edits during a drag skip history; the release commits one step
+            onGestureEnd: (changed) => {
+                if (changed) vesselV2State.commitHistory();
+                this.updateHistoryButtons();
             }
         });
+    }
 
-        document.querySelectorAll('[data-view]').forEach((button) => {
-            button.addEventListener('click', () => {
-                const view = button.dataset.view;
-                this.viewport?.setCameraPreset(view);
-                document.querySelectorAll('[data-view]').forEach((item) => item.classList.remove('active'));
-                button.classList.add('active');
+    setCornerRadius(value, commit) {
+        const selectedId = vesselV2State.getState('ui.selectedPointId');
+        if (!selectedId) return;
+        const points = vesselV2State.getState('profile.points').map((point) => ({ ...point }));
+        const index = points.findIndex((point) => point.id === selectedId);
+        if (index < 0) return;
+        points[index] = {
+            ...points[index],
+            cornerRadius: Math.max(0, Math.min(80, Number(value) || 0))
+        };
+        vesselV2State.setProfilePoints(points, { history: commit });
+    }
+
+    // === Header chrome ===
+
+    initHeaderChrome() {
+        initPanelToggle(document.getElementById('btnTogglePanel'), 'vessel_v2_dials_visible');
+        initDkMenu(document.getElementById('fileMenu'));
+        this.initProjectNameEditing();
+    }
+
+    /**
+     * Rename in place: commits on blur/Enter (saving like the Save dialog),
+     * Escape restores the previous name.
+     */
+    initProjectNameEditing() {
+        const nameEl = document.getElementById('projectName');
+        if (!nameEl) return;
+        let originalName = '';
+        let cancelEdit = false;
+
+        nameEl.addEventListener('focus', () => {
+            originalName = vesselV2State.getState('project.name') || 'Untitled Vessel V2';
+            cancelEdit = false;
+            requestAnimationFrame(() => {
+                const range = document.createRange();
+                range.selectNodeContents(nameEl);
+                window.getSelection()?.removeAllRanges();
+                window.getSelection()?.addRange(range);
             });
         });
-
-        document.getElementById('btnToggleCrossSection')?.addEventListener('click', () => {
-            const toggle = document.getElementById('crossSectionToggle');
-            toggle?.classList.toggle('active');
-            this.viewport?.toggleCrossSection(toggle?.classList.contains('active'));
+        nameEl.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === 'Escape') {
+                event.preventDefault();
+                cancelEdit = event.key === 'Escape';
+                nameEl.blur();
+            }
         });
-
-        document.getElementById('btnToggleGrid')?.addEventListener('click', () => {
-            const toggle = document.getElementById('gridToggle');
-            toggle?.classList.toggle('active');
-            this.viewport?.toggleGrid(toggle?.classList.contains('active'));
+        nameEl.addEventListener('blur', () => {
+            const nextName = cancelEdit
+                ? originalName
+                : nameEl.textContent.replace(/\s+/g, ' ').trim() || originalName;
+            nameEl.textContent = nextName;
+            if (!cancelEdit && nextName !== vesselV2State.getState('project.name')) {
+                this.saveProject(nextName, false);
+            }
+            cancelEdit = false;
         });
+    }
+
+    updateHistoryButtons() {
+        const undo = document.getElementById('btnUndo');
+        const redo = document.getElementById('btnRedo');
+        if (undo) undo.disabled = vesselV2State.historyIndex <= 0;
+        if (redo) redo.disabled = vesselV2State.historyIndex >= vesselV2State.history.length - 1;
     }
 
     bindModals() {
         const saveModal = document.getElementById('saveModal');
-        document.getElementById('btnCloseSaveModal')?.addEventListener('click', () => {
-            saveModal.style.display = 'none';
+        const exportModal = document.getElementById('exportModal');
+        const confirmModal = document.getElementById('confirmModal');
+        const closers = {
+            btnCloseSaveModal: saveModal,
+            btnCancelSave: saveModal,
+            btnCloseExportModal: exportModal,
+            btnCancelExport: exportModal,
+            btnCloseConfirmModal: confirmModal,
+            btnConfirmCancel: confirmModal
+        };
+        Object.entries(closers).forEach(([id, modal]) => {
+            document.getElementById(id)?.addEventListener('click', () => closeDialog(modal));
         });
-        document.getElementById('btnCancelSave')?.addEventListener('click', () => {
-            saveModal.style.display = 'none';
-        });
-        document.getElementById('btnConfirmSave')?.addEventListener('click', () => {
-            const name = document.getElementById('saveProjectName')?.value || 'Vessel V2';
-            const downloadFile = document.getElementById('saveAsFile')?.checked || false;
-            this.saveProject(name, downloadFile);
-            saveModal.style.display = 'none';
-        });
-        saveModal?.querySelector('.modal-backdrop')?.addEventListener('click', () => {
-            saveModal.style.display = 'none';
+        document.querySelectorAll('.modal-backdrop').forEach((backdrop) => {
+            backdrop.addEventListener('click', () => closeDialog(backdrop.parentElement));
         });
 
-        const confirmModal = document.getElementById('confirmModal');
-        document.getElementById('btnCloseConfirmModal')?.addEventListener('click', () => {
-            confirmModal.style.display = 'none';
+        document.getElementById('btnConfirmSave')?.addEventListener('click', () => {
+            const name = document.getElementById('saveProjectName')?.value.trim() || 'Vessel V2';
+            const downloadFile = document.getElementById('saveAsFile')?.checked || false;
+            closeDialog(saveModal);
+            this.saveProject(name, downloadFile);
         });
-        document.getElementById('btnConfirmCancel')?.addEventListener('click', () => {
-            confirmModal.style.display = 'none';
+        document.getElementById('saveProjectName')?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') document.getElementById('btnConfirmSave')?.click();
         });
-        confirmModal?.querySelector('.modal-backdrop')?.addEventListener('click', () => {
-            confirmModal.style.display = 'none';
+
+        document.getElementById('btnConfirmExport')?.addEventListener('click', () => this.exportSTL());
+        document.getElementById('exportFileName')?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') this.exportSTL();
+        });
+
+        document.getElementById('btnConfirmOk')?.addEventListener('click', () => {
+            closeDialog(confirmModal);
+            const callback = this.confirmCallback;
+            this.confirmCallback = null;
+            callback?.();
         });
     }
 
     bindKeyboard() {
         document.addEventListener('keydown', (event) => {
-            const editableTarget = event.target.matches('input, textarea');
+            const editableTarget = event.target.isContentEditable
+                || event.target.matches('textarea, select, input:not([type="range"], [type="checkbox"], [type="radio"], [type="button"])');
             const meta = event.ctrlKey || event.metaKey;
             if (meta && event.key === 's') {
                 event.preventDefault();
@@ -303,10 +299,10 @@ class VesselV2App {
             } else if (meta && event.key === 'o') {
                 event.preventDefault();
                 this.loadProject();
-            } else if (meta && event.key === 'z' && !event.shiftKey) {
+            } else if (meta && !editableTarget && event.key.toLowerCase() === 'z' && !event.shiftKey) {
                 event.preventDefault();
                 vesselV2State.undo();
-            } else if ((meta && event.key === 'y') || (meta && event.shiftKey && event.key === 'Z')) {
+            } else if (meta && !editableTarget && (event.key === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z'))) {
                 event.preventDefault();
                 vesselV2State.redo();
             } else if (event.key === 'Backspace' || event.key === 'Delete') {
@@ -317,10 +313,10 @@ class VesselV2App {
             } else if (event.code === 'Space' && !editableTarget) {
                 event.preventDefault();
                 this.profileEditor?.setSpacePanning(true);
-            } else if (event.key === 'v') {
+            } else if (event.key === 'v' && !meta && !editableTarget) {
                 this.profileEditor?.setPanMode(false);
                 vesselV2State.setState('ui.tool', 'edit', { history: false });
-            } else if (event.key === 'p') {
+            } else if (event.key === 'p' && !meta && !editableTarget) {
                 this.profileEditor?.setPanMode(false);
                 vesselV2State.setState('ui.tool', 'pen', { history: false });
             }
@@ -340,6 +336,13 @@ class VesselV2App {
     subscribeToState() {
         vesselV2State.subscribe('*', (state, changedPaths) => {
             this.syncUIFromState(state);
+            this.dials?.sync();
+            this.updateHistoryButtons();
+
+            // A segment picked on the canvas opens its motif dials
+            const segmentId = state.ui.selectedSegmentId;
+            if (segmentId && segmentId !== this.lastSegmentId) this.dials?.revealMotif();
+            this.lastSegmentId = segmentId;
 
             if (this.shouldRegenerate(changedPaths)) {
                 this.scheduleViewportUpdate(state);
@@ -382,51 +385,10 @@ class VesselV2App {
             button.classList.toggle('active', button.dataset.tool === state.ui.tool);
         });
 
-        this.syncInputValue('wallThickness', state.global.wallThickness);
-        this.syncInputValue('snapSize', state.global.snapSize);
-        this.syncInputValue('radialSegments', state.global.radialSegments);
-        this.syncProfileMode(state);
-        this.syncCornerRadiusControl(state);
-
-        const snapToggle = document.getElementById('snapToggle');
-        if (snapToggle) snapToggle.checked = state.global.snapEnabled;
-
-        const footerOverlapToggle = document.getElementById('footerOverlapToggle');
-        if (footerOverlapToggle) footerOverlapToggle.checked = state.profile.allowFooterOverlap === true;
-
         const dimensions = this.calculateDimensions(state);
         document.getElementById('profileHeight').textContent = `${Math.round(dimensions.height)} mm`;
         document.getElementById('profileDiameter').textContent = `${Math.round(dimensions.maxRadius * 2)} mm`;
         document.getElementById('profilePointCount').textContent = String(state.profile.points.length);
-    }
-
-    syncProfileMode(state) {
-        const mode = state.profile.mode === 'straight-rounded' ? 'straight-rounded' : 'bezier';
-        document.querySelectorAll('[data-profile-mode]').forEach((button) => {
-            button.classList.toggle('active', button.dataset.profileMode === mode);
-        });
-    }
-
-    syncCornerRadiusControl(state) {
-        const control = document.getElementById('cornerRadiusControl');
-        const input = document.getElementById('cornerRadius');
-        if (!control || !input) return;
-
-        const straightMode = state.profile.mode === 'straight-rounded';
-        control.hidden = !straightMode;
-
-        const selected = state.profile.points.find((point) => point.id === state.ui.selectedPointId);
-        input.disabled = !straightMode || !selected || selected.locked;
-        if (document.activeElement !== input) {
-            input.value = selected ? Number(selected.cornerRadius || 0) : 0;
-        }
-    }
-
-    syncInputValue(id, value) {
-        const input = document.getElementById(id);
-        if (input && document.activeElement !== input) {
-            input.value = value;
-        }
     }
 
     calculateDimensions(state) {
@@ -441,6 +403,8 @@ class VesselV2App {
         const state = vesselV2State.getState();
         this.scheduleViewportUpdate(state, true);
         this.syncUIFromState(state);
+        this.dials?.sync();
+        this.updateHistoryButtons();
         this.updateProjectName();
         this.updateUnsavedIndicator();
     }
@@ -493,9 +457,8 @@ class VesselV2App {
         if (nameInput) {
             nameInput.value = vesselV2State.getState('project.name') || 'Vessel V2';
         }
-        modal.style.display = 'flex';
-        nameInput?.focus();
-        nameInput?.select();
+        openDialog(modal, { initialFocus: '#saveProjectName' });
+        requestAnimationFrame(() => nameInput?.select());
     }
 
     saveProject(name, downloadFile = false) {
@@ -510,50 +473,63 @@ class VesselV2App {
         this.setStatus('Project saved');
     }
 
+    showExportModal() {
+        const modal = document.getElementById('exportModal');
+        const nameInput = document.getElementById('exportFileName');
+        const state = vesselV2State.getState();
+        const dimensions = this.calculateDimensions(state);
+        if (nameInput) nameInput.value = state.project.name || 'Vessel V2';
+        document.getElementById('exportSummary').textContent =
+            `${Math.round(dimensions.maxRadius * 2)} × ${Math.round(dimensions.height)} mm · ${state.global.wallThickness} mm wall`;
+        this.setExportError('');
+        openDialog(modal, { initialFocus: '#exportFileName' });
+    }
+
+    setExportError(message) {
+        const errorEl = document.getElementById('exportError');
+        if (!errorEl) return;
+        errorEl.textContent = message;
+        errorEl.hidden = !message;
+    }
+
     async exportSTL() {
         const validation = validateVesselV2Profile(vesselV2State.getState());
         if (!validation.valid) {
-            const message = validation.errors.join('\n');
             this.setStatus('Export blocked');
-            alert(`Export blocked:\n${message}`);
+            this.setExportError(`Export blocked: ${validation.errors.join(' ')}`);
             return;
         }
 
-        const projectName = vesselV2State.getState('project.name') || 'Vessel V2';
+        const fileName = document.getElementById('exportFileName')?.value.trim()
+            || vesselV2State.getState('project.name') || 'Vessel V2';
         const exportGroup = new VesselV2MeshGenerator(vesselV2State.getState()).generate();
 
         try {
             const { VesselSTLExporter } = await loadVesselExporter();
-            await VesselSTLExporter.exportBinary(exportGroup, `${projectName}.stl`, {
+            await VesselSTLExporter.exportBinary(exportGroup, `${fileName.replace(/\.stl$/i, '')}.stl`, {
                 trackOrientationConflicts: false
             });
+            closeDialog(document.getElementById('exportModal'));
             this.setStatus('STL exported');
         } catch (error) {
             console.error('Vessel V2 STL export failed:', error);
             this.setStatus('Export blocked');
-            alert(`Export blocked by mesh validation: ${error.message}`);
+            this.setExportError(`Export blocked by mesh validation: ${error.message}`);
         } finally {
             this.viewport?.disposeObject(exportGroup, { disposeMaterial: false });
         }
     }
 
     showConfirmModal(title, message, onConfirm) {
-        const modal = document.getElementById('confirmModal');
         document.getElementById('confirmTitle').textContent = title;
         document.getElementById('confirmMessage').textContent = message;
-        const okButton = document.getElementById('btnConfirmOk');
-        const nextOkButton = okButton.cloneNode(true);
-        okButton.parentNode.replaceChild(nextOkButton, okButton);
-        nextOkButton.addEventListener('click', () => {
-            modal.style.display = 'none';
-            onConfirm();
-        });
-        modal.style.display = 'flex';
+        this.confirmCallback = onConfirm;
+        openDialog(document.getElementById('confirmModal'));
     }
 
     updateProjectName() {
         const nameEl = document.getElementById('projectName');
-        if (nameEl) {
+        if (nameEl && document.activeElement !== nameEl) {
             nameEl.textContent = vesselV2State.getState('project.name') || 'Untitled Vessel V2';
         }
     }
@@ -561,7 +537,7 @@ class VesselV2App {
     updateUnsavedIndicator() {
         const indicator = document.getElementById('unsavedIndicator');
         if (indicator) {
-            indicator.style.display = vesselV2State.getState('project.isDirty') ? 'inline' : 'none';
+            indicator.hidden = !vesselV2State.getState('project.isDirty');
         }
     }
 
