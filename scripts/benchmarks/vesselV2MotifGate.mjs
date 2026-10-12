@@ -1,6 +1,7 @@
 /**
  * Regression gate: Vessel V2 per-segment surface motifs must produce watertight,
- * manifold geometry that passes the strict STL validator.
+ * manifold, consistently oriented geometry that passes the strict STL validator,
+ * with nothing below the floor.
  *
  * Runs headless (no WebGL) — exercises only geometry generation + validation.
  *   node scripts/benchmarks/vesselV2MotifGate.mjs
@@ -28,7 +29,7 @@ function withRaisedFoot(state, height) {
 function run(label, state) {
     const group = new VesselV2MeshGenerator(state).generate();
     const merged = groupToMergedGeometry(group);
-    const result = validateGeometryForSTL(merged, { enforceOrientationConsistency: false });
+    const result = validateGeometryForSTL(merged, { enforceOrientationConsistency: true });
     merged.computeBoundingBox();
     // Motifs never reach the underside, so nothing hangs below the floor
     const minY = merged.boundingBox.min.y;
@@ -54,9 +55,11 @@ const cases = [
     ['crosshatch on body (p2)', withMotif(base, 'p2', { type: 'crosshatch', count: 24, angle: 45, depth: 0.4 })],
     ['diagonal recessed on body (p2)', withMotif(base, 'p2', { type: 'diagonal', count: 30, depth: 0.5, relief: 'recessed', direction: 'left' })],
     ['multiple segments patterned', withMotif(withMotif(base, 'p2', { type: 'vertical', count: 32, depth: 0.5 }), 'p3', { type: 'knurl', count: 36, angle: 30, depth: 0.5 })],
-    ['vertical lines on the base segment (p1) keep the floor flat', withMotif(base, 'p1', { type: 'vertical', count: 40, depth: 1.2 })],
+    ['vertical lines on the base segment (p1) keep the floor flat', withMotif(base, 'p1', { type: 'vertical', count: 120, depth: 1.2 })],
     ['raised foot + vertical flutes on body (p2)', withRaisedFoot(withMotif(base, 'p2', { type: 'vertical', count: 28, depth: 0.5 }), 12)],
-    ['raised foot + vertical lines on the base segment (p1)', withRaisedFoot(withMotif(base, 'p1', { type: 'vertical', count: 40, depth: 1.2 }), 12)]
+    ['dense vertical lines on body (p2, 720 segments)', withMotif(base, 'p2', { type: 'vertical', count: 120, depth: 1.2 })],
+    ['odd Segments value (97, smooth)', { ...base, global: { ...base.global, radialSegments: 97 } }],
+    ['raised foot + vertical lines on the base segment (p1)', withRaisedFoot(withMotif(base, 'p1', { type: 'vertical', count: 120, depth: 1.2 }), 12)]
 ];
 
 let allPass = true;

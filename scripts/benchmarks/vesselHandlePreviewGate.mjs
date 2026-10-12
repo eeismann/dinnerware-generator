@@ -37,7 +37,7 @@ function makeVesselViewport(state, MeshGenerator) {
 for (const [state, Generator] of [[getDefaultVesselV2State(), VesselV2MeshGenerator], [getDefaultVesselV3State(), VesselV3MeshGenerator]]) {
     const viewport = makeVesselViewport(state, Generator);
     viewport.updateVessel();
-    assert.deepEqual(viewport.vesselGroup.children.map((child) => child.name), ['outer', 'inner', 'rim']);
+    assert.deepEqual(viewport.vesselGroup.children.map((child) => child.name), ['outer', 'inner', 'rim', 'outer-axis-cap', 'inner-axis-cap']);
     const disposals = new Map();
     viewport.vesselGroup.children.forEach((mesh) => {
         disposals.set(mesh.name, 0);
@@ -45,7 +45,7 @@ for (const [state, Generator] of [[getDefaultVesselV2State(), VesselV2MeshGenera
     });
     viewport.showCrossSection = true;
     viewport.updateVessel();
-    assert.deepEqual([...disposals.values()], [1, 1, 1], 'Replaced geometry is disposed exactly once');
+    assert.deepEqual([...disposals.values()], [1, 1, 1, 1, 1], 'Replaced geometry is disposed exactly once');
     assert.ok(viewport.vesselGroup.children.every((mesh) => mesh.material === viewport.vesselMaterialClipped));
     viewport.disposeObject(viewport.vesselGroup, { disposeMaterial: false });
     viewport.vesselMaterial.dispose(); viewport.vesselMaterialClipped.dispose();

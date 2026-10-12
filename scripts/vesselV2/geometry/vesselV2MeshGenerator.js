@@ -22,11 +22,14 @@ import {
     sampleVesselV2Profile,
     validateVesselV2Profile
 } from './profileSampler.js';
+import { AXIS_SEAM_RADIUS, createAxisFanGeometry } from './wallOffset.js';
 
 // Displacement fade margins (mm) — matched to the dinnerware engine.
 const FOOT_FADE = 1.0;
 const JUNCTION_FADE = 1.5;
 const RIM_FADE = 2.0;
+// Closest two profile samples may sit (mm), well above the STL weld
+const MIN_SAMPLE_SPACING = 0.005;
 // Run id for the unpatterned flat base (never a segment owner id)
 const BASE_RUN = Symbol('base');
 
@@ -41,6 +44,12 @@ function leadingFloorEnd(profile) {
     return end > 0 ? end : -1;
 }
 
+/** Start a profile on the axis seam ring, where an axis fan closes it. */
+function withAxisSeam(profile) {
+    if (!profile.length) return profile;
+    return [{ ...profile[0], r: AXIS_SEAM_RADIUS }, ...profile.slice(1)];
+}
+
 class VesselV2ProfileGenerator {
     constructor(state) {
         this.state = state;
@@ -50,15 +59,15 @@ class VesselV2ProfileGenerator {
     generate() {
         const result = sampleVesselV2Profile(this.state);
         this.lastValidation = result.validation;
-        return result.profile;
+        return withAxisSeam(result.profile);
     }
 
     generateInnerProfile() {
         const outerProfile = this.generate();
-        return buildVesselV2InnerProfile(
+        return withAxisSeam(buildVesselV2InnerProfile(
             outerProfile,
             this.state?.global?.wallThickness
-        );
+        ));
     }
 }
 
@@ -110,7 +119,46 @@ export class VesselV2MeshGenerator extends VesselMeshGenerator {
         this.radialSegments = patterns.length
             ? Math.max(this.baseRadialSegments, computePatternRadialSegments(...patterns))
             : this.baseRadialSegments;
-        return super.generate();
+        this.axisSeams = {};
+        const group = super.generate();
+        this.addAxisCaps(group);
+        return group;
+    }
+
+    /**
+     * Drop samples nearer than MIN_SAMPLE_SPACING to the previous one. The STL
+     * check welds within 0.001mm, so a pair like a rounded corner meeting a
+     * zero-radius one would collapse a whole ring of triangles.
+     */
+    sanitizeProfile(profile) {
+        const points = super.sanitizeProfile(profile);
+        const spaced = [];
+        points.forEach((point, index) => {
+            const last = spaced[spaced.length - 1];
+            if (last && Math.hypot(point.r - last.r, point.h - last.h) < MIN_SAMPLE_SPACING) {
+                // Keep the rim point itself
+                if (index === points.length - 1 && spaced.length > 1) spaced[spaced.length - 1] = point;
+                return;
+            }
+            spaced.push(point);
+        });
+        return spaced;
+    }
+
+    /**
+     * Close the outer underside and the inner floor at the axis. They are
+     * separate surfaces a floor's thickness apart, each ending on the seam ring.
+     */
+    addAxisCaps(group) {
+        [['outer', false], ['inner', true]].forEach(([name, faceUp]) => {
+            const seam = this.axisSeams[name];
+            if (!seam || Math.abs(seam.r - AXIS_SEAM_RADIUS) > 1e-6) return;
+            const geometry = createAxisFanGeometry(THREE, seam.h, seam.r, this.radialSegments, faceUp);
+            const mesh = new THREE.Mesh(geometry, this.previewMaterial);
+            mesh.name = `${name}-axis-cap`;
+            mesh.receiveShadow = true;
+            group.add(mesh);
+        });
     }
 
     /**
@@ -119,6 +167,13 @@ export class VesselV2MeshGenerator extends VesselMeshGenerator {
      * the plain lathe path.
      */
     createLatheMesh(profile, name = 'vessel', isInnerSurface = false, color = null) {
+        if ((name === 'outer' || name === 'inner') && profile.length) {
+            this.axisSeams = { ...this.axisSeams, [name]: profile[0] };
+        }
+        if (name === 'inner') {
+            // Lathed rim -> axis so its faces point into the cavity
+            return super.createLatheMesh([...profile].reverse(), name, isInnerSurface, color);
+        }
         if (name !== 'outer') {
             return super.createLatheMesh(profile, name, isInnerSurface, color);
         }
@@ -214,6 +269,27 @@ export class VesselV2MeshGenerator extends VesselMeshGenerator {
 
         const mesh = new THREE.Mesh(merged, this.previewMaterial);
         mesh.name = 'outer';
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        return mesh;
+    }
+
+    /**
+     * Rim ring as a two-point lathe (outer top -> inner top, facing up).
+     * RingGeometry lays vertices out as (cos, sin) where LatheGeometry uses
+     * (sin, cos); the two only coincide at multiples of 4 segments, so any
+     * other Segments value left a gap at both rim edges.
+     */
+    createRimMesh(outerProfile, innerProfile) {
+        const outerTop = outerProfile[outerProfile.length - 1];
+        const innerTop = innerProfile[innerProfile.length - 1];
+        if (!outerTop || !innerTop || outerTop.r <= innerTop.r) return null;
+        const geometry = new THREE.LatheGeometry([
+            new THREE.Vector2(outerTop.r, outerTop.h),
+            new THREE.Vector2(innerTop.r, outerTop.h)
+        ], this.radialSegments);
+        const mesh = new THREE.Mesh(geometry, this.previewMaterial);
+        mesh.name = 'rim';
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         return mesh;

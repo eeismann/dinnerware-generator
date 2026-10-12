@@ -2,6 +2,8 @@
  * Vessel Designer V3 - Profile Sampling and Validation
  */
 
+import { offsetProfileInward } from '../../vesselV2/geometry/wallOffset.js';
+
 const MIN_SIDE_RADIUS = 0.1;
 const EPSILON = 1e-5;
 const MAX_CORNER_RADIUS = 80;
@@ -273,11 +275,16 @@ export function sampleVesselV3Profile(state, options = {}) {
     return { profile: tagProfileWithSegments(profile, points), validation };
 }
 
+/**
+ * Inner wall: the outer profile offset inward along its normals, so the floor
+ * is as thick as the wall and sloped walls keep their full thickness
+ * (wallOffset.js). Runs from the axis to the rim height.
+ */
 export function buildVesselV3InnerProfile(outerProfile, wallThickness) {
     const thickness = Math.max(0.5, Number(wallThickness) || 3);
 
-    return outerProfile.map((point, index) => ({
-        r: index === 0 ? 0 : Math.max(0, point.r - thickness),
+    return offsetProfileInward(outerProfile, thickness).map((point) => ({
+        r: point.r,
         h: point.h,
         section: 'profile-inner',
         isTransition: false
