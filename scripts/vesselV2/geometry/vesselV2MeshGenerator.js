@@ -27,6 +27,16 @@ import {
 const FOOT_FADE = 1.0;
 const JUNCTION_FADE = 1.5;
 const RIM_FADE = 2.0;
+// Run id for the unpatterned flat base (never a segment owner id)
+const BASE_RUN = Symbol('base');
+
+/** Index of the last sample on the flat floor leading out from the axis (0 when none). */
+function leadingFloorEnd(profile) {
+    const floorH = profile[0].h;
+    let end = 0;
+    while (end + 1 < profile.length && Math.abs(profile[end + 1].h - floorH) <= 1e-6) end++;
+    return end;
+}
 
 class VesselV2ProfileGenerator {
     constructor(state) {
@@ -127,10 +137,15 @@ export class VesselV2MeshGenerator extends VesselMeshGenerator {
     buildPatternedOuterMesh(profile, patternsByOwner) {
         if (!Array.isArray(profile) || profile.length < 2) return null;
 
+        // The flat underside (centre out to the base corner) never takes a
+        // motif: displacing it along its downward normal hangs ridges below
+        // the floor, so the vessel would neither stand nor print flat.
+        const floorEnd = leadingFloorEnd(profile);
+
         // Group consecutive samples by their owning segment.
         const groups = [];
-        profile.forEach((point) => {
-            const sid = point.segmentId;
+        profile.forEach((point, index) => {
+            const sid = index <= floorEnd ? BASE_RUN : point.segmentId;
             const last = groups[groups.length - 1];
             if (last && last.ownerId === sid) {
                 last.points.push(point);
@@ -164,7 +179,7 @@ export class VesselV2MeshGenerator extends VesselMeshGenerator {
             const vec = run.points.map((p) => new THREE.Vector2(p.r, p.h));
             const pattern = patternsByOwner.get(run.ownerId) || null;
             const opts = {
-                fadeStart: index === 0 ? FOOT_FADE : JUNCTION_FADE,
+                fadeStart: index === 0 || runs[index - 1].ownerId === BASE_RUN ? FOOT_FADE : JUNCTION_FADE,
                 fadeEnd: index === runs.length - 1 ? RIM_FADE : JUNCTION_FADE,
                 maxRecessDepth
             };

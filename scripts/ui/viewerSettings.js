@@ -73,6 +73,12 @@ export function onViewerSettings(listener) {
     };
 }
 
+/**
+ * Floor grid height (mm). Objects stand on y = 0; a grid in that same plane
+ * z-fights with every flat base, so grids sit just below it.
+ */
+export const FLOOR_GRID_Y = -0.5;
+
 /** Ink and paper for line art on the given background. */
 export function lineArtPalette(background) {
     return background === 'light'

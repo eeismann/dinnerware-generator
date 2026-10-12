@@ -15,7 +15,7 @@
  */
 
 import * as THREE from 'three';
-import { getViewerSettings, onViewerSettings, lineArtPalette } from './viewerSettings.js';
+import { getViewerSettings, onViewerSettings, lineArtPalette, FLOOR_GRID_Y } from './viewerSettings.js';
 
 const AXIS_COLORS = { x: 0xe35d54, y: 0x4db576, z: 0x4d8dff };
 const CREASE_ANGLE = 32;
@@ -59,8 +59,9 @@ function createAxisLines(extent) {
         { color: AXIS_COLORS.y, direction: new THREE.Vector3(0, 0, 1), length: extent },
         { color: AXIS_COLORS.z, direction: new THREE.Vector3(0, 1, 0), length: extent * 0.6 }
     ];
-    // Lifted a hair so the floor lines sit on top of the grid's centre lines
-    const lift = new THREE.Vector3(0, 0.15, 0);
+    // Just above the grid's centre lines, still below every object's base
+    // (y = 0), so the lines never share a plane with a flat bottom
+    const lift = new THREE.Vector3(0, FLOOR_GRID_Y + 0.1, 0);
     axes.forEach(({ color, direction, length }) => {
         [[1, 0.9], [-1, 0.35]].forEach(([sign, opacity]) => {
             const end = direction.clone().multiplyScalar(length * sign);

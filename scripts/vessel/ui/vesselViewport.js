@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VesselMeshGenerator } from '../geometry/vesselMeshGenerator.js';
-import { getViewerSettings, shadedPalette } from '../../ui/viewerSettings.js';
+import { getViewerSettings, shadedPalette, FLOOR_GRID_Y } from '../../ui/viewerSettings.js';
 import { createViewerStyle } from '../../ui/viewerStyle.js';
 import { RenderScheduler } from '../../ui/renderScheduler.js';
 import { createWorldAxes } from '../../ui/studio/worldAxes.js';
@@ -121,13 +121,14 @@ export class VesselViewport {
             : new THREE.GridHelper(600, 30, shaded.grid, shaded.gridCenter);
         this.gridHelper.material.opacity = inkPaper ? 0.14 : 0.5;
         this.gridHelper.material.transparent = true;
+        this.gridHelper.position.y = FLOOR_GRID_Y;
         this.gridHelper.visible = this.showGrid;
         this.scene.add(this.gridHelper);
     }
 
     setupCamera() {
         const aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 5000);
+        this.camera = new THREE.PerspectiveCamera(45, aspect, 1, 5000);
 
         // Default 3/4 view position
         this.setCameraPreset('threeQuarter');

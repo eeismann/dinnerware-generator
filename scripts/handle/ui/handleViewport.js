@@ -23,7 +23,7 @@ import {
 import { RenderScheduler } from '../../ui/renderScheduler.js';
 import { createWorldAxes } from '../../ui/studio/worldAxes.js';
 import { createOrbitPanMode } from '../../ui/orbitPanMode.js';
-import { getViewerSettings, shadedPalette } from '../../ui/viewerSettings.js';
+import { getViewerSettings, shadedPalette, FLOOR_GRID_Y } from '../../ui/viewerSettings.js';
 import { createViewerStyle } from '../../ui/viewerStyle.js';
 
 // Default camera: three-quarter view about 27° above the floor
@@ -94,7 +94,7 @@ export class HandleViewport {
 
         // Camera
         const aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+        this.camera = new THREE.PerspectiveCamera(45, aspect, 1, 1000);
         // Elevated three-quarter default, looking down onto the floor grid
         // like the other generators
         this.camera.position.set(...THREE_QUARTER_POSITION);
@@ -334,6 +334,7 @@ export class HandleViewport {
             this.grid.material.transparent = true;
             this.grid.material.opacity = 0.14;
         }
+        this.grid.position.y = FLOOR_GRID_Y;
 
         if (this.showGrid) {
             this.scene.add(this.grid);
@@ -579,7 +580,7 @@ export class HandleViewport {
             center.y - maxDim * 0.8,
             center.z + maxDim * 1.05
         );
-        this.camera.near = Math.max(0.1, maxDim / 200);
+        this.camera.near = Math.max(1, maxDim / 200);
         this.camera.far = Math.max(1000, maxDim * 8);
         this.camera.updateProjectionMatrix();
         this.controls.update();

@@ -177,7 +177,7 @@ export class ViewportManager {
     
     setupCamera() {
         const aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 10000);
+        this.camera = new THREE.PerspectiveCamera(45, aspect, 1, 10000);
         // Set initial position - setCameraPreset will be called after controls are ready
         this.camera.position.set(400, 300, 400);
         this.camera.lookAt(0, 30, 0);

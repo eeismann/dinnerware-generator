@@ -11,7 +11,7 @@ import { buildWallCaseBox, buildFootCaseBox, buildContinuousWallCaseBox } from '
 import { RenderScheduler } from '../../ui/renderScheduler.js';
 import { createWorldAxes } from '../../ui/studio/worldAxes.js';
 import { createOrbitPanMode } from '../../ui/orbitPanMode.js';
-import { getViewerSettings, shadedPalette } from '../../ui/viewerSettings.js';
+import { getViewerSettings, shadedPalette, FLOOR_GRID_Y } from '../../ui/viewerSettings.js';
 import { createViewerStyle } from '../../ui/viewerStyle.js';
 
 
@@ -90,7 +90,7 @@ export class CastFormViewport {
         
         // Camera
         const aspect = this.container.clientWidth / this.container.clientHeight;
-        this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 10000);
+        this.camera = new THREE.PerspectiveCamera(45, aspect, 1, 10000);
         this.camera.position.set(200, 150, 200);
         
         // Renderer
@@ -214,7 +214,7 @@ export class CastFormViewport {
             this.gridHelper.material.transparent = true;
             this.gridHelper.material.opacity = 0.14;
         }
-        this.gridHelper.position.y = 0;
+        this.gridHelper.position.y = FLOOR_GRID_Y;
         this.scene.add(this.gridHelper);
     }
 
