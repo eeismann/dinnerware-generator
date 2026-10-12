@@ -13,6 +13,7 @@ import { init as initThemeManager } from '../ui/themeManager.js';
 import { openDialog, closeDialog } from '../ui/accessibility.js';
 import { initVesselV2Dials } from '../ui/dialkit/vesselV2Dials.js';
 import { createViewDock } from '../ui/dialkit/viewDock.js';
+import { createDkControls } from '../ui/dialkit/dkControls.js';
 import { initDkMenu, initPanelToggle } from '../ui/dialkit/dkChrome.js';
 
 let vesselExporterPromise = null;
@@ -52,7 +53,9 @@ class VesselV2App {
         this.initViewport();
         this.initProfileEditor();
         this.motifInspector = new MotifInspector();
+        this.initEditorSettings();
         this.initDials();
+        this.initEditorPanel();
         this.initViewDock();
         this.initHeaderChrome();
         this.bindHeaderButtons();
@@ -146,20 +149,126 @@ class VesselV2App {
         });
     }
 
+    // === Profile editor panel ===
+
+    /**
+     * Profile settings at the top of the editor panel, as compact
+     * (¾-height) DialKit-style rows: mode, wall, segments and the grid.
+     */
+    initEditorSettings() {
+        const host = document.getElementById('profileSettings');
+        if (!host) return;
+        const global = (key, min, max, step, label) => ({
+            type: 'slider',
+            label,
+            min,
+            max,
+            step,
+            get: () => vesselV2State.getState(`global.${key}`),
+            // A drag previews without history; the release commits one step
+            set: (value, { interactive } = {}) => {
+                vesselV2State.setState(`global.${key}`, value, { history: false });
+                if (!interactive) {
+                    vesselV2State.commitHistory();
+                    this.updateHistoryButtons();
+                }
+            }
+        });
+        this.editorSettings = createDkControls();
+        [
+            {
+                type: 'toggle',
+                label: 'Profile Mode',
+                labels: ['Bezier', 'Straight'],
+                get: () => vesselV2State.getState('profile.mode') === 'straight-rounded',
+                set: (straight) => {
+                    vesselV2State.setState('profile.mode', straight ? 'straight-rounded' : 'bezier');
+                    vesselV2State.setState('ui.selectedHandle', null, { history: false });
+                    this.setStatus(straight ? 'Straight mode' : 'Bezier mode');
+                }
+            },
+            global('wallThickness', 1, 20, 0.5, 'Wall Thickness'),
+            global('radialSegments', 32, 160, 8, 'Radial Segments'),
+            {
+                type: 'toggle',
+                label: 'Snap To Grid',
+                get: () => vesselV2State.getState('global.snapEnabled') !== false,
+                set: (on) => vesselV2State.setState('global.snapEnabled', on, { history: false })
+            },
+            global('snapSize', 1, 50, 1, 'Grid Size')
+        ].forEach(control => this.editorSettings.render(control, host));
+        this.editorSettings.sync();
+    }
+
+    /**
+     * The editor card floats over a full-width viewport and can be resized
+     * from its right edge. Whenever its width changes (drag, collapse,
+     * window resize) the 3D view treats the covered strip as inset and
+     * re-centres on the vessel; orbiting afterwards may move it under the
+     * panel.
+     */
+    initEditorPanel() {
+        const main = document.querySelector('.main-content');
+        const card = document.getElementById('profileEditor');
+        const handle = document.getElementById('profileResize');
+        if (!main || !card) return;
+        const STORAGE_KEY = 'vessel_v2_editor_width';
+        const MIN_WIDTH = 300;
+        const maxWidth = () => Math.max(MIN_WIDTH, main.clientWidth * 0.7);
+        const narrow = window.matchMedia('(max-width: 980px)');
+
+        const setWidth = (width) => {
+            const clamped = Math.round(Math.min(maxWidth(), Math.max(MIN_WIDTH, width)));
+            main.style.setProperty('--v2-editor-width', `${clamped}px`);
+            return clamped;
+        };
+        const stored = Number(localStorage.getItem(STORAGE_KEY));
+        if (stored) setWidth(stored);
+
+        let lastInset = null;
+        const updateInset = () => {
+            const inset = narrow.matches ? 0 : Math.round(card.getBoundingClientRect().right - main.getBoundingClientRect().left);
+            main.style.setProperty('--v2-inset', `${inset}px`);
+            if (inset === lastInset) return;
+            lastInset = inset;
+            this.viewport?.setViewInset(inset);
+            this.viewport?.centerOnVessel();
+        };
+        new ResizeObserver(() => requestAnimationFrame(updateInset)).observe(card);
+        window.addEventListener('resize', () => requestAnimationFrame(updateInset));
+        updateInset();
+
+        handle?.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+            handle.setPointerCapture(event.pointerId);
+            const startX = event.clientX;
+            const startWidth = card.getBoundingClientRect().width;
+            card.classList.add('is-resizing');
+            const onMove = (moveEvent) => setWidth(startWidth + moveEvent.clientX - startX);
+            const onUp = () => {
+                handle.removeEventListener('pointermove', onMove);
+                card.classList.remove('is-resizing');
+                localStorage.setItem(STORAGE_KEY, String(Math.round(card.getBoundingClientRect().width)));
+            };
+            handle.addEventListener('pointermove', onMove);
+            handle.addEventListener('pointerup', onUp, { once: true });
+            handle.addEventListener('pointercancel', onUp, { once: true });
+        });
+        handle?.addEventListener('keydown', (event) => {
+            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+            event.preventDefault();
+            const step = event.shiftKey ? 40 : 10;
+            const width = setWidth(card.getBoundingClientRect().width + (event.key === 'ArrowRight' ? step : -step));
+            localStorage.setItem(STORAGE_KEY, String(width));
+        });
+    }
+
     // === DialKit controls ===
 
     initDials() {
         this.dials = initVesselV2Dials({
             container: document.getElementById('parameterPanel'),
             motif: this.motifInspector,
-            setGlobal: (param, value) => {
-                vesselV2State.setState(`global.${param}`, value, { history: false });
-            },
-            setProfileMode: (mode) => {
-                vesselV2State.setState('profile.mode', mode === 'straight-rounded' ? 'straight-rounded' : 'bezier');
-                vesselV2State.setState('ui.selectedHandle', null, { history: false });
-                this.setStatus(mode === 'straight-rounded' ? 'Straight mode' : 'Bezier mode');
-            },
             setFooterOverlap: (enabled) => {
                 vesselV2State.setState('profile.allowFooterOverlap', enabled);
                 vesselV2State.setProfilePoints(vesselV2State.getState('profile.points'));
@@ -363,6 +472,7 @@ class VesselV2App {
         vesselV2State.subscribe('*', (state, changedPaths) => {
             this.syncUIFromState(state);
             this.dials?.sync();
+            this.editorSettings?.sync();
             this.updateHistoryButtons();
 
             // A segment picked on the canvas opens its motif dials
@@ -430,6 +540,7 @@ class VesselV2App {
         this.scheduleViewportUpdate(state, true);
         this.syncUIFromState(state);
         this.dials?.sync();
+        this.editorSettings?.sync();
         this.updateHistoryButtons();
         this.updateProjectName();
         this.updateUnsavedIndicator();

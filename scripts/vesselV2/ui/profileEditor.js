@@ -125,6 +125,11 @@ export class ProfileEditor {
         this.spacePanning = false;
         this.unsubscribe = vesselV2State.subscribe('*', () => this.render());
         this.bindEvents();
+        // The drawing area follows the canvas shape, so re-render on resize
+        if (typeof ResizeObserver !== 'undefined') {
+            this.resizeObserver = new ResizeObserver(() => this.render());
+            this.resizeObserver.observe(this.svg);
+        }
         this.render();
     }
 
@@ -135,11 +140,24 @@ export class ProfileEditor {
         this.svg.addEventListener('pointercancel', (event) => this.onPointerUp(event));
     }
 
+    /**
+     * The drawable area at 100% zoom, in SVG units. It matches the canvas's
+     * on-screen aspect so the grid fills the whole panel: the editable
+     * region keeps the left/bottom (centreline/baseline) and the extra room
+     * extends to the right or upward. `x0`/`y0` is its top-left corner.
+     */
     getBaseSize(bounds = this.getBounds()) {
-        return {
+        const content = {
             width: bounds.marginLeft + bounds.maxRadius + bounds.marginRight,
             height: bounds.marginTop + bounds.maxHeight + bounds.marginBottom
         };
+        const rect = this.svg.getBoundingClientRect();
+        const aspect = rect.width > 0 && rect.height > 0 ? rect.width / rect.height : content.width / content.height;
+        if (aspect >= content.width / content.height) {
+            return { x0: 0, y0: 0, width: content.height * aspect, height: content.height };
+        }
+        const height = content.width / aspect;
+        return { x0: 0, y0: content.height - height, width: content.width, height };
     }
 
     clampZoom(zoom) {
@@ -151,15 +169,16 @@ export class ProfileEditor {
 
         const viewWidth = baseSize.width / this.view.zoom;
         const viewHeight = baseSize.height / this.view.zoom;
-        const maxOffsetX = Math.max(0, baseSize.width - viewWidth);
-        const maxOffsetY = Math.max(0, baseSize.height - viewHeight);
+        const maxOffsetX = baseSize.x0 + Math.max(0, baseSize.width - viewWidth);
+        const maxOffsetY = baseSize.y0 + Math.max(0, baseSize.height - viewHeight);
 
+        // Offsets are the view's top-left corner in SVG units
         if (this.view.zoom <= MIN_ZOOM + 1e-6) {
-            this.view.offsetX = 0;
-            this.view.offsetY = 0;
+            this.view.offsetX = baseSize.x0;
+            this.view.offsetY = baseSize.y0;
         } else {
-            this.view.offsetX = Math.max(0, Math.min(maxOffsetX, this.view.offsetX));
-            this.view.offsetY = Math.max(0, Math.min(maxOffsetY, this.view.offsetY));
+            this.view.offsetX = Math.max(baseSize.x0, Math.min(maxOffsetX, this.view.offsetX));
+            this.view.offsetY = Math.max(baseSize.y0, Math.min(maxOffsetY, this.view.offsetY));
         }
 
         return this.view;
@@ -206,7 +225,7 @@ export class ProfileEditor {
 
     zoomBy(factor) {
         const before = this.getViewBox();
-        const baseSize = { width: before.baseWidth, height: before.baseHeight };
+        const baseSize = this.getBaseSize();
         const nextZoom = this.clampZoom(this.view.zoom * factor);
         if (Math.abs(nextZoom - this.view.zoom) < 1e-6) {
             this.updateViewControls();
@@ -734,29 +753,34 @@ export class ProfileEditor {
         vesselV2State.setState('ui.selectedHandle', null, { history: false });
     }
 
+    /** Grid across the whole drawable area, so it fills the panel edge to edge. */
     renderGrid() {
         const state = vesselV2State.getState();
         const bounds = this.getBounds();
+        const area = this.getBaseSize(bounds);
         const lines = [];
-        const maxX = bounds.marginLeft + bounds.maxRadius;
-        const maxY = bounds.marginTop + bounds.maxHeight;
+        const left = area.x0;
+        const right = area.x0 + area.width;
+        const top = area.y0;
+        const bottom = area.y0 + area.height;
+        const originX = bounds.marginLeft;
+        const originY = bounds.marginTop + bounds.maxHeight;
         const gridSize = Math.max(1, Math.min(50, Number(state.global.snapSize) || 5));
         const majorEvery = Math.max(1, Math.round(10 / gridSize));
+        const isMajor = (value) => Math.round(value / gridSize) % majorEvery === 0;
 
-        for (let r = 0; r <= bounds.maxRadius + 1e-6; r += gridSize) {
-            const x = bounds.marginLeft + r;
-            const major = Math.round(r / gridSize) % majorEvery === 0;
-            lines.push(`<line class="profile-grid-line${major ? ' major' : ''}" x1="${x}" y1="${bounds.marginTop}" x2="${x}" y2="${maxY}"></line>`);
+        for (let r = Math.ceil((left - originX) / gridSize) * gridSize; originX + r <= right + 1e-6; r += gridSize) {
+            const x = originX + r;
+            lines.push(`<line class="profile-grid-line${isMajor(r) ? ' major' : ''}" x1="${x}" y1="${top}" x2="${x}" y2="${bottom}"></line>`);
         }
 
-        for (let h = 0; h <= bounds.maxHeight + 1e-6; h += gridSize) {
-            const y = bounds.marginTop + bounds.maxHeight - h;
-            const major = Math.round(h / gridSize) % majorEvery === 0;
-            lines.push(`<line class="profile-grid-line${major ? ' major' : ''}" x1="${bounds.marginLeft}" y1="${y}" x2="${maxX}" y2="${y}"></line>`);
+        for (let h = Math.ceil((originY - bottom) / gridSize) * gridSize; originY - h >= top - 1e-6; h += gridSize) {
+            const y = originY - h;
+            lines.push(`<line class="profile-grid-line${isMajor(h) ? ' major' : ''}" x1="${left}" y1="${y}" x2="${right}" y2="${y}"></line>`);
         }
 
-        lines.push(`<line class="profile-centerline" x1="${bounds.marginLeft}" y1="${bounds.marginTop}" x2="${bounds.marginLeft}" y2="${maxY}"></line>`);
-        lines.push(`<line class="profile-baseline" x1="${bounds.marginLeft}" y1="${maxY}" x2="${maxX}" y2="${maxY}"></line>`);
+        lines.push(`<line class="profile-centerline" x1="${originX}" y1="${top}" x2="${originX}" y2="${bottom}"></line>`);
+        lines.push(`<line class="profile-baseline" x1="${left}" y1="${originY}" x2="${right}" y2="${originY}"></line>`);
         return lines.join('');
     }
 
@@ -936,9 +960,10 @@ export class ProfileEditor {
         vesselV2State.setState('warnings', messages, { silent: true, history: false });
 
         if (!this.warningList) return;
-        this.warningList.innerHTML = messages.length
-            ? messages.map((message) => `<div class="profile-warning">${message}</div>`).join('')
-            : '<div class="profile-warning muted">Profile ready</div>';
+        // Only real problems take up room; a clean profile shows nothing
+        this.warningList.innerHTML = messages
+            .map((message) => `<div class="profile-warning">${message}</div>`).join('');
+        this.warningList.hidden = messages.length === 0;
     }
 
     render() {
@@ -966,6 +991,7 @@ export class ProfileEditor {
 
     dispose() {
         this.unsubscribe?.();
+        this.resizeObserver?.disconnect();
     }
 }
 

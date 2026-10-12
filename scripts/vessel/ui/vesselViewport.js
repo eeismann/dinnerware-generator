@@ -315,9 +315,44 @@ export class VesselViewport {
         if (width === 0 || height === 0) return;
 
         this.camera.aspect = width / height;
-        this.camera.updateProjectionMatrix();
+        this.applyViewInset();
         this.renderer.setSize(width, height);
         this.requestRender();
+    }
+
+    /**
+     * Treat the left `left` px of the canvas as covered (e.g. by a floating
+     * editor panel): the projection shifts so the camera target sits in the
+     * middle of the uncovered area. The scene still renders under the panel.
+     */
+    setViewInset(left = 0) {
+        this.viewInsetLeft = Math.max(0, left);
+        this.applyViewInset();
+        this.requestRender();
+    }
+
+    applyViewInset() {
+        const width = this.container.clientWidth;
+        const height = this.container.clientHeight;
+        const left = this.viewInsetLeft || 0;
+        if (left > 0 && left < width && height > 0) {
+            this.camera.setViewOffset(width, height, -left / 2, 0, width, height);
+        } else {
+            this.camera.clearViewOffset();
+        }
+        this.camera.updateProjectionMatrix();
+    }
+
+    /** Move the orbit target (and camera with it) to the vessel's centre. */
+    centerOnVessel() {
+        const box = this.getBoundingBox();
+        if (!box || box.isEmpty() || !this.controls) return;
+        const center = box.getCenter(new THREE.Vector3());
+        const delta = center.sub(this.controls.target);
+        this.controls.target.add(delta);
+        this.camera.position.add(delta);
+        this.controls.update();
+        this.requestRender({ settle: true });
     }
 
     requestRender(options = {}) {

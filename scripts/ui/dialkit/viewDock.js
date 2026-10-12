@@ -12,22 +12,15 @@
  * DialKit panels: DialKit renders every registered panel in every root, so
  * a second root here would duplicate the parameter panels.
  *
- * Section spec:
- *   { title, controls: [
- *       { type: 'toggle', label, get(), set(value), labels?: [offLabel, onLabel] },
- *       { type: 'select', label, options: [{ value, label }], get(), set(value) },
- *       { type: 'slider', label, min, max, step, get(), set(value), format?(value) },
- *       { type: 'actions', items: [{ label, run() }] },
- *       { type: 'group', label, controls: [...] | () => [...] }  // collapsible;
- *                                                     // a function is re-read on sync
- *   ] }
- * Controls may have `visible()` to hide themselves; call `sync()` after
- * state changes made elsewhere.
+ * Section spec: `{ title, controls: [...] }`, with controls as described in
+ * dkControls.js (toggle, select, slider, actions, group). Call `sync()`
+ * after state changes made elsewhere.
  */
 
 import { createViewCube } from '../studio/viewCube.js';
 import { getMode, setMode } from '../themeManager.js';
 import { getViewerSettings, setViewerSetting, onViewerSettings } from '../viewerSettings.js';
+import { createDkControls } from './dkControls.js';
 
 const EXPAND_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
     <line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2.2" fill="currentColor" stroke="none"/>
@@ -114,150 +107,17 @@ export function createViewDock({ container, rig, onReset, sections = [], storage
             }
         ]
     };
-    const refreshers = [];
-
-    function segmented(onLabel = 'On', offLabel = 'Off') {
-        const wrap = document.createElement('span');
-        wrap.className = 'dk-switch';
-        wrap.innerHTML = `<button type="button" class="dk-seg" data-value="false">${offLabel}</button>
-            <button type="button" class="dk-seg" data-value="true">${onLabel}</button>`;
-        return wrap;
-    }
-
-    function renderControl(control, host, list = refreshers) {
-        if (control.type === 'group') {
-            const details = document.createElement('details');
-            details.className = 'dk-view-group';
-            details.innerHTML = `<summary>${control.label}</summary>`;
-            host.appendChild(details);
-            if (typeof control.controls !== 'function') {
-                control.controls.forEach(child => renderControl(child, details, list));
-                if (control.visible) list.push(() => { details.hidden = !control.visible(); });
-                return;
-            }
-            // Dynamic group (e.g. one row per generated part): rebuild its rows
-            // when their labels change, then refresh them
-            let signature = null;
-            let childRefreshers = [];
-            list.push(() => {
-                if (control.visible) details.hidden = !control.visible();
-                const children = control.controls();
-                const next = children.map(child => child.label).join('|');
-                if (next !== signature) {
-                    signature = next;
-                    details.querySelectorAll(':scope > :not(summary)').forEach(node => node.remove());
-                    childRefreshers = [];
-                    children.forEach(child => renderControl(child, details, childRefreshers));
-                }
-                childRefreshers.forEach(refresh => refresh());
-            });
-            return;
-        }
-        if (control.type === 'actions') {
-            const row = document.createElement('div');
-            row.className = 'dk-view-actions';
-            control.items.forEach(item => {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'dk-chip';
-                button.textContent = item.label;
-                button.addEventListener('click', () => {
-                    item.run();
-                    sync();
-                });
-                row.appendChild(button);
-            });
-            host.appendChild(row);
-            if (control.visible) list.push(() => { row.hidden = !control.visible(); });
-            return;
-        }
-
-        const row = document.createElement('div');
-        row.className = `dk-row dk-view-row dk-view-${control.type}`;
-        const label = document.createElement('span');
-        label.className = 'dk-row-label';
-        label.textContent = control.label;
-        row.appendChild(label);
-        let refresh;
-
-        if (control.type === 'toggle') {
-            const [offLabel, onLabel] = control.labels ?? ['Off', 'On'];
-            const toggle = segmented(onLabel, offLabel);
-            toggle.setAttribute('role', 'group');
-            toggle.setAttribute('aria-label', control.label);
-            toggle.querySelectorAll('.dk-seg').forEach(seg => {
-                seg.addEventListener('click', () => {
-                    control.set(seg.dataset.value === 'true');
-                    sync();
-                });
-            });
-            row.appendChild(toggle);
-            refresh = () => {
-                const on = Boolean(control.get());
-                toggle.querySelectorAll('.dk-seg').forEach(seg => {
-                    seg.setAttribute('aria-pressed', String((seg.dataset.value === 'true') === on));
-                });
-            };
-        } else if (control.type === 'select') {
-            row.classList.add('dk-select-row');
-            const select = document.createElement('select');
-            select.setAttribute('aria-label', control.label);
-            select.innerHTML = control.options
-                .map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('');
-            select.addEventListener('change', () => {
-                control.set(select.value);
-                sync();
-            });
-            row.appendChild(select);
-            row.insertAdjacentHTML('beforeend', `<svg class="dk-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`);
-            refresh = () => { select.value = String(control.get()); };
-        } else if (control.type === 'slider') {
-            // Reads like a DialKit slider: the fill shows the value; a real
-            // range input on top keeps pointer and keyboard behaviour
-            const fill = document.createElement('span');
-            fill.className = 'dk-view-fill';
-            const value = document.createElement('span');
-            value.className = 'dk-view-value';
-            const input = document.createElement('input');
-            input.type = 'range';
-            input.min = control.min;
-            input.max = control.max;
-            input.step = control.step ?? 1;
-            input.setAttribute('aria-label', control.label);
-            input.addEventListener('input', () => {
-                control.set(Number(input.value));
-                paint();
-            });
-            row.prepend(fill);
-            row.append(value, input);
-            const paint = () => {
-                const v = Number(input.value);
-                fill.style.width = `${((v - control.min) / (control.max - control.min)) * 100}%`;
-                value.textContent = control.format ? control.format(v) : String(v);
-            };
-            refresh = () => {
-                input.value = control.get();
-                paint();
-            };
-        }
-        host.appendChild(row);
-        list.push(() => {
-            if (control.visible) row.hidden = !control.visible();
-            if (!row.hidden) refresh?.();
-        });
-    }
+    const controls = createDkControls();
 
     [...sections, globalSection].forEach(section => {
         const block = document.createElement('section');
         block.className = 'dk-view-section';
         block.innerHTML = `<h3 class="dk-section-title">${section.title}</h3>`;
-        section.controls.forEach(control => renderControl(control, block));
+        section.controls.forEach(control => controls.render(control, block));
         panel.appendChild(block);
     });
 
-    function sync() {
-        refreshers.forEach(refresh => refresh());
-    }
+    const sync = controls.sync;
 
     // --- Expand / collapse -----------------------------------------------------
 

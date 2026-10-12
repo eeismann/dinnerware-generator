@@ -89,6 +89,9 @@
         <main class="main-content">
             <!-- Freeform profile editor: its own DialKit-styled card -->
             <section class="profile-workspace dk-profile-card" id="profileEditor" aria-label="Profile editor">
+                <!-- Profile settings (mode, wall, segments, grid): compact dk rows, vesselV2Main initEditorSettings() -->
+                <div class="profile-settings dk-compact" id="profileSettings"></div>
+
                 <div class="profile-toolbar">
                     <div class="dk-group" role="group" aria-label="Profile tools">
                         <button class="dk-icon-btn active" type="button" data-tool="pen" title="Pen (P)" aria-label="Pen">
@@ -144,13 +147,16 @@
                     <svg id="profileSvg" class="profile-svg" role="img" aria-label="Vessel profile editor"></svg>
                 </div>
 
+                <div class="profile-warnings" id="profileWarnings" hidden></div>
+
                 <div class="profile-stats">
                     <span>Height <strong id="profileHeight">0 mm</strong></span>
                     <span>Diameter <strong id="profileDiameter">0 mm</strong></span>
                     <span>Points <strong id="profilePointCount">0</strong></span>
                 </div>
 
-                <div class="profile-warnings" id="profileWarnings"></div>
+                <div class="profile-resize" id="profileResize" role="separator" aria-orientation="vertical"
+                    aria-label="Resize profile editor" tabindex="0" title="Drag to resize"></div>
             </section>
 
             <section class="viewport-shell">

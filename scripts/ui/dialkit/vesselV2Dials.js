@@ -2,10 +2,11 @@
  * DialKit controls for Vessel Designer V2
  *
  * Panel definitions for the shared DialKit host (dialHost.js): vessel
- * (profile mode, corner radius of the selected point, wall, segments,
- * snapping) and per-segment surface motif; view controls live in the view
- * dock. The freeform profile canvas
- * stays its own editor; vesselV2State stays the source of truth. Dial edits go
+ * (corner radius of the selected point, footer overlap) and per-segment
+ * surface motif. Profile mode, wall, segments and the grid sit in the
+ * profile editor panel; view controls live in the view dock. The freeform
+ * profile canvas stays its own editor; vesselV2State stays the source of
+ * truth. Dial edits go
  * through `api` (see scripts/vesselV2/vesselV2Main.js initDials()) and
  * `sync()` pushes state back after profile edits, selection, undo or load.
  */
@@ -22,21 +23,12 @@ import {
 } from '../../geometry/surfacePatternOptions.js';
 import { createDialHost } from './dialHost.js';
 
-// Same ranges as the classic number fields
+// Same ranges as the classic number fields. Profile mode, wall thickness,
+// radial segments and the grid live in the profile editor panel
+// (vesselV2Main initEditorSettings()).
 const CONSTRAINTS = {
-    profileMode: {
-        options: [
-            { value: 'bezier', label: 'Bezier' },
-            { value: 'straight-rounded', label: 'Straight' }
-        ],
-        default: 'bezier'
-    },
     cornerRadius: { min: 0, max: 80, step: 0.5, default: 0 },
-    wallThickness: { min: 1, max: 20, step: 0.5, default: 3 },
-    radialSegments: { min: 32, max: 160, step: 8, default: 96 },
-    allowFooterOverlap: { type: 'boolean', default: false },
-    snapEnabled: { type: 'boolean', default: true },
-    snapSize: { min: 1, max: 50, step: 1, default: 5 }
+    allowFooterOverlap: { type: 'boolean', default: false }
 };
 
 const NO_SEGMENT = 'none';
@@ -71,33 +63,22 @@ export function initVesselV2Dials(api) {
     function buildVesselConfig(b) {
         const state = vesselV2State.getState();
         return {
-            profileMode: b.control('profileMode', 'profileMode'),
             ...(cornerEditable(state) ? { cornerRadius: b.control('cornerRadius', 'cornerRadius') } : {}),
-            footerOverlap: b.control('footerOverlap', 'allowFooterOverlap'),
-            wallThickness: b.control('wallThickness', 'wallThickness'),
-            radialSegments: b.control('radialSegments', 'radialSegments'),
-            snapping: b.folder('snapping', {
-                snapToGrid: b.control('snapping.snapToGrid', 'snapEnabled'),
-                gridSize: b.control('snapping.gridSize', 'snapSize')
-            })
+            footerOverlap: b.control('footerOverlap', 'allowFooterOverlap')
         };
     }
 
     function readVessel({ param }) {
         const state = vesselV2State.getState();
         switch (param) {
-            case 'profileMode': return state.profile.mode === 'straight-rounded' ? 'straight-rounded' : 'bezier';
             case 'cornerRadius': return Number(selectedPoint(state)?.cornerRadius || 0);
-            case 'allowFooterOverlap': return state.profile.allowFooterOverlap === true;
-            default: return state.global[param];
+            default: return state.profile.allowFooterOverlap === true;
         }
     }
 
     function changeVessel({ param }, value, options) {
-        if (param === 'profileMode') api.setProfileMode(value);
-        else if (param === 'cornerRadius') api.setCornerRadius(value, options);
-        else if (param === 'allowFooterOverlap') api.setFooterOverlap(value);
-        else api.setGlobal(param, value);
+        if (param === 'cornerRadius') api.setCornerRadius(value, options);
+        else api.setFooterOverlap(value);
     }
 
     function buildMotifConfig(b) {

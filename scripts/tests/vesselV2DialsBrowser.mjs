@@ -90,27 +90,79 @@ try {
     await dock.close();
     pass('View dock: cube snaps to Top, reset, Cross Section toggle');
 
-    // --- Arrow keys and typed values update state and regenerate the mesh
+    // --- Profile settings live at the top of the editor panel as compact rows
     const vessel = await openSection('Vessel');
+    const settings = page.locator('#profileSettings');
+    const settingRow = (label) => settings.locator('.dk-view-row')
+        .filter({ has: page.locator('.dk-row-label', { hasText: new RegExp(`^${label}$`) }) });
+    const setSetting = (label, value) => settingRow(label).locator('input[type="range"]').evaluate((input, next) => {
+        input.value = String(next);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, value);
+    for (const label of ['Profile Mode', 'Wall Thickness', 'Radial Segments', 'Snap To Grid', 'Grid Size']) {
+        assert.equal(await settingRow(label).count(), 1, `${label} in the editor panel`);
+        assert.equal(await vessel.getByText(label, { exact: true }).count(), 0, `${label} left the dials`);
+    }
+    const rowHeight = await settingRow('Wall Thickness').evaluate(row => row.getBoundingClientRect().height);
+    assert.ok(Math.abs(rowHeight - 27) <= 1, `compact rows are ¾ height (${rowHeight}px)`);
+    const firstChild = await page.locator('#profileEditor > *').first().getAttribute('id');
+    assert.equal(firstChild, 'profileSettings', 'settings at the top of the panel');
     const before = await meshId();
-    await slider(vessel, 'Wall Thickness').focus();
+    await settingRow('Wall Thickness').locator('input[type="range"]').focus();
     await page.keyboard.press('ArrowRight');
     await nextFrames();
     assert.equal(await state('global.wallThickness'), 3.5);
     await settle();
     const afterArrow = await meshId();
     assert.notEqual(afterArrow, before, 'wall thickness regenerates the mesh');
-    await typeValue(vessel, 'Radial Segments', 64);
+    await setSetting('Radial Segments', 64);
     assert.equal(await state('global.radialSegments'), 64);
     await settle();
     assert.notEqual(await meshId(), afterArrow, 'segments regenerate the mesh');
-    await typeValue(vessel, 'Grid Size', 10);
+    await setSetting('Grid Size', 10);
     assert.equal(await state('global.snapSize'), 10);
-    await vessel.locator('.dialkit-labeled-control')
-        .filter({ has: page.locator('.dialkit-labeled-control-label', { hasText: /^Snap To Grid$/ }) })
-        .getByText('Off', { exact: true }).click();
+    await settingRow('Snap To Grid').locator('.dk-seg[data-value="false"]').click();
     assert.equal(await state('global.snapEnabled'), false);
-    pass('Sliders take ArrowRight and typed values; state updates and the mesh regenerates');
+    pass('Profile settings sit at the top of the editor as ¾-height rows; edits update state and the mesh');
+
+    // --- The grid fills the canvas; no idle status line; the panel resizes
+    // and the 3D view re-centres in the uncovered area
+    const fill = await page.locator('#profileSvg').evaluate(svg => {
+        const [, , w, h] = svg.getAttribute('viewBox').split(' ').map(Number);
+        const rect = svg.getBoundingClientRect();
+        return { viewBox: w / h, screen: rect.width / rect.height };
+    });
+    assert.ok(Math.abs(fill.viewBox - fill.screen) < 0.01, `grid area matches the canvas (${fill.viewBox} vs ${fill.screen})`);
+    assert.equal(await page.locator('#profileWarnings').isVisible(), false, 'no "Profile ready" line');
+    assert.doesNotMatch(await page.locator('#profileEditor').textContent(), /Profile ready/);
+    const card = page.locator('#profileEditor');
+    const widthBefore = (await card.boundingBox()).width;
+    const grip = await page.locator('#profileResize').boundingBox();
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(grip.x + grip.width / 2 - 120, grip.y + grip.height / 2, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const widthAfter = (await card.boundingBox()).width;
+    assert.ok(widthAfter < widthBefore - 100, `drag narrows the panel (${widthBefore} → ${widthAfter})`);
+    await page.mouse.move(grip.x - 120, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(grip.x - 2000, grip.y + grip.height / 2, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    assert.ok((await card.boundingBox()).width >= 299, 'panel keeps its minimum width');
+    const view = await page.evaluate(() => {
+        const vp = window.vesselV2App.viewport;
+        const shell = document.querySelector('.viewport-shell').getBoundingClientRect();
+        const main = document.querySelector('.main-content').getBoundingClientRect();
+        return { inset: vp.viewInsetLeft, offset: vp.camera.view?.offsetX, shellLeft: shell.left - main.left };
+    });
+    const cardRight = (await card.boundingBox()).x + (await card.boundingBox()).width;
+    assert.equal(view.shellLeft, 0, '3D view extends under the panel');
+    assert.ok(Math.abs(view.inset - cardRight) <= 2, `view inset follows the panel (${view.inset} vs ${cardRight})`);
+    assert.ok(Math.abs(view.offset + view.inset / 2) < 1, 'projection centres the vessel in the uncovered area');
+    pass('Grid fills the canvas; no idle status line; panel resizes to a minimum; 3D view runs under it and re-centres');
 
     // --- Segment selection switches the motif controls
     const motif = await openSection('Surface Motif');
@@ -145,7 +197,7 @@ try {
     await nextFrames();
     assert.equal(await state('ui.selectedSegmentId'), segmentOne, 'canvas selects segment 1');
     assert.match(await selectTrigger(motif, 'Segment').textContent(), /Segment 1/);
-    await choose(vessel, 'Profile Mode', 'Straight');
+    await settingRow('Profile Mode').locator('.dk-seg[data-value="true"]').click();
     assert.equal(await state('profile.mode'), 'straight-rounded');
     assert.equal(await slider(vessel, 'Corner Radius').count(), 0, 'corner radius needs a selected point');
     const anchor = page.locator('.profile-anchor-hit[data-anchor-id="p2"]');
