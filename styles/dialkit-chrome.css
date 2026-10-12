@@ -717,10 +717,11 @@
     font-family: var(--dk-font);
 }
 
-/* No DialKit chrome: drop the root "DialKit" header (the first panel leads)
-   and each panel's Version menu / copy toolbar. Project state and undo
-   already cover versioning. */
-.dk-dials .dialkit-folder-root > .dialkit-panel-header,
+/* No DialKit chrome: drop the root "DialKit" header when several panels
+   share the card (the first panel leads) and each panel's Version menu /
+   copy toolbar. A lone panel is the root, so its header carries its own
+   title and stays. Project state and undo already cover versioning. */
+.dk-dials .dialkit-panel[data-multiple="true"] .dialkit-folder-root > .dialkit-panel-header,
 .dk-dials .dialkit-panel-section-toolbar-clip,
 .dk-dials .dialkit-panel-toolbar {
     display: none !important;

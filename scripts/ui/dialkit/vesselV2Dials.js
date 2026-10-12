@@ -1,14 +1,13 @@
 /**
  * DialKit controls for Vessel Designer V2
  *
- * Panel definitions for the shared DialKit host (dialHost.js): vessel
- * (corner radius of the selected point, footer overlap) and per-segment
- * surface motif. Profile mode, wall, segments and the grid sit in the
- * profile editor panel; view controls live in the view dock. The freeform
- * profile canvas stays its own editor; vesselV2State stays the source of
- * truth. Dial edits go
- * through `api` (see scripts/vesselV2/vesselV2Main.js initDials()) and
- * `sync()` pushes state back after profile edits, selection, undo or load.
+ * Panel definition for the shared DialKit host (dialHost.js): the
+ * per-segment surface motif. Profile settings (mode, wall, segments, grid,
+ * footer overlap, corner radius) sit in the profile editor panel; view
+ * controls live in the view dock. The freeform profile canvas stays its own
+ * editor; vesselV2State stays the source of truth. Dial edits go through
+ * `api` (see scripts/vesselV2/vesselV2Main.js initDials()) and `sync()`
+ * pushes state back after profile edits, selection, undo or load.
  */
 
 import vesselV2State from '../../vesselV2/state/vesselV2State.js';
@@ -22,14 +21,6 @@ import {
     MOTIF_CONSTRAINTS
 } from '../../geometry/surfacePatternOptions.js';
 import { createDialHost } from './dialHost.js';
-
-// Same ranges as the classic number fields. Profile mode, wall thickness,
-// radial segments and the grid live in the profile editor panel
-// (vesselV2Main initEditorSettings()).
-const CONSTRAINTS = {
-    cornerRadius: { min: 0, max: 80, step: 0.5, default: 0 },
-    allowFooterOverlap: { type: 'boolean', default: false }
-};
 
 const NO_SEGMENT = 'none';
 
@@ -45,42 +36,11 @@ const MOTIF_FIELDS = [
     { suffix: 'Direction', field: 'direction', key: 'direction', options: MOTIF_DIRECTION_OPTIONS }
 ];
 
-function selectedPoint(state) {
-    return state.profile.points.find((point) => point.id === state.ui.selectedPointId) || null;
-}
-
-/** Corner radius applies to the selected, unlocked point in straight mode. */
-function cornerEditable(state) {
-    const point = selectedPoint(state);
-    return state.profile.mode === 'straight-rounded' && Boolean(point) && !point.locked;
-}
-
 /**
  * @param {Object} api - App hooks; see scripts/vesselV2/vesselV2Main.js initDials()
  * @returns {{ sync: Function, revealMotif: Function, element: HTMLElement }}
  */
 export function initVesselV2Dials(api) {
-    function buildVesselConfig(b) {
-        const state = vesselV2State.getState();
-        return {
-            ...(cornerEditable(state) ? { cornerRadius: b.control('cornerRadius', 'cornerRadius') } : {}),
-            footerOverlap: b.control('footerOverlap', 'allowFooterOverlap')
-        };
-    }
-
-    function readVessel({ param }) {
-        const state = vesselV2State.getState();
-        switch (param) {
-            case 'cornerRadius': return Number(selectedPoint(state)?.cornerRadius || 0);
-            default: return state.profile.allowFooterOverlap === true;
-        }
-    }
-
-    function changeVessel({ param }, value, options) {
-        if (param === 'cornerRadius') api.setCornerRadius(value, options);
-        else api.setFooterOverlap(value);
-    }
-
     function buildMotifConfig(b) {
         const state = vesselV2State.getState();
         const segments = getWallSegments(state.profile.points);
@@ -135,18 +95,10 @@ export function initVesselV2Dials(api) {
 
     const host = createDialHost({
         container: api.container,
-        constraints: CONSTRAINTS,
         className: 'vessel-v2-dials',
         onGestureStart: api.onGestureStart,
         onGestureEnd: api.onGestureEnd,
         panels: [
-            {
-                id: 'vessel-v2-vessel',
-                name: 'Vessel',
-                build: buildVesselConfig,
-                read: readVessel,
-                change: changeVessel
-            },
             {
                 id: 'vessel-v2-motif',
                 name: 'Surface Motif',

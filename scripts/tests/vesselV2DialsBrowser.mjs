@@ -29,7 +29,7 @@ try {
         dialog.dismiss();
     });
     const appReady = () => page.waitForFunction(() => window.vesselV2App?.viewport?.vesselGroup?.children.length > 0
-        && document.querySelectorAll('.vessel-v2-dials .dialkit-folder-section').length === 2);
+        && Boolean(document.querySelector('.vessel-v2-dials .dialkit-select-trigger')));
     await page.goto(`${base}/vessel-v2-generator/index.html`);
     await appReady();
 
@@ -41,7 +41,8 @@ try {
     const meshId = () => page.evaluate(() => window.vesselV2App.viewport.vesselGroup.children[0].geometry.uuid);
 
     const dials = page.locator('.vessel-v2-dials');
-    const section = (name) => dials.locator('.dialkit-folder-section')
+    // A lone DialKit panel renders as the card's root rather than a section
+    const section = (name) => dials.locator('.dialkit-folder-section, .dialkit-folder-root')
         .filter({ has: page.locator(':scope > .dialkit-folder-header', { hasText: name }) });
     const openSection = async (name) => {
         const scope = section(name);
@@ -70,10 +71,11 @@ try {
     // --- Page chrome
     assert.equal(await page.locator('footer.footer').count(), 0, 'footer removed');
     assert.equal(await page.locator('.ln-root, .st-root').count(), 0, 'no Studio/Line shell');
-    assert.deepEqual(await dials.locator('.dialkit-folder-section > .dialkit-folder-header .dialkit-folder-title')
-        .evaluateAll(nodes => nodes.map(node => node.textContent)),
-    ['Vessel', 'Surface Motif']);
-    pass('Page loads with the DialKit header and Vessel / Surface Motif panels');
+    assert.deepEqual(await dials.locator('.dialkit-folder-header .dialkit-folder-title')
+        .evaluateAll(nodes => nodes.map(node => node.textContent).filter(Boolean)).then(titles => titles.slice(0, 1)),
+    ['Surface Motif']);
+    assert.equal(await dials.getByText('Vessel', { exact: true }).count(), 0, 'no Vessel panel left in the dials');
+    pass('Page loads with the DialKit header and the Surface Motif panel');
 
     // --- View dock: cube snaps the camera; expanded panel drives the viewport
     const dock = viewDock(page);
@@ -91,19 +93,28 @@ try {
     pass('View dock: cube snaps to Top, reset, Cross Section toggle');
 
     // --- Profile settings live at the top of the editor panel as compact rows
-    const vessel = await openSection('Vessel');
     const settings = page.locator('#profileSettings');
-    const settingRow = (label) => settings.locator('.dk-view-row')
-        .filter({ has: page.locator('.dk-row-label', { hasText: new RegExp(`^${label}$`) }) });
+    // Labels are shortened to fit a line; every control carries its full name
+    const settingRow = (name) => settings.locator('.dk-view-row')
+        .filter({ has: page.locator(`[aria-label="${name}"]`) });
+    const lineOf = (name) => settingRow(name).evaluate(row => [...row.parentElement.parentElement.children].indexOf(row.parentElement));
     const setSetting = (label, value) => settingRow(label).locator('input[type="range"]').evaluate((input, next) => {
         input.value = String(next);
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
     }, value);
-    for (const label of ['Profile Mode', 'Wall Thickness', 'Radial Segments', 'Snap To Grid', 'Grid Size']) {
+    for (const label of ['Profile Mode', 'Wall Thickness', 'Radial Segments', 'Snap To Grid', 'Grid Size', 'Footer Overlap']) {
         assert.equal(await settingRow(label).count(), 1, `${label} in the editor panel`);
-        assert.equal(await vessel.getByText(label, { exact: true }).count(), 0, `${label} left the dials`);
+        assert.equal(await dials.getByText(label, { exact: true }).count(), 0, `${label} left the dials`);
     }
+    const firstLine = await lineOf('Profile Mode');
+    for (const label of ['Snap To Grid', 'Grid Size', 'Footer Overlap']) {
+        assert.equal(await lineOf(label), firstLine, `${label} shares the Profile Mode line`);
+    }
+    assert.equal(await lineOf('Radial Segments'), await lineOf('Wall Thickness'), 'wall and segments share a line');
+    const top = async (name) => (await settingRow(name).boundingBox()).y;
+    assert.equal(await top('Footer Overlap'), await top('Profile Mode'), 'one row at the default width');
+    assert.equal(await top('Radial Segments'), await top('Wall Thickness'), 'side by side at the default width');
     const rowHeight = await settingRow('Wall Thickness').evaluate(row => row.getBoundingClientRect().height);
     assert.ok(Math.abs(rowHeight - 27) <= 1, `compact rows are ¾ height (${rowHeight}px)`);
     const firstChild = await page.locator('#profileEditor > *').first().getAttribute('id');
@@ -124,6 +135,10 @@ try {
     assert.equal(await state('global.snapSize'), 10);
     await settingRow('Snap To Grid').locator('.dk-seg[data-value="false"]').click();
     assert.equal(await state('global.snapEnabled'), false);
+    await settingRow('Footer Overlap').locator('.dk-seg[data-value="true"]').click();
+    assert.equal(await state('profile.allowFooterOverlap'), true);
+    await settingRow('Footer Overlap').locator('.dk-seg[data-value="false"]').click();
+    assert.equal(await state('profile.allowFooterOverlap'), false);
     pass('Profile settings sit at the top of the editor as ¾-height rows; edits update state and the mesh');
 
     // --- The grid fills the canvas; no idle status line; the panel resizes
@@ -199,7 +214,7 @@ try {
     assert.match(await selectTrigger(motif, 'Segment').textContent(), /Segment 1/);
     await settingRow('Profile Mode').locator('.dk-seg[data-value="true"]').click();
     assert.equal(await state('profile.mode'), 'straight-rounded');
-    assert.equal(await slider(vessel, 'Corner Radius').count(), 0, 'corner radius needs a selected point');
+    assert.equal(await settingRow('Corner Radius').isVisible(), false, 'corner radius needs a selected point');
     const anchor = page.locator('.profile-anchor-hit[data-anchor-id="p2"]');
     const box = await anchor.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -210,12 +225,13 @@ try {
     assert.equal(await state('ui.selectedPointId'), 'p2');
     const dragged = (await state('profile.points')).find(point => point.id === 'p2');
     assert.ok(dragged.r > 62, `anchor drag moves the point (r ${dragged.r})`);
-    await typeValue(vessel, 'Corner Radius', 12);
+    assert.equal(await settingRow('Corner Radius').isVisible(), true, 'corner radius for the selected point');
+    await setSetting('Corner Radius', 12);
     assert.equal((await state('profile.points')).find(point => point.id === 'p2').cornerRadius, 12);
     await page.locator('#btnUndo').click();
     await nextFrames();
     assert.equal((await state('profile.points')).find(point => point.id === 'p2').cornerRadius, 0, 'undo');
-    assert.equal(await slider(vessel, 'Corner Radius').getAttribute('aria-valuenow'), '0', 'dials follow undo');
+    assert.equal(await settingRow('Corner Radius').locator('input[type="range"]').inputValue(), '0', 'controls follow undo');
     assert.equal(await page.locator('#btnRedo').isDisabled(), false);
     pass('Canvas selection, anchor drags and undo keep the dials in sync');
 

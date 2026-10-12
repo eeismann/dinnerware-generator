@@ -92,6 +92,35 @@ body::after {
     padding: 8px 8px 0;
 }
 
+/* Controls share a line, wrapping when the panel is narrow */
+.dk-profile-card .profile-settings-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.dk-profile-card .profile-settings-line > .dk-view-row {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.dk-profile-card .profile-settings-line > .dk-view-slider {
+    flex: 1 1 72px;
+}
+
+.dk-profile-card .profile-settings-line > .dk-view-row {
+    gap: 6px;
+}
+
+.dk-profile-card .profile-settings-line .dk-seg {
+    padding: 0 6px;
+}
+
+/* A line whose controls are all hidden (Corner Radius out of straight mode) */
+.dk-profile-card .profile-settings-line:not(:has(> :not([hidden]))) {
+    display: none;
+}
+
 .dk-compact .dk-view-row {
     min-height: 27px;
     padding: 0 3px 0 10px;

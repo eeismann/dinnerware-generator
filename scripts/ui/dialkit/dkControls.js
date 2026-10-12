@@ -11,8 +11,9 @@
  *   { type: 'actions', items: [{ label, run() }] }
  *   { type: 'group', label, controls: [...] | () => [...] }   // collapsible;
  *                                              // a function is re-read on sync
- * Any control may have `visible()`. Call `sync()` after state changes made
- * elsewhere to refresh every row.
+ * Any control may have `visible()`, and `name` (full accessible name and
+ * tooltip) when `label` is shortened to fit a row. Call `sync()` after state
+ * changes made elsewhere to refresh every row.
  */
 export function createDkControls() {
     const refreshers = [];
@@ -78,6 +79,8 @@ export function createDkControls() {
         const label = document.createElement('span');
         label.className = 'dk-row-label';
         label.textContent = control.label;
+        const name = control.name ?? control.label;
+        if (control.name) row.title = control.name;
         row.appendChild(label);
         let refresh;
 
@@ -85,7 +88,7 @@ export function createDkControls() {
             const [offLabel, onLabel] = control.labels ?? ['Off', 'On'];
             const toggle = segmented(onLabel, offLabel);
             toggle.setAttribute('role', 'group');
-            toggle.setAttribute('aria-label', control.label);
+            toggle.setAttribute('aria-label', name);
             toggle.querySelectorAll('.dk-seg').forEach(seg => {
                 seg.addEventListener('click', () => {
                     control.set(seg.dataset.value === 'true');
@@ -102,7 +105,7 @@ export function createDkControls() {
         } else if (control.type === 'select') {
             row.classList.add('dk-select-row');
             const select = document.createElement('select');
-            select.setAttribute('aria-label', control.label);
+            select.setAttribute('aria-label', name);
             select.innerHTML = control.options
                 .map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('');
             select.addEventListener('change', () => {
@@ -124,7 +127,7 @@ export function createDkControls() {
             input.min = control.min;
             input.max = control.max;
             input.step = control.step ?? 1;
-            input.setAttribute('aria-label', control.label);
+            input.setAttribute('aria-label', name);
             input.addEventListener('input', () => {
                 control.set(Number(input.value), { interactive: true });
                 paint();

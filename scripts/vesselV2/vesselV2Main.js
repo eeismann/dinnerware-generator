@@ -153,50 +153,97 @@ class VesselV2App {
 
     /**
      * Profile settings at the top of the editor panel, as compact
-     * (¾-height) DialKit-style rows: mode, wall, segments and the grid.
+     * (¾-height) DialKit-style rows laid out side by side: mode, snapping,
+     * grid size and footer overlap; wall thickness and radial segments; and
+     * the selected point's corner radius when it applies. Short labels keep
+     * a line together; full names are tooltips and accessible names.
      */
     initEditorSettings() {
         const host = document.getElementById('profileSettings');
         if (!host) return;
-        const global = (key, min, max, step, label) => ({
+        // Slider writes preview without history; the release commits one step
+        const commitWhenDone = (interactive) => {
+            if (interactive) return;
+            vesselV2State.commitHistory();
+            this.updateHistoryButtons();
+        };
+        const global = (key, min, max, step, label, name) => ({
             type: 'slider',
             label,
+            name,
             min,
             max,
             step,
             get: () => vesselV2State.getState(`global.${key}`),
-            // A drag previews without history; the release commits one step
             set: (value, { interactive } = {}) => {
                 vesselV2State.setState(`global.${key}`, value, { history: false });
-                if (!interactive) {
-                    vesselV2State.commitHistory();
-                    this.updateHistoryButtons();
-                }
+                commitWhenDone(interactive);
             }
         });
-        this.editorSettings = createDkControls();
-        [
-            {
-                type: 'toggle',
-                label: 'Profile Mode',
-                labels: ['Bezier', 'Straight'],
-                get: () => vesselV2State.getState('profile.mode') === 'straight-rounded',
-                set: (straight) => {
-                    vesselV2State.setState('profile.mode', straight ? 'straight-rounded' : 'bezier');
-                    vesselV2State.setState('ui.selectedHandle', null, { history: false });
-                    this.setStatus(straight ? 'Straight mode' : 'Bezier mode');
+        const selectedPoint = () => {
+            const state = vesselV2State.getState();
+            return state.profile.points.find((point) => point.id === state.ui.selectedPointId) || null;
+        };
+        const lines = [
+            [
+                {
+                    type: 'toggle',
+                    label: 'Mode',
+                    name: 'Profile Mode',
+                    labels: ['Bezier', 'Straight'],
+                    get: () => vesselV2State.getState('profile.mode') === 'straight-rounded',
+                    set: (straight) => {
+                        vesselV2State.setState('profile.mode', straight ? 'straight-rounded' : 'bezier');
+                        vesselV2State.setState('ui.selectedHandle', null, { history: false });
+                        this.setStatus(straight ? 'Straight mode' : 'Bezier mode');
+                    }
+                },
+                {
+                    type: 'toggle',
+                    label: 'Snap',
+                    name: 'Snap To Grid',
+                    get: () => vesselV2State.getState('global.snapEnabled') !== false,
+                    set: (on) => vesselV2State.setState('global.snapEnabled', on, { history: false })
+                },
+                global('snapSize', 1, 50, 1, 'Grid', 'Grid Size'),
+                {
+                    type: 'toggle',
+                    label: 'Overlap',
+                    name: 'Footer Overlap',
+                    get: () => vesselV2State.getState('profile.allowFooterOverlap') === true,
+                    set: (enabled) => {
+                        vesselV2State.setState('profile.allowFooterOverlap', enabled);
+                        vesselV2State.setProfilePoints(vesselV2State.getState('profile.points'));
+                        this.setStatus(enabled ? 'Footer overlap on' : 'Footer overlap off');
+                    }
                 }
-            },
-            global('wallThickness', 1, 20, 0.5, 'Wall Thickness'),
-            global('radialSegments', 32, 160, 8, 'Radial Segments'),
-            {
-                type: 'toggle',
-                label: 'Snap To Grid',
-                get: () => vesselV2State.getState('global.snapEnabled') !== false,
-                set: (on) => vesselV2State.setState('global.snapEnabled', on, { history: false })
-            },
-            global('snapSize', 1, 50, 1, 'Grid Size')
-        ].forEach(control => this.editorSettings.render(control, host));
+            ],
+            [
+                global('wallThickness', 1, 20, 0.5, 'Wall', 'Wall Thickness'),
+                global('radialSegments', 32, 160, 8, 'Segments', 'Radial Segments')
+            ],
+            [
+                {
+                    type: 'slider',
+                    label: 'Corner Radius',
+                    min: 0,
+                    max: 80,
+                    step: 0.5,
+                    // The selected, unlocked point in straight mode
+                    visible: () => vesselV2State.getState('profile.mode') === 'straight-rounded'
+                        && Boolean(selectedPoint()) && !selectedPoint().locked,
+                    get: () => Number(selectedPoint()?.cornerRadius || 0),
+                    set: (value, { interactive } = {}) => this.setCornerRadius(value, !interactive)
+                }
+            ]
+        ];
+        this.editorSettings = createDkControls();
+        lines.forEach((controls) => {
+            const line = document.createElement('div');
+            line.className = 'profile-settings-line';
+            controls.forEach(control => this.editorSettings.render(control, line));
+            host.appendChild(line);
+        });
         this.editorSettings.sync();
     }
 
@@ -269,12 +316,6 @@ class VesselV2App {
         this.dials = initVesselV2Dials({
             container: document.getElementById('parameterPanel'),
             motif: this.motifInspector,
-            setFooterOverlap: (enabled) => {
-                vesselV2State.setState('profile.allowFooterOverlap', enabled);
-                vesselV2State.setProfilePoints(vesselV2State.getState('profile.points'));
-                this.setStatus(enabled ? 'Footer overlap on' : 'Footer overlap off');
-            },
-            setCornerRadius: (value, { interactive }) => this.setCornerRadius(value, !interactive),
             selectSegment: (id) => {
                 vesselV2State.setState('ui.selectedSegmentId', id, { history: false });
             },
@@ -324,7 +365,13 @@ class VesselV2App {
             ...points[index],
             cornerRadius: Math.max(0, Math.min(80, Number(value) || 0))
         };
-        vesselV2State.setProfilePoints(points, { history: commit });
+        // A slider release re-sends the dragged value, which setState skips as
+        // unchanged; commit the step explicitly (duplicate snapshots are ignored)
+        vesselV2State.setProfilePoints(points, { history: false });
+        if (commit) {
+            vesselV2State.commitHistory();
+            this.updateHistoryButtons();
+        }
     }
 
     // === Header chrome ===

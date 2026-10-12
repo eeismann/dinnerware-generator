@@ -391,7 +391,8 @@ try {
         // Handle asks for a mug on first open; take the default one
         const defaultMug = app.getByRole('button', { name: 'Use Default Mug' });
         if (await defaultMug.first().isVisible({ timeout: 3000 }).catch(() => false)) await defaultMug.first().click();
-        await app.locator('.dk-dials .dialkit-folder-section').first().waitFor({ timeout: 30000 });
+        // Several panels render as sections; a lone panel is the root itself
+        await app.locator('.dk-dials .dialkit-folder-root').first().waitFor({ timeout: 30000 });
         assert.equal(await app.locator('.dk-header').count(), 1, `${dir}: DialKit header`);
         assert.equal(await app.locator('.ln-root, footer').count(), 0, `${dir}: no Line frame or footer`);
         for (const selector of exports) {
