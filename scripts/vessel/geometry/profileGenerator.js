@@ -299,6 +299,12 @@ export class ProfileGenerator {
                 sections.neck.bottomDiameter = sections.body.topDiameter;
             }
         }
+
+        // Lip bottom locks to the first enabled section below it
+        if (sections.lip?.bottomDiameterLocked) {
+            const below = ['neck', 'shoulder'].find(name => sections[name].enabled) ?? 'body';
+            sections.lip.bottomDiameter = sections[below].topDiameter;
+        }
     }
 
     /**

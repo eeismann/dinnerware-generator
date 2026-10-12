@@ -111,6 +111,31 @@ try {
     await closeSection('Foot');
     pass('Linked diameters stay in step from either side');
 
+    // --- The lip links to the neck (or the next enabled section below it)
+    const lipLink = await openSection('Lip');
+    assert.equal(await lipLink.getByText('Link To Neck', { exact: true }).count(), 1, 'lip offers a link to the neck');
+    assert.equal(await state('sections.lip.bottomDiameterLocked'), true, 'linked by default');
+    const neckLink = await openSection('Neck');
+    await typeValue(neckLink, 'Top Diameter', 86);
+    await page.waitForFunction(async () => (await import('/scripts/vessel/state/vesselState.js'))
+        .vesselState.getState('sections.lip.bottomDiameter') === 86);
+    await typeValue(lipLink, 'Bottom Diameter', 78);
+    await page.waitForFunction(async () => (await import('/scripts/vessel/state/vesselState.js'))
+        .vesselState.getState('sections.neck.topDiameter') === 78);
+    await setToggle(neckLink, 'Enabled', false);
+    await lipLink.getByText('Link To Shoulder', { exact: true }).waitFor();
+    await page.waitForFunction(async () => {
+        const { vesselState } = await import('/scripts/vessel/state/vesselState.js');
+        return vesselState.getState('sections.lip.bottomDiameter') === vesselState.getState('sections.shoulder.topDiameter');
+    });
+    await setToggle(section('Neck'), 'Enabled', true);
+    await setToggle(lipLink, 'Link To Neck', false);
+    assert.equal(await state('sections.lip.bottomDiameterLocked'), false);
+    await setToggle(lipLink, 'Link To Neck', true);
+    await closeSection('Neck');
+    await closeSection('Lip');
+    pass('Lip links to the neck both ways, follows the shoulder when the neck is off, and can unlink');
+
     // --- Conditional rows: Flat Wall hides the curve rows; Waist adds rows and retargets the body link
     await setToggle(body, 'Flat Wall', true);
     assert.equal(await state('sections.body.flatWall'), true);

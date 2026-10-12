@@ -2,14 +2,16 @@
  * Vessel Generator - Linked Diameters
  *
  * A section's `bottomDiameterLocked` flag ties its bottom diameter to the top
- * diameter of the section below it, in both directions. Body links to the
- * waist when the waist is enabled, otherwise to the foot. Formerly part of
+ * diameter of the section below it, in both directions. The lip links to the
+ * first enabled section below it (neck, shoulder, then body); body links to
+ * the waist when the waist is enabled, otherwise to the foot. Formerly part of
  * the classic parameter panel; it lives with the state so it applies however
  * the values change (dials, loads, scripts).
  */
 
 // Section with the lock → section whose top diameter it follows
 const LINK_TARGETS = {
+    lip: null, // neck, shoulder or body, see linkTarget()
     neck: 'shoulder',
     shoulder: 'body',
     body: null, // waist or foot, see linkTarget()
@@ -20,6 +22,9 @@ export const LINKABLE_SECTIONS = Object.keys(LINK_TARGETS);
 
 /** Section below `sectionName` that its bottom diameter is linked to. */
 export function linkTarget(state, sectionName) {
+    if (sectionName === 'lip') {
+        return ['neck', 'shoulder'].find(name => state.sections[name]?.enabled) ?? 'body';
+    }
     if (sectionName === 'body') return state.sections.waist?.enabled ? 'waist' : 'foot';
     return LINK_TARGETS[sectionName] ?? null;
 }
@@ -55,9 +60,12 @@ export function initDiameterLinks(vesselState) {
         const changed = (fragment) => changedPaths.some(path => path.includes(fragment));
         const updates = [];
 
-        // Switching the waist on/off moves the body's link target
+        // Switching a section on/off moves the lip's or body's link target
         if (changed('waist.enabled') && state.sections.body.bottomDiameterLocked) {
             updates.push(...linkUpdates(state, 'body', 'bottom'));
+        }
+        if ((changed('neck.enabled') || changed('shoulder.enabled')) && state.sections.lip?.bottomDiameterLocked) {
+            updates.push(...linkUpdates(state, 'lip', 'bottom'));
         }
 
         LINKABLE_SECTIONS.forEach(sectionName => {

@@ -30,6 +30,7 @@ export const VESSEL_DEFAULTS = {
             height: 8,              // mm
             topDiameter: 80,        // mm (mouth opening)
             bottomDiameter: 80,     // mm (connects to neck)
+            bottomDiameterLocked: true, // locks to neck.topDiameter (or the next enabled section)
             midDiameter: 80,        // mm (diameter at middle of section)
             thickness: 1,           // mm additional
             flareAngle: 15,         // degrees

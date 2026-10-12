@@ -116,6 +116,13 @@ export function initVesselDials(api) {
         const base = `sections.${section.id}`;
         const data = vesselState.getState(base) || {};
         const config = {};
+        // "Link To <section below>" ties the bottom diameter to that section's top
+        const addLinkControl = () => {
+            if (!('bottomDiameterLocked' in data)) return;
+            const target = linkTarget(vesselState.getState(), section.id);
+            const key = `linkTo${formatLabel(target).replace(/\s/g, '')}`;
+            config[key] = b.control(key, `${base}.bottomDiameterLocked`, { link: true });
+        };
         if (section.optional) {
             config.enabled = b.control('enabled', `${base}.enabled`);
             if (data.enabled === false) return config;
@@ -129,6 +136,7 @@ export function initVesselDials(api) {
         if (section.id === 'lip') {
             config.midDiameter = b.control('midDiameter', `${base}.midDiameter`);
             config.extraThickness = b.control('extraThickness', `${base}.thickness`);
+            addLinkControl();
             return config;
         }
         config.flatWall = b.control('flatWall', `${base}.flatWall`);
@@ -136,11 +144,7 @@ export function initVesselDials(api) {
             config.midDiameter = b.control('midDiameter', `${base}.midDiameter`);
             config.curvature = b.control('curvature', `${base}.curvature`);
         }
-        if ('bottomDiameterLocked' in data) {
-            const target = linkTarget(vesselState.getState(), section.id);
-            const key = `linkTo${formatLabel(target).replace(/\s/g, '')}`;
-            config[key] = b.control(key, `${base}.bottomDiameterLocked`, { link: true });
-        }
+        addLinkControl();
         if (section.id === 'foot') {
             config.footringWidth = b.control('footringWidth', `${base}.footringWidth`);
             config.innerFootringAngle = b.control('innerFootringAngle', `${base}.innerFootringAngle`);

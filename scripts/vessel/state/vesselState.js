@@ -150,6 +150,11 @@ class VesselStateManager {
     loadState(data) {
         // Merge with defaults to ensure all fields exist
         const defaults = getDefaultState();
+        // Projects saved before the lip had a link keep their lip/neck step
+        const lip = data?.sections?.lip;
+        if (lip && !('bottomDiameterLocked' in lip)) {
+            data = { ...data, sections: { ...data.sections, lip: { ...lip, bottomDiameterLocked: false } } };
+        }
         this.state = this.mergeDeep(defaults, data);
         this.state.project.isDirty = false;
         this.notifyAll();
