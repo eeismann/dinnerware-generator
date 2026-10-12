@@ -206,6 +206,11 @@ npm run test:browser # Playwright browser workflows (software WebGL)
 npm run benchmark:dinnerware  # Dinnerware preview/export/validation timings
 ```
 
+Review comments (dev server only): every page has a Comment pill (or press **C**). Notes are saved
+by the `page-comments` Vite middleware in `vite.config.js` to `feedback/page-comments.json`
+(gitignored); the layer is `scripts/ui/pageComments/`. Resolve with
+`PATCH /api/page-comments {"id","status":"resolved"}`.
+
 ## Common Development Tasks
 
 ### Adding New Dinnerware Item

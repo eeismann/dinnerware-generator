@@ -1,6 +1,7 @@
-import { access, mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
-import { basename, extname, join, resolve } from 'node:path';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 import { defineConfig } from 'vite';
 
 const DOWNLOADS_ROUTE = '/api/downloads/';
@@ -106,6 +107,93 @@ async function handleDownloadsRequest(request, response) {
     return true;
 }
 
+// Review comments pinned on pages during development. They're kept in
+// feedback/page-comments.json so an agent can read them and work through
+// them. The route exists only on the dev server (not in builds or preview).
+const PAGE_COMMENTS_ROUTE = '/api/page-comments';
+// Tests point this at a temporary file so they never touch the real notes
+const PAGE_COMMENTS_FILE = process.env.PAGE_COMMENTS_FILE
+    || resolve(__dirname, 'feedback', 'page-comments.json');
+
+async function loadPageComments() {
+    try {
+        return JSON.parse(await readFile(PAGE_COMMENTS_FILE, 'utf8'));
+    } catch {
+        return [];
+    }
+}
+
+async function savePageComments(comments) {
+    await mkdir(dirname(PAGE_COMMENTS_FILE), { recursive: true });
+    // Write then rename, so a reader never sees a half-written file
+    const temporary = `${PAGE_COMMENTS_FILE}.${process.pid}.tmp`;
+    await writeFile(temporary, `${JSON.stringify(comments, null, 2)}\n`);
+    await rename(temporary, PAGE_COMMENTS_FILE);
+}
+
+function sendJson(response, status, body) {
+    response.statusCode = status;
+    response.setHeader('Content-Type', 'application/json');
+    response.end(JSON.stringify(body));
+}
+
+async function handlePageCommentsRequest(request, response) {
+    const url = new URL(request.url || '/', 'http://localhost');
+    if (url.pathname !== PAGE_COMMENTS_ROUTE) return false;
+
+    try {
+        const all = await loadPageComments();
+        if (request.method === 'GET') {
+            const page = url.searchParams.get('page');
+            sendJson(response, 200, page ? all.filter(comment => comment.page === page) : all);
+        } else if (request.method === 'POST') {
+            const body = JSON.parse((await readRequestBody(request)).toString('utf8') || '{}');
+            if (!body.text?.trim() || !body.page) {
+                sendJson(response, 400, { error: 'text and page are required' });
+                return true;
+            }
+            const comment = {
+                ...body,
+                text: body.text.trim(),
+                id: randomUUID().slice(0, 8),
+                status: 'open',
+                createdAt: new Date().toISOString()
+            };
+            await savePageComments([...all, comment]);
+            sendJson(response, 200, comment);
+        } else if (request.method === 'PATCH') {
+            const { id, text, status } = JSON.parse((await readRequestBody(request)).toString('utf8') || '{}');
+            const next = all.map(comment => (comment.id === id
+                ? { ...comment, ...(text != null ? { text } : {}), ...(status ? { status } : {}) }
+                : comment));
+            await savePageComments(next);
+            sendJson(response, 200, next.find(comment => comment.id === id) ?? null);
+        } else if (request.method === 'DELETE') {
+            const id = url.searchParams.get('id');
+            await savePageComments(all.filter(comment => comment.id !== id));
+            sendJson(response, 200, { ok: true });
+        } else {
+            sendJson(response, 405, { error: 'Method not allowed' });
+        }
+    } catch (error) {
+        sendJson(response, 500, { error: error.message });
+    }
+    return true;
+}
+
+function pageCommentsPlugin() {
+    return {
+        name: 'page-comments',
+        apply: 'serve',
+        configureServer(server) {
+            server.middlewares.use(async (request, response, next) => {
+                const handled = await handlePageCommentsRequest(request, response);
+                if (!handled) next();
+            });
+        }
+    };
+}
+
 function downloadsWriterPlugin() {
     return {
         name: 'dinnerware-downloads-writer',
@@ -126,7 +214,7 @@ function downloadsWriterPlugin() {
 
 export default defineConfig({
     base: './',
-    plugins: [downloadsWriterPlugin()],
+    plugins: [downloadsWriterPlugin(), pageCommentsPlugin()],
     build: {
         outDir: 'dist',
         assetsDir: 'assets',
