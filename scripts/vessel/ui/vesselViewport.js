@@ -376,16 +376,23 @@ export class VesselViewport {
      * Update vessel mesh from state
      */
     updateVessel() {
+        // Generate before clearing: if a profile fails to build, the last
+        // good vessel stays on screen instead of the viewport going empty
+        let newVessel;
+        try {
+            this.meshGenerator = new this.MeshGenerator(this.state);
+            newVessel = this.meshGenerator.generate();
+        } catch (error) {
+            console.error('Vessel generation failed; keeping the previous mesh.', error);
+            return;
+        }
+
         // Clear existing vessel
         while (this.vesselGroup.children.length > 0) {
             const child = this.vesselGroup.children[0];
             this.disposeObject(child, { disposeMaterial: false });
             this.vesselGroup.remove(child);
         }
-
-        // Generate new vessel
-        this.meshGenerator = new this.MeshGenerator(this.state);
-        const newVessel = this.meshGenerator.generate();
 
         // Use appropriate material based on cross-section state
         const material = this.showCrossSection ? this.vesselMaterialClipped : this.vesselMaterial;

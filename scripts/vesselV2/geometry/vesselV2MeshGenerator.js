@@ -30,12 +30,15 @@ const RIM_FADE = 2.0;
 // Run id for the unpatterned flat base (never a segment owner id)
 const BASE_RUN = Symbol('base');
 
-/** Index of the last sample on the flat floor leading out from the axis (0 when none). */
+/**
+ * Index of the last sample on the underside: the run out from the axis while
+ * the profile stays level or descends (a flat floor, or a raised foot dome
+ * with Footer Overlap). -1 when the profile rises straight from the axis.
+ */
 function leadingFloorEnd(profile) {
-    const floorH = profile[0].h;
     let end = 0;
-    while (end + 1 < profile.length && Math.abs(profile[end + 1].h - floorH) <= 1e-6) end++;
-    return end;
+    while (end + 1 < profile.length && profile[end + 1].h <= profile[end].h + 1e-6) end++;
+    return end > 0 ? end : -1;
 }
 
 class VesselV2ProfileGenerator {
@@ -137,9 +140,9 @@ export class VesselV2MeshGenerator extends VesselMeshGenerator {
     buildPatternedOuterMesh(profile, patternsByOwner) {
         if (!Array.isArray(profile) || profile.length < 2) return null;
 
-        // The flat underside (centre out to the base corner) never takes a
-        // motif: displacing it along its downward normal hangs ridges below
-        // the floor, so the vessel would neither stand nor print flat.
+        // The underside (centre out to the base corner) never takes a motif:
+        // displacing it along its downward normal hangs ridges below the
+        // floor, so the vessel would neither stand nor print flat.
         const floorEnd = leadingFloorEnd(profile);
 
         // Group consecutive samples by their owning segment.
