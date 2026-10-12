@@ -325,6 +325,9 @@ class VesselV2App {
                 this.updateHistoryButtons();
             }
         });
+        // The segment's motif preview sits under the Surface Motif dials
+        const inspector = document.getElementById('motifInspector');
+        if (inspector) document.getElementById('parameterPanel')?.append(inspector);
     }
 
     /** Orientation cube and view controls in the lower left of the viewport. */

@@ -186,6 +186,10 @@ try {
     const segmentTwo = await state('ui.selectedSegmentId');
     assert.ok(segmentTwo, 'segment selected from the dials');
     await page.locator('#motifInspector:not(.hidden)').waitFor();
+    assert.equal(await page.locator('#motifInspector').evaluate(card =>
+        card.parentElement.id === 'parameterPanel'
+        && Boolean(card.compareDocumentPosition(document.querySelector('.vessel-v2-dials')) & Node.DOCUMENT_POSITION_PRECEDING)),
+    true, 'motif preview sits under the Surface Motif dials');
     await choose(motif, 'Motif', 'Knurling');
     const pointMotif = async (id) => (await state('profile.points')).find(point => point.id === id).motif;
     assert.equal((await pointMotif(segmentTwo)).type, 'knurl');

@@ -161,8 +161,12 @@
 
             <section class="viewport-shell">
                 <div class="viewport" id="viewport"></div>
-                <!-- Selected segment: unwrapped motif preview and print warning.
-                     Its controls are dials (Surface Motif panel). -->
+            </section>
+
+            <!-- Parameter controls: DialKit panels mounted by scripts/ui/dialkit/vesselV2Dials.js -->
+            <aside class="dk-dials-card" id="parameterPanel" aria-label="Parameters">
+                <!-- Selected segment: unwrapped motif preview and print warning, shown
+                     under the Surface Motif dials (vesselV2Main initDials moves it after them) -->
                 <div class="motif-inspector hidden" id="motifInspector" aria-label="Segment motif preview">
                     <div class="mi-head">
                         <span class="mi-title" id="motifSegTitle">Segment<small id="motifSegSub">—</small></span>
@@ -179,10 +183,7 @@
                         <span id="motifWarnText"></span>
                     </div>
                 </div>
-            </section>
-
-            <!-- Parameter controls: DialKit panels mounted by scripts/ui/dialkit/vesselV2Dials.js -->
-            <aside class="dk-dials-card" id="parameterPanel" aria-label="Parameters"></aside>
+            </aside>
         </main>
 
         <!-- Status messages for assistive technology (no footer) -->
