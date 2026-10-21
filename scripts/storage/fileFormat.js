@@ -18,7 +18,7 @@ export class ProjectFileFormat {
     /**
      * Serialize project data to enhanced JSON format
      * @param {Object} project - Project data from localStorage
-     * @param {string} appType - 'dinnerware', 'handle', 'vessel', 'vessel-v2', or 'castform'
+     * @param {string} appType - 'dinnerware', 'handle', 'vessel', 'vessel-v2', 'castform' or 'stackedmold'
      * @returns {Object} Enhanced JSON structure
      */
     static serialize(project, appType) {
@@ -169,7 +169,8 @@ export class ProjectFileFormat {
             'vessel-v2': Array.isArray(state.profile?.points),
             'vessel-v3': Array.isArray(state.profile?.points),
             handle: object(state.handleParams),
-            castform: object(state.params)
+            castform: object(state.params),
+            stackedmold: object(state.params) && object(state.source)
         };
         if (!(appType in validState)) errors.push('Unsupported or unrecognized project type');
         else if (!validState[appType]) errors.push(`Missing ${appType} state data`);
@@ -224,6 +225,11 @@ export class ProjectFileFormat {
         // Handle: has handleParams or mugData
         if (state.handleParams || state.mugData) {
             return 'handle';
+        }
+
+        // Stacked mold: tagged (its params also have a mold group)
+        if (state.appType === 'stackedmold') {
+            return 'stackedmold';
         }
 
         // Cast form: has params with shrinkage or mold settings

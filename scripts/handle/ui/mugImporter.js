@@ -221,7 +221,7 @@ function getVesselProjectMeta(project, sourceType) {
     }
     return {
         id: project.id || project.project?.id,
-        name: project.project?.name || (sourceType === 'vessel-v3' ? 'Untitled Vessel V3' : 'Untitled Vessel V2'),
+        name: project.project?.name || (sourceType === 'vessel-v3' ? 'Untitled Vessel V3' : 'Untitled Bezier Vessel'),
         modifiedAt: project.project?.lastModified,
         compatible: dimensions !== null,
         incompatibilityReason,
@@ -433,7 +433,7 @@ const IMPORT_SOURCES = {
     },
     'vessel-v2': {
         description: 'Select a smooth vessel. Handles contact the outermost compiled wall; profiles with motifs need a smooth saved copy.',
-        emptyMessage: 'No Vessel V2 projects found.<br>Create a project in the Vessel Designer V2 first.',
+        emptyMessage: 'No Bezier Vessel projects found.<br>Create a project in the Bezier Vessel first.',
         getProjects: getVesselV2Projects,
         import: (project) => importVesselFromProject('vessel-v2', project.id),
         formatMeta: (project) => project.dimensions

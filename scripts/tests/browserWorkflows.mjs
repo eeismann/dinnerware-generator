@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { createServer } from 'vite';
+import { getDefaultVesselV2State } from '../vesselV2/state/vesselV2Defaults.js';
 import { getDefaultVesselV3State } from '../vesselV3/state/vesselV3Defaults.js';
 import { ProjectFileFormat } from '../storage/fileFormat.js';
 
@@ -14,6 +15,8 @@ try {
     const base = `http://127.0.0.1:${server.httpServer.address().port}`;
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ deviceScaleFactor: 2 });
+    // The dashboard intro tour opens on a first visit; it has its own suite (dashboardTourBrowser.mjs)
+    await context.addInitScript(() => localStorage.setItem('pc_intro_tour_seen_v1', '1'));
     const page = await context.newPage();
     const errors = [];
     const dialogs = [];
@@ -84,20 +87,26 @@ try {
     };
     await importFile('own-export.json', ownFile);
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('playground_ceramics_projects')).length === 2);
+    // Vessel V3 is retired: its files are refused and nothing is stored
     const v3File = ProjectFileFormat.serialize({ projectName: 'V3 browser import', state: getDefaultVesselV3State() }, 'vessel-v3');
     await importFile('v3.json', Buffer.from(JSON.stringify(v3File)));
-    const v3Card = page.locator('.project-card').filter({ has: page.getByRole('heading', { name: 'V3 browser import', exact: true }) });
-    await v3Card.hover();
-    await v3Card.getByTitle('Duplicate project').click();
-    await page.getByRole('heading', { name: 'V3 browser import (Copy)', exact: true }).waitFor();
+    for (let i = 0; i < 50 && !dialogs.some(d => d.includes('no longer supported')); i++) await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => localStorage.getItem('playground_ceramics_vessel_v3_projects')), null, 'V3 import refused');
+    const v2File = ProjectFileFormat.serialize({ projectName: 'Bezier browser import', state: getDefaultVesselV2State() }, 'vessel-v2');
+    await importFile('v2.json', Buffer.from(JSON.stringify(v2File)));
+    const v2Card = page.locator('.project-card').filter({ has: page.getByRole('heading', { name: 'Bezier browser import', exact: true }) });
+    await v2Card.hover();
+    await v2Card.getByTitle('Duplicate project').click();
+    await page.getByRole('heading', { name: 'Bezier browser import (Copy)', exact: true }).waitFor();
     assert.deepEqual(await page.evaluate(() => ({
         dinnerware: JSON.parse(localStorage.getItem('playground_ceramics_projects')).length,
-        v3: JSON.parse(localStorage.getItem('playground_ceramics_vessel_v3_projects')).length
-    })), { dinnerware: 2, v3: 2 });
-    await v3Card.getByTitle('Open project').click();
-    await page.waitForURL('**/vessel-v3-generator/index.html?*');
-    await page.waitForFunction(() => document.getElementById('projectName')?.textContent === 'V3 browser import');
-    console.log('[PASS] Import picker accepts own export and V3; duplication preserves type and opens in matching editor');
+        v2: JSON.parse(localStorage.getItem('playground_ceramics_vessel_v2_projects')).length
+    })), { dinnerware: 2, v2: 2 });
+    assert.ok(dialogs.some(d => d.includes('Vessel V3 projects are no longer supported')), 'V3 import explains the refusal');
+    await v2Card.getByTitle('Open project').click();
+    await page.waitForURL('**/vessel-v2-generator/index.html?*');
+    await page.waitForFunction(() => document.getElementById('projectName')?.textContent === 'Bezier browser import');
+    console.log('[PASS] Import picker accepts own export and Bezier Vessel, refuses Vessel V3; duplication preserves type and opens in matching editor');
     assert.deepEqual(errors, [], 'No application runtime errors');
     await context.close();
 } finally {

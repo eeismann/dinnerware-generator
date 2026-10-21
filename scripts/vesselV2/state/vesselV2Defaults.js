@@ -8,7 +8,7 @@ import { getDefaultMotif } from '../../geometry/surfacePatternOptions.js';
 export const VESSEL_V2_DEFAULTS = {
     project: {
         id: null,
-        name: 'Untitled Vessel V2',
+        name: 'Untitled Bezier Vessel',
         dateCreated: null,
         lastModified: null,
         isDirty: false

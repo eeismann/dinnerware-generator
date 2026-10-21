@@ -17,6 +17,7 @@ import { startDinnerwareProject } from '../storage/dinnerwareDrafts.js';
 import { DragDropHandler } from '../storage/dragDropHandler.js';
 import { resolveAppUrl } from '../utils/navigation.js';
 import { APP_ICON_VARIANTS, getAppIconSvg } from './appIcons.js';
+import { initIntroTour } from './introTour.js';
 
 // DOM Elements
 let elements = {};
@@ -52,6 +53,12 @@ function init() {
     bindEvents();
     initDragDrop();
     renderProjects();
+    const tour = initIntroTour({ onCreateProject: showAppSelectModal });
+    document.getElementById('btnIntroTour')?.addEventListener('click', () => {
+        document.getElementById('settingsMenuContainer')?.classList.remove('open');
+        tour.open();
+    });
+    document.getElementById('btnEmptyTour')?.addEventListener('click', () => tour.open());
 }
 
 /**
@@ -103,10 +110,10 @@ function bindEvents() {
                 createNewVesselProject();
             } else if (app === 'vessel-v2') {
                 createNewVesselV2Project();
-            } else if (app === 'vessel-v3') {
-                createNewVesselV3Project();
             } else if (app === 'castform') {
                 createNewCastFormProject();
+            } else if (app === 'stackedmold') {
+                createNewStackedMoldProject();
             }
         });
     });
@@ -181,7 +188,9 @@ async function handleFilesDropped(files) {
     for (const file of files) {
         try {
             const text = await file.text();
-            importProjectData(parseProjectFile(text));
+            const parsed = parseProjectFile(text);
+            if (parsed.fileFormat?.appType === 'vessel-v3') throw new Error('Vessel V3 projects are no longer supported');
+            importProjectData(parsed);
             successCount++;
         } catch (error) {
             console.error(`Failed to import ${file.name}:`, error);
@@ -275,9 +284,11 @@ function createProjectCard(project, index) {
     const isVesselV2Project = project.appType === 'vessel-v2';
     const isVesselV3Project = project.appType === 'vessel-v3';
     const isCastFormProject = project.appType === 'castform';
+    const isStackedMoldProject = project.appType === 'stackedmold';
     const appType = getProjectAppType(project);
     const supportsCastFormHandoff = appType === 'dinnerware' || appType === 'vessel';
-    const itemCount = isHandleProject || isVesselProject || isVesselV2Project || isVesselV3Project || isCastFormProject ? 1 : countVisibleItems(project);
+    const supportsStackedMoldHandoff = appType === 'dinnerware' || appType === 'vessel-v2' || appType === 'vessel-v3';
+    const itemCount = isHandleProject || isVesselProject || isVesselV2Project || isVesselV3Project || isCastFormProject || isStackedMoldProject ? 1 : countVisibleItems(project);
     const dateStr = formatDate(project.lastModified);
     const appIconSvg = getAppIconSvg(appType, `proj-${project.id || index}`, 20, APP_ICON_VARIANTS.line);
     card.dataset.app = appType;
@@ -321,6 +332,12 @@ function createProjectCard(project, index) {
                     <path d="M18 8h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/>
                     <path d="M18 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/>
                 </svg>
+            </div>
+        `;
+    } else if (isStackedMoldProject) {
+        previewContent = `
+            <div class="card-preview-placeholder castform-placeholder">
+                ${getAppIconSvg('stackedmold', `ph-${project.id || index}`, 48, APP_ICON_VARIANTS.line)}
             </div>
         `;
     } else if (isCastFormProject) {
@@ -373,6 +390,12 @@ function createProjectCard(project, index) {
                         <path d="M10 11h4"/>
                     </svg>
                 </button>
+                ${supportsStackedMoldHandoff ? `<button class="card-action-btn" data-action="stackedmold" title="Open in Stacked Mold">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="5" y="4" width="14" height="16" rx="1"/>
+                        <path d="M5 9h14M5 15h14"/>
+                    </svg>
+                </button>` : ''}
                 <button class="card-action-btn danger" data-action="delete" title="Delete project">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="3 6 5 6 21 6"/>
@@ -425,6 +448,9 @@ function createProjectCard(project, index) {
                         openProjectInCastForm(project);
                     }
                     break;
+                case 'stackedmold':
+                    openProjectInStackedMold(project);
+                    break;
             }
         });
     });
@@ -444,6 +470,7 @@ function getProjectAppType(project) {
     if (project?.appType === 'vessel-v2') return 'vessel-v2';
     if (project?.appType === 'vessel-v3') return 'vessel-v3';
     if (project?.appType === 'castform') return 'castform';
+    if (project?.appType === 'stackedmold') return 'stackedmold';
     return 'dinnerware';
 }
 
@@ -502,19 +529,11 @@ function createNewVesselProject() {
 }
 
 /**
- * Create a new Vessel Designer V2 project and navigate to the pen profile app.
+ * Create a new Bezier Vessel (Vessel Designer V2) project and navigate to the pen profile app.
  */
 function createNewVesselV2Project() {
     localStorage.removeItem('vessel_v2_autosave');
     window.location.href = resolveAppUrl('vessel-v2-generator/index.html');
-}
-
-/**
- * Create a new Vessel Designer V3 project and navigate to the pen profile app.
- */
-function createNewVesselV3Project() {
-    localStorage.removeItem('vessel_v3_autosave');
-    window.location.href = resolveAppUrl('vessel-v3-generator/index.html');
 }
 
 /**
@@ -523,6 +542,14 @@ function createNewVesselV3Project() {
 function createNewCastFormProject() {
     // Navigate to cast form generator
     window.location.href = resolveAppUrl('cast-form-generator/index.html');
+}
+
+/**
+ * Start a new stacked mold: clear its autosave so it opens on the start card
+ */
+function createNewStackedMoldProject() {
+    localStorage.removeItem('stacked_mold_autosave');
+    window.location.href = resolveAppUrl('stacked-mold-generator/index.html');
 }
 
 /**
@@ -559,6 +586,9 @@ function openProject(projectId) {
     } else if (project.appType === 'castform') {
         const params = new URLSearchParams({ project: projectId });
         window.location.href = buildAppUrl('cast-form-generator/index.html', params);
+    } else if (project.appType === 'stackedmold') {
+        const params = new URLSearchParams({ project: projectId });
+        window.location.href = buildAppUrl('stacked-mold-generator/index.html', params);
     } else {
         try { startDinnerwareProject(projectId); }
         catch (error) { alert(error.message); return; }
@@ -589,6 +619,20 @@ function openProjectInCastForm(project) {
     }
 
     window.location.href = buildAppUrl('cast-form-generator/index.html', params);
+}
+
+/**
+ * Open a Dinnerware item or a Vessel V2/V3 project in the Stacked Mold
+ * generator, which reads its outer profile directly.
+ */
+function openProjectInStackedMold(project) {
+    const appType = getProjectAppType(project);
+    const params = new URLSearchParams({ sourceApp: appType, sourceProject: project.id });
+    if (appType === 'dinnerware') {
+        const visibleItems = project.state?.ui?.visibleItems || [];
+        params.set('sourceItem', visibleItems.find(Boolean) || 'mug');
+    }
+    window.location.href = buildAppUrl('stacked-mold-generator/index.html', params);
 }
 
 /**

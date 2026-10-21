@@ -396,7 +396,7 @@ class VesselV2App {
         let cancelEdit = false;
 
         nameEl.addEventListener('focus', () => {
-            originalName = vesselV2State.getState('project.name') || 'Untitled Vessel V2';
+            originalName = vesselV2State.getState('project.name') || 'Untitled Bezier Vessel';
             cancelEdit = false;
             requestAnimationFrame(() => {
                 const range = document.createRange();
@@ -451,7 +451,7 @@ class VesselV2App {
         });
 
         document.getElementById('btnConfirmSave')?.addEventListener('click', () => {
-            const name = document.getElementById('saveProjectName')?.value.trim() || 'Vessel V2';
+            const name = document.getElementById('saveProjectName')?.value.trim() || 'Bezier Vessel';
             const downloadFile = document.getElementById('saveAsFile')?.checked || false;
             closeDialog(saveModal);
             this.saveProject(name, downloadFile);
@@ -642,7 +642,7 @@ class VesselV2App {
         const modal = document.getElementById('saveModal');
         const nameInput = document.getElementById('saveProjectName');
         if (nameInput) {
-            nameInput.value = vesselV2State.getState('project.name') || 'Vessel V2';
+            nameInput.value = vesselV2State.getState('project.name') || 'Bezier Vessel';
         }
         openDialog(modal, { initialFocus: '#saveProjectName' });
         requestAnimationFrame(() => nameInput?.select());
@@ -665,7 +665,7 @@ class VesselV2App {
         const nameInput = document.getElementById('exportFileName');
         const state = vesselV2State.getState();
         const dimensions = this.calculateDimensions(state);
-        if (nameInput) nameInput.value = state.project.name || 'Vessel V2';
+        if (nameInput) nameInput.value = state.project.name || 'Bezier Vessel';
         document.getElementById('exportSummary').textContent =
             `${Math.round(dimensions.maxRadius * 2)} × ${Math.round(dimensions.height)} mm · ${state.global.wallThickness} mm wall`;
         this.setExportError('');
@@ -688,7 +688,7 @@ class VesselV2App {
         }
 
         const fileName = document.getElementById('exportFileName')?.value.trim()
-            || vesselV2State.getState('project.name') || 'Vessel V2';
+            || vesselV2State.getState('project.name') || 'Bezier Vessel';
         const exportGroup = new VesselV2MeshGenerator(vesselV2State.getState()).generate();
 
         try {
@@ -717,7 +717,7 @@ class VesselV2App {
     updateProjectName() {
         const nameEl = document.getElementById('projectName');
         if (nameEl && document.activeElement !== nameEl) {
-            nameEl.textContent = vesselV2State.getState('project.name') || 'Untitled Vessel V2';
+            nameEl.textContent = vesselV2State.getState('project.name') || 'Untitled Bezier Vessel';
         }
     }
 

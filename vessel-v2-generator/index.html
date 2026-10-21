@@ -5,7 +5,7 @@
     <!-- Apply the remembered parameters visibility before first paint -->
     <script>try{if(localStorage.getItem('vessel_v2_dials_visible')==='0')document.documentElement.classList.add('params-hidden');}catch(e){}</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vessel Designer V2</title>
+    <title>Bezier Vessel</title>
     <link rel="stylesheet" href="../styles/vessel-v2-generator.css">
     <link rel="stylesheet" href="../styles/dialkit-chrome.css">
     <link rel="stylesheet" href="../styles/vessel-v2-dials.css">
@@ -23,10 +23,10 @@
                         <path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/>
                     </svg>
                 </a>
-                <h1 class="app-title">Vessel Designer V2</h1>
+                <h1 class="app-title">Bezier Vessel</h1>
             </div>
             <div class="header-center">
-                <span class="project-name" id="projectName" contenteditable="plaintext-only" role="textbox" aria-label="Project name" title="Rename project" spellcheck="false">Untitled Vessel V2</span>
+                <span class="project-name" id="projectName" contenteditable="plaintext-only" role="textbox" aria-label="Project name" title="Rename project" spellcheck="false">Untitled Bezier Vessel</span>
                 <span class="unsaved-indicator" id="unsavedIndicator" hidden>•</span>
             </div>
             <div class="header-right">
@@ -202,7 +202,7 @@
             <div class="modal-body">
                 <label class="dk-row dk-text-row" for="exportFileName">
                     <span class="dk-row-label">File Name</span>
-                    <input type="text" id="exportFileName" placeholder="Vessel V2" value="Untitled Vessel V2">
+                    <input type="text" id="exportFileName" placeholder="Bezier Vessel" value="Untitled Bezier Vessel">
                 </label>
                 <div class="dk-row dk-info-row">
                     <span class="dk-row-label">Size</span>
@@ -228,7 +228,7 @@
             <div class="modal-body">
                 <label class="dk-row dk-text-row" for="saveProjectName">
                     <span class="dk-row-label">Name</span>
-                    <input type="text" id="saveProjectName" placeholder="Project name" value="Untitled Vessel V2">
+                    <input type="text" id="saveProjectName" placeholder="Project name" value="Untitled Bezier Vessel">
                 </label>
                 <div class="dk-row dk-toggle-row">
                     <label class="dk-row-label" for="saveAsFile">Also Save as File (.json)</label>
@@ -265,6 +265,5 @@
     </div>
 
     <script type="module" src="../scripts/vesselV2/vesselV2Main.js"></script>
-    <script type="module" src="../scripts/ui/pageComments/pageComments.js"></script>
 </body>
 </html>

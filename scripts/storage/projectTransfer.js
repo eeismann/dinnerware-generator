@@ -43,7 +43,8 @@ export function importProjectData(data) {
 export function duplicateStoredProject(project) {
     const appType = project.appType;
     const rawKey = { handle: 'handleData', vessel: 'vesselData',
-        'vessel-v2': 'vesselV2Data', 'vessel-v3': 'vesselV3Data', castform: 'castFormData' }[appType];
+        'vessel-v2': 'vesselV2Data', 'vessel-v3': 'vesselV3Data', castform: 'castFormData',
+        stackedmold: 'stackedMoldData' }[appType];
     const state = appType === 'dinnerware' ? project.state : project[rawKey];
     if (!state) throw new Error('The project data is missing; the original has not been changed.');
     return importProjectData(ProjectFileFormat.serialize({

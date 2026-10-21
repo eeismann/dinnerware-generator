@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stacked Cylinder Mold · Printing Feasibility</title>
+<style>
+  :root {
+    --paper: #f5f3ee;
+    --ink: #141414;
+    --muted: #6d6a63;
+    --rule: #d6d2c8;
+    --card: #fbfaf7;
+    --uni: #6f8fa6;      /* universal tooling */
+    --ware: #c8402a;     /* ware-specific */
+    --hw: #d9a21b;       /* release hardware */
+    --pla: #c4c0b6;
+    --plaster: #ece6d6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--paper); color: var(--ink);
+    font: 14px/1.5 "Helvetica Neue", Helvetica, Arial, sans-serif; padding: 48px 56px 96px; max-width: 1280px; margin: 0 auto; }
+  h1 { font-size: 30px; font-weight: 500; letter-spacing: -.01em; }
+  h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .12em;
+    margin: 56px 0 18px; padding-top: 12px; border-top: 1.5px solid var(--ink); }
+  h3 { font-size: 17px; font-weight: 500; margin-bottom: 6px; }
+  p { max-width: 80ch; }
+  .lede { color: var(--muted); font-size: 16px; margin-top: 8px; max-width: 92ch; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 10px; max-width: 92ch; }
+  .grid { display: grid; gap: 24px; }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .card { border: 1px solid var(--rule); background: var(--card); padding: 18px 20px; }
+  .card h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .card p, .card li { font-size: 13px; color: #3a3833; }
+  .card ul { padding-left: 18px; margin-top: 6px; }
+  .stat { font-size: 34px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat small { font-size: 15px; color: var(--muted); font-weight: 400; }
+  .stat-label { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 12px; margin: 10px 0 16px; align-items: center; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .sw { width: 14px; height: 14px; display: inline-block; border-radius: 2px; }
+  .seg { display: inline-flex; border: 1px solid var(--ink); }
+  .seg button { font: inherit; font-size: 12.5px; background: transparent; border: 0; border-right: 1px solid var(--ink);
+    padding: 7px 14px; cursor: pointer; color: var(--ink); }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on { background: var(--ink); color: var(--paper); }
+  .bars { display: grid; gap: 22px; margin-top: 18px; }
+  .bar-row { display: grid; grid-template-columns: 170px 1fr 90px; gap: 14px; align-items: center; }
+  .bar-name { font-size: 13px; font-weight: 600; }
+  .bar-name small { display: block; font-weight: 400; color: var(--muted); font-size: 11.5px; }
+  .bar { position: relative; height: 34px; background: #e9e5dc; }
+  .bar .s { position: absolute; top: 0; bottom: 0; transition: left .45s ease, width .45s ease, opacity .3s;
+    border-right: 1px solid var(--paper); overflow: hidden; color: #fff; font-size: 10.5px; padding: 3px 5px; line-height: 1.2; white-space: nowrap; }
+  .bar .s.uni { background: var(--uni); }
+  .bar .s.ware { background: var(--ware); }
+  .bar .s.ghost { background: transparent; border: 1px dashed #b7b2a6; color: var(--muted); }
+  .bar-total { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
+  .bar-total small { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { text-align: left; padding: 7px 12px 7px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  td.num { font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 1px 7px; color: #fff; border-radius: 2px; }
+  .tag.uni { background: var(--uni); } .tag.ware { background: var(--ware); } .tag.hw { background: var(--hw); color: var(--ink); }
+  svg text { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; }
+  .fig { background: var(--card); border: 1px solid var(--rule); padding: 14px; }
+  .fig-cap { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .decision { border-left: 3px solid var(--ink); padding: 10px 16px; background: var(--card); margin-top: 12px; }
+  .decision b { font-weight: 600; }
+  @media (max-width: 900px) { body { padding: 28px 20px 64px; } .g3, .g4, .g2 { grid-template-columns: 1fr; } .bar-row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>Printing feasibility: strength vs. material</h1>
+<p class="lede">PLA casting units for the stacked cylinder mold, measured on your two test forms (Braz_3_mug, Untitled Vessel V2).
+The question: how strong do the PLA forms need to be to pull free of set plaster, and how little material and print time can they use?</p>
+
+<div class="grid g4" style="margin-top:28px">
+  <div class="card"><div class="stat">~80<small>%</small></div><div class="stat-label">of the plastic doesn't depend on the ware: sleeves, bed plates, lids</div></div>
+  <div class="card"><div class="stat">100<small>×+</small></div><div class="stat-label">strength margin of a 1.2 mm PLA core shell over a plausible release pull</div></div>
+  <div class="card"><div class="stat">955 → ~200<small> g</small></div><div class="stat-label">PLA per new Braz mug mold, once universal tooling is reused</div></div>
+  <div class="card"><div class="stat">45–50<small> °C</small></div><div class="stat-label">plaster setting peak, close to where PLA starts to creep under load</div></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1 · Where the plastic goes</h2>
+<p>Estimated PLA per mold with a typical slicer profile (3 walls, 4 top/bottom layers, 15% infill). Each segment is a part group.
+These parts are thin and wide, so almost all of their plastic is skin: dropping infill barely changes the totals.
+What changes the totals is <b>not reprinting the generic tooling</b>.</p>
+
+<div style="display:flex; gap:24px; align-items:center; flex-wrap:wrap; margin-top:16px">
+  <div class="seg" role="group" aria-label="Scenario">
+    <button type="button" data-mode="today" class="on">Today: every mold printed in full</button>
+    <button type="button" data-mode="reuse">Universal kit reused (2nd mold onward)</button>
+  </div>
+  <div class="legend" style="margin:0">
+    <span><i class="sw" style="background:var(--uni)"></i>Universal (depends on cylinder Ø / unit height)</span>
+    <span><i class="sw" style="background:var(--ware)"></i>Ware-specific</span>
+    <span><i class="sw" style="border:1px dashed #b7b2a6"></i>Already on the shelf</span>
+  </div>
+</div>
+<div class="bars" id="bars"></div>
+<p class="note">Estimates from the generated STL volumes and surface areas; "≈" splits (core vs. plate disc) are inferred by comparing plates with and without cores. Print time scales roughly with the same numbers, because the big flat discs and tall sleeve walls are the slow part.</p>
+
+<!-- ============================================================ -->
+<h2>2 · How much strength is actually needed</h2>
+<div class="grid g2">
+  <div>
+    <p>Log scale. The forces on a core during a pour and a pull are tiny next to what even a thin PLA shell can carry.
+    Parts don't fail by being pulled apart; they fail <b>locally</b>.</p>
+    <div class="fig" style="margin-top:14px"><svg id="forceChart" viewBox="0 0 560 250" width="100%"></svg></div>
+    <div class="fig-cap">Braz ring core: Ø94 mm, ~270 cm² in contact with plaster. Release pull assumes 5 kPa of grip (with mold soap it is usually less). Shell capacity: 1.2 mm wall × circumference × ~50 MPa.</div>
+  </div>
+  <div>
+    <h3>Where parts really fail</h3>
+    <div class="grid" style="gap:12px; margin-top:8px">
+      <div class="card"><h4>Prying with a tool</h4><p>A screwdriver dents a 1.2 mm skin. Give force a place to go instead: jack screws and pry notches with local thickness.</p></div>
+      <div class="card"><h4>The core-to-plate joint</h4><p>All the pull ends up here. One thick collar is cheaper than a thick core.</p></div>
+      <div class="card"><h4>Layer delamination where you grip</h4><p>Fingers or clamps on thin walls peel layers apart. Grip on ears, flanges, plate rims.</p></div>
+      <div class="card"><h4>Heat while the plaster sets</h4><p>A stressed part (bolted sleeve, wide flat plate) can creep or warp in the 45–50 °C window. See below.</p></div>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top:34px">The heat window</h3>
+<div class="grid g2">
+  <div class="fig"><svg id="heatChart" viewBox="0 0 560 230" width="100%"></svg></div>
+  <div>
+    <p>Plaster heats as it sets. A thick piece (the app warns above ~1 L) peaks around 45–50 °C for 20–40 minutes.
+    PLA's glass transition is ~55–60 °C, but it starts to creep under sustained load a little below that.
+    Thin parts with plaster only on one side shed heat and are fine. Big flat plates and bolted sleeves are the ones at risk.</p>
+    <ul style="padding-left:18px; margin-top:10px; font-size:13.5px; line-height:1.6">
+      <li>Mix with cool water: slower set, lower peak.</li>
+      <li>Don't over-tighten sleeve bolts; snug is enough.</li>
+      <li>If one spool of something else is worth buying, make it <b>PETG</b> for the universal tooling (Tg ~80 °C).</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>3 · Make release easy instead of making parts strong</h2>
+<p>Plaster doesn't bond to PLA chemically. It grips in three ways, and each is cheaper to defeat than to out-muscle.</p>
+<div class="grid g3" style="margin-top:16px">
+  <div class="card">
+    <svg viewBox="0 0 300 150" width="100%">
+      <rect x="0" y="0" width="300" height="150" fill="none"/>
+      <!-- PLA layer lines -->
+      <g fill="var(--pla)" stroke="#8d887d" stroke-width="1">
+        <path d="M20 20 h70 a8 8 0 0 1 0 16 h-70 z"/><path d="M20 36 h70 a8 8 0 0 1 0 16 h-70 z"/>
+        <path d="M20 52 h70 a8 8 0 0 1 0 16 h-70 z"/><path d="M20 68 h70 a8 8 0 0 1 0 16 h-70 z"/>
+        <path d="M20 84 h70 a8 8 0 0 1 0 16 h-70 z"/><path d="M20 100 h70 a8 8 0 0 1 0 16 h-70 z"/>
+      </g>
+      <path d="M98 20 q8 8 0 16 q8 8 0 16 q8 8 0 16 q8 8 0 16 q8 8 0 16 q8 8 0 16 L150 116 L150 20 Z" fill="var(--plaster)" stroke="#a89f87"/>
+      <text x="20" y="134" font-size="10" fill="var(--muted)">plaster fills layer lines</text>
+      <!-- fixed -->
+      <g transform="translate(160 0)">
+        <rect x="20" y="20" width="70" height="96" fill="var(--pla)" stroke="#8d887d"/>
+        <rect x="90" y="20" width="4" height="96" fill="var(--hw)"/>
+        <rect x="94" y="20" width="40" height="96" fill="var(--plaster)" stroke="#a89f87"/>
+        <path d="M104 68 h22" stroke="var(--ink)" stroke-width="1.5" marker-end="url(#arr)"/>
+        <text x="20" y="134" font-size="10" fill="var(--muted)">soap film: slides free</text>
+      </g>
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ink)"/></marker></defs>
+    </svg>
+    <h4>1 · Mechanical keying into layer lines</h4>
+    <p><b>Fix:</b> mold soap (3 coats) or a thin wax, every pour. Fine layers (0.12–0.16 mm) on surfaces that form the ware; those layer lines also print onto every piece you cast.</p>
+  </div>
+  <div class="card">
+    <svg viewBox="0 0 300 150" width="100%">
+      <rect x="40" y="30" width="220" height="16" fill="var(--pla)" stroke="#8d887d"/>
+      <text x="44" y="24" font-size="10" fill="var(--muted)">lid (PLA)</text>
+      <rect x="40" y="46" width="220" height="64" fill="var(--plaster)" stroke="#a89f87"/>
+      <text x="44" y="124" font-size="10" fill="var(--muted)">plaster: a flat face seals like a suction cup</text>
+      <g stroke="var(--ink)" stroke-width="1.3" fill="none">
+        <path d="M110 30 v16"/><path d="M190 30 v16"/>
+      </g>
+      <g fill="var(--hw)"><circle cx="110" cy="20" r="6"/><circle cx="190" cy="20" r="6"/></g>
+      <path d="M110 14 v-10 M190 14 v-10" stroke="var(--ink)" stroke-width="1.3" marker-start="url(#arr2)"/>
+      <text x="200" y="12" font-size="10" fill="var(--ink)">air in → seal breaks</text>
+      <defs><marker id="arr2" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--ink)"/></marker></defs>
+    </svg>
+    <h4>2 · Suction on flat faces</h4>
+    <p><b>Fix:</b> blow air through the lid's bleed holes. On bed plates, add flush jack screws (M5 in heat-set inserts) that push the plaster off evenly.</p>
+  </div>
+  <div class="card">
+    <svg viewBox="0 0 300 150" width="100%">
+      <g transform="translate(20 10)">
+        <path d="M30 120 L40 10 L80 10 L90 120 Z" fill="var(--pla)" stroke="#8d887d"/>
+        <path d="M0 120 L30 120 L40 10 L0 10 Z M90 120 L120 120 L120 10 L80 10 Z" fill="var(--plaster)" stroke="#a89f87"/>
+        <path d="M60 4 v-0" /><text x="20" y="136" font-size="10" fill="var(--muted)">draft: lifts free</text>
+      </g>
+      <g transform="translate(160 10)">
+        <path d="M35 120 L35 10 L85 10 L85 120 Z" fill="var(--pla)" stroke="#8d887d"/>
+        <path d="M0 120 L35 120 L35 10 L0 10 Z M85 120 L120 120 L120 10 L85 10 Z" fill="var(--plaster)" stroke="#a89f87"/>
+        <text x="4" y="136" font-size="10" fill="var(--ware)">0°: friction all the way</text>
+      </g>
+    </svg>
+    <h4>3 · Low draft</h4>
+    <p>Comes from the ware itself; the slicer already turns no-draft bands into splits. Setting expansion slightly <i>loosens</i> plaster from male cores; female features (sleeve, key cones) are handled by the split sleeve and 40° cone sides.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4 · Recommended approach: three tiers, printed differently</h2>
+<div class="grid g2">
+  <div class="fig"><svg id="tierFig" viewBox="0 0 560 470" width="100%"></svg>
+    <div class="fig-cap">A ring unit, exploded. Colours show which tier each part belongs to.</div></div>
+  <div>
+    <div class="card" style="border-left:4px solid var(--uni)">
+      <h4><span class="tag uni">Tier 1</span> Universal tooling · print once per cylinder Ø</h4>
+      <p>Bed plates, lids, sleeve halves. Sturdy, coarse layers (0.24–0.28 mm): their surfaces form parting faces and the outside of the cylinder, not the ware. PETG if you buy one other material. Reused by every unit of every mold of that diameter.</p>
+    </div>
+    <div class="card" style="border-left:4px solid var(--ware); margin-top:14px">
+      <h4><span class="tag ware">Tier 2</span> Ware-specific · print lean, print fine</h4>
+      <p>Cores, footer stubs, split inserts, the well's slit tube. Separate each core from its plate; it registers in a socket on the universal plate. Hollow: 3 walls (~1.2 mm), 5–10% gyroid, solid top cap, 0.12–0.16 mm adaptive layers on the forming surface. A thicker collar only at the joint.</p>
+    </div>
+    <div class="card" style="border-left:4px solid var(--hw); margin-top:14px">
+      <h4><span class="tag hw">Tier 3</span> Release hardware · designed in</h4>
+      <p>Jack screw bosses in plates and lids, pry notches at the sleeve ears, air ports. These are where force goes, so only these get local thickness. Everything else stays thin.</p>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top:34px">Print profile by tier</h3>
+<table>
+  <thead><tr><th>Tier</th><th>Parts</th><th>Layer height</th><th>Walls</th><th>Infill</th><th>Material</th><th>Printed</th></tr></thead>
+  <tbody>
+    <tr><td><span class="tag uni">1</span></td><td>Bed plates, lids, sleeve halves</td><td>0.24–0.28 mm</td><td>3–4</td><td>15% (mostly skin anyway)</td><td>PETG preferred, PLA OK</td><td>Once per Ø (and per sleeve height)</td></tr>
+    <tr><td><span class="tag ware">2</span></td><td>Cores, stubs, split inserts, slit tube</td><td>0.12–0.16 mm adaptive</td><td>3 (~1.2 mm)</td><td>5–10% gyroid</td><td>PLA</td><td>Per ware</td></tr>
+    <tr><td><span class="tag hw">3</span></td><td>Jack-screw bosses, pry notches, joint collars</td><td>with their part</td><td>local 2.5–3 mm</td><td>solid locally</td><td>with their part</td><td>Built into tiers 1–2</td></tr>
+  </tbody>
+</table>
+
+<h3 style="margin-top:34px">Removing height-specific sleeves</h3>
+<div class="grid g2">
+  <div class="fig"><svg id="sleeveFig" viewBox="0 0 560 256" width="100%"></svg></div>
+  <div>
+    <p>Today the lid sits on the sleeve rim, so every unit height needs its own sleeve pair (the Braz mold prints three pairs, ~306 g).
+    The core always ends flush with the plaster's top face. A lid that drops <i>inside</i> the sleeve and rests on the core top lands at exactly the right height for any unit.
+    Then one tall sleeve pair per diameter serves every unit.</p>
+    <p class="note">Trade-offs: a little plaster flash where the lid slides in the sleeve; footer and well collar (no lid) pour to a fill mark instead of the rim. Standard heights plus spacer rings is the alternative.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>5 · Standard cylinder diameters, including plates</h2>
+<p>Universal tooling only pays off if molds share a diameter. Each form below sits at the diameter the slicer fits it to
+(lip or widest point + ¼″ ledge + 25 mm plaster); arrows show where it lands in the proposed series.
+The Braz plate (Ø282 × 25 mm) needs a <b>Ø350</b> cylinder. On your <b>Bambu H2S</b> (340 × 320 × 340 mm) everything up to Ø300 prints whole; Ø350 needs tiled tooling.</p>
+<div class="fig" style="margin-top:14px"><svg id="seriesFig" viewBox="0 0 1100 300" width="100%"></svg>
+  <div class="fig-cap">H2S bed 340 × 320 mm. A round part is limited by the 320 mm depth: the bed plate is Ø + 20 mm and the lid Ø + 15 mm, so Ø300 is the largest size whose whole kit prints in one piece (sleeve halves, Ø + 26 mm long, lie along the 340 mm axis). On a 256 mm printer the limit would be Ø230.</div></div>
+
+<div class="grid g2" style="margin-top:24px">
+  <div>
+    <h3>Plaster cost of rounding up</h3>
+    <table>
+      <thead><tr><th>Form</th><th>Fitted Ø</th><th>Series Ø</th><th>Plaster</th><th>Extra</th></tr></thead>
+      <tbody>
+        <tr><td>Braz mug</td><td class="num">170</td><td class="num">175</td><td class="num">2.64 → 3.08 L</td><td class="num">+17%</td></tr>
+        <tr><td>Vessel V2</td><td class="num">200</td><td class="num">200</td><td class="num">4.62 L</td><td class="num">0</td></tr>
+        <tr><td>Braz plate</td><td class="num">350</td><td class="num">350</td><td class="num">4.61 L</td><td class="num">0</td></tr>
+        <tr><td>Tapered tumbler</td><td class="num">150</td><td class="num">150</td><td class="num">2.31 L</td><td class="num">0</td></tr>
+        <tr><td>Belly jar</td><td class="num">190</td><td class="num">200</td><td class="num">4.41 → 5.05 L</td><td class="num">+15%</td></tr>
+        <tr><td>Bottle, hourglass</td><td class="num">180</td><td class="num">200</td><td class="num">4.6 → 6.0 L</td><td class="num">+30%</td></tr>
+        <tr><td>Open bowl</td><td class="num">230</td><td class="num">230</td><td class="num">3.95 L</td><td class="num">0</td></tr>
+      </tbody>
+    </table>
+    <p class="note">For comparison, 50 mm steps (150 / 200 / 250 / 300 / 350) cost the mug +53% and the bowl +26%.
+    Plaster is cheap; the real cost of rounding up is weight, heat and drying time. The real cost of an extra diameter is a whole universal kit (~700–1,100 g of PLA), so add a size only where a ware type is common, as mugs are.</p>
+  </div>
+  <div>
+    <h3>Two families</h3>
+    <div class="card" style="border-left:4px solid var(--uni)">
+      <h4>Printed whole on the H2S · Ø150 / 175 / 200 / 230 / 280</h4>
+      <p>Cups, mugs, tumblers, vases, bowls, and side plates up to ~Ø215. The three-tier approach as described: universal plates, lids and sleeves printed once per size. Ø280 is new: it fits the H2S, not a 256 mm printer.</p>
+    </div>
+    <div class="card" style="border-left:4px solid var(--ink); margin-top:14px">
+      <h4>Tiled · Ø350 · dinner plates, platters</h4>
+      <ul>
+        <li><b>Bed plate and lid as printed tiles.</b> The Ø370 bed plate splits into three 120° tiles (each ~320 × 95 mm, tight on the H2S) or four quadrants (~262 mm, comfortable), keyed and bolted together.</li>
+        <li><b>Walls you don't print.</b> Plate molds are shallow (~85 mm stack), so the sleeve can be a cottle: a flexible plastic strip wrapped to size and strapped. Ø350 is also almost exactly a 14″ form tube. Printed arc segments are the alternative.</li>
+        <li><b>The plate core prints whole.</b> The Braz plate is Ø282, under the H2S's 320 mm, so the ware-forming surface has no seam.</li>
+      </ul>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h4>Plates want two pieces, not three</h4>
+      <p>A plate flares all the way to its rim, so a one-piece footer cup releases it upward. Today the slicer cuts at the foot crease (10 mm) and leaves a 15 mm ring for the rim, just at the sliver limit. A rule that folds short rings into the footer when the footer can release them would give plates footer + collar: two plaster pieces.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>6 · The Braz system (built)</h2>
+<p>Seven Braz wares on the Bambu H2S, planned by <code>scripts/stackedMold/tools/planSet.mjs</code>. Wares share a universal kit when the kit is at most 20% wider than they need.
+Every kit is printed once; each ware adds only its cores and well parts. Output: <code>output/stacked-mold/braz-set/</code>.</p>
+<div class="grid g4" style="margin-top:18px">
+  <div class="card"><div class="stat">3<small> kits</small></div><div class="stat-label">Ø175, Ø250, Ø360 serve all 7 wares</div></div>
+  <div class="card"><div class="stat">19<small> pieces</small></div><div class="stat-label">plaster pieces for one mold of each ware; plate and saucer need only 2</div></div>
+  <div class="card"><div class="stat">6.5<small> kg</small></div><div class="stat-label">PLA for the whole system: 2.5 kg of kits once + 4.0 kg of ware parts, 72 prints</div></div>
+  <div class="card"><div class="stat">−36<small>%</small></div><div class="stat-label">against a separate kit per ware (10.2 kg)</div></div>
+</div>
+<table style="margin-top:22px">
+  <thead><tr><th>Kit</th><th>Kit prints</th><th>Ware</th><th>Fitted Ø</th><th>Units</th><th>Plaster</th><th>Ware parts</th></tr></thead>
+  <tbody>
+    <tr><td rowspan="2"><span class="tag uni">Ø175</span> sleeve 150<br><small>≈535 g · 11 prints</small></td><td rowspan="2">plate, lid, 2 sleeve halves,<br>3+3 plugs, puck</td><td>Tumbler</td><td class="num">150</td><td>footer · ring 135 · well</td><td class="num">4.04 L</td><td class="num">≈249 g</td></tr>
+    <tr><td>Mug</td><td class="num">170</td><td>footer · ring 90 · well</td><td class="num">2.85 L</td><td class="num">≈258 g</td></tr>
+    <tr><td rowspan="2"><span class="tag uni">Ø250</span> sleeve 60<br><small>≈631 g · 11 prints</small></td><td rowspan="2">same set, one piece each</td><td>Saucer</td><td class="num">220</td><td>footer · well</td><td class="num">2.96 L</td><td class="num">≈270 g</td></tr>
+    <tr><td>Soup bowl</td><td class="num">250</td><td>footer · ring 50 · well</td><td class="num">3.42 L</td><td class="num">≈507 g</td></tr>
+    <tr><td rowspan="3"><span class="tag uni">Ø360</span> sleeve 100<br><small>≈1,318 g · 15 prints</small></td><td rowspan="3">bed plate and lid in 3 dovetailed tiles each;<br>sleeve halves print diagonally</td><td>Pasta bowl</td><td class="num">310</td><td>footer · ring 40 · well</td><td class="num">7.35 L</td><td class="num">≈800 g</td></tr>
+    <tr><td>Plate</td><td class="num">350</td><td>footer · well</td><td class="num">5.09 L</td><td class="num">≈582 g</td></tr>
+    <tr><td>Serving bowl</td><td class="num">360</td><td>footer · ring 90 · well</td><td class="num">7.77 L</td><td class="num">≈1,330 g</td></tr>
+  </tbody>
+</table>
+<p class="note">Ware parts: footer base (stub and locating ring in one piece; on the Ø360 kit a flanged centre ringed by 3 tiles), ring core (cone pit over the locating puck), well slit tube (edges taped inside) + spoked locator. Grams assume the tier profiles (kit 15% infill; ware 3 walls, 8% gyroid; plugs solid). Hardware per kit: 6 M5 heat-set inserts and 6 M5 × 8 mm set screws (headless jack screws, flush with both faces), M3 bolts for the sleeve ears. Kit revision r2.</p>
+
+<!-- ============================================================ -->
+<h2>7 · Validate before building</h2>
+<div class="grid g2">
+  <div>
+    <h3>One cheap test print</h3>
+    <p>A short ring core (~40 mm) on a small plate, printed with the tier-2 lean settings. Cast it twice: once with mold soap, once without.</p>
+    <table style="margin-top:12px">
+      <thead><tr><th>Measure</th><th>How</th><th>Tells us</th></tr></thead>
+      <tbody>
+        <tr><td>Release force</td><td>By hand, or a luggage scale on the plaster</td><td>Whether 3 walls / 5% holds up; how much soap matters</td></tr>
+        <tr><td>Surface transfer</td><td>Look at the plaster face under raking light</td><td>Which layer height the cores need</td></tr>
+        <tr><td>Heat deformation</td><td>Measure the core diameter before and after</td><td>Whether PLA is enough or the kit wants PETG</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <h3>Decisions for you</h3>
+    <div class="decision"><b>Standard cylinder diameters:</b> Ø150 / 175 / 200 / 230 / 280 printed whole on the H2S, plus Ø350 for dinner plates with tiled bed plate and lid and cottle walls. Unlocks tier 1 and most of the savings.</div>
+    <div class="decision"><b>Sleeve height policy:</b> drop-in lid with one tall sleeve per diameter, or standard heights plus spacer rings.</div>
+    <div class="decision"><b>Worth doing either way:</b> separate cores from plates, and design in jack screws and pry points.</div>
+  </div>
+</div>
+
+<script>
+/* ---------- data (grams, typical profile) ---------- */
+const MOLDS = [
+  { name: 'Braz_3_mug', note: 'footer + ring + well · Ø170', parts: [
+    { g: 306, label: 'Sleeves ×6', kind: 'uni' },
+    { g: 333, label: 'Bed plate discs ×3', kind: 'uni' },
+    { g: 117, label: 'Lid', kind: 'uni' },
+    { g: 152, label: 'Cores', kind: 'ware' },
+    { g: 48,  label: 'Slit tube, locator', kind: 'ware' }
+  ]},
+  { name: 'Untitled Vessel V2', note: 'footer + ring + split + well · Ø200', parts: [
+    { g: 434, label: 'Sleeves ×8', kind: 'uni' },
+    { g: 621, label: 'Bed plates ×5', kind: 'uni' },
+    { g: 309, label: 'Lids ×3', kind: 'uni' },
+    { g: 96,  label: 'Cores', kind: 'ware' },
+    { g: 261, label: 'Split inserts', kind: 'ware' },
+    { g: 58,  label: 'Slit tube, locator', kind: 'ware' }
+  ]}
+];
+const MAX = 1800;
+const barsEl = document.getElementById('bars');
+function renderBars(mode) {
+  barsEl.innerHTML = '';
+  MOLDS.forEach(m => {
+    const total = m.parts.reduce((s, p) => s + p.g, 0);
+    const printed = m.parts.filter(p => mode === 'today' || p.kind === 'ware').reduce((s, p) => s + p.g, 0);
+    const row = document.createElement('div'); row.className = 'bar-row';
+    row.innerHTML = `<div class="bar-name">${m.name}<small>${m.note}</small></div><div class="bar"></div>
+      <div class="bar-total">${printed} g<small>${mode === 'today' ? 'per mold' : `per new ware (was ${total} g)`}</small></div>`;
+    const bar = row.querySelector('.bar');
+    let x = 0;
+    // ware-specific first in reuse mode so the printed part reads left-aligned
+    const order = mode === 'today' ? m.parts : [...m.parts.filter(p => p.kind === 'ware'), ...m.parts.filter(p => p.kind !== 'ware')];
+    order.forEach(p => {
+      const s = document.createElement('div');
+      const shelved = mode === 'reuse' && p.kind === 'uni';
+      s.className = `s ${shelved ? 'ghost' : p.kind}`;
+      s.style.left = `${x / MAX * 100}%`; s.style.width = `${p.g / MAX * 100}%`;
+      s.title = `${p.label}: ${p.g} g`;
+      s.textContent = p.g / MAX > 0.06 ? `${p.label} · ${p.g}` : '';
+      bar.appendChild(s); x += p.g;
+    });
+    barsEl.appendChild(row);
+  });
+}
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.seg button').forEach(x => x.classList.toggle('on', x === b));
+  renderBars(b.dataset.mode);
+}));
+renderBars('today');
+
+/* ---------- svg helpers ---------- */
+const NS = 'http://www.w3.org/2000/svg';
+const el = (tag, a = {}, p) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
+const tx = (p, x, y, s, a = {}) => { const t = el('text', { x, y, 'font-size': 11, fill: '#141414', ...a }, p); t.textContent = s; return t; };
+
+/* ---------- force chart (log) ---------- */
+(function forceChart() {
+  const svg = document.getElementById('forceChart');
+  const L = 150, R = 540, lo = 1, hi = 100000;
+  const X = v => L + (Math.log10(v) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo)) * (R - L);
+  [1, 10, 100, 1000, 10000, 100000].forEach(v => {
+    el('line', { x1: X(v), y1: 20, x2: X(v), y2: 200, stroke: '#d6d2c8' }, svg);
+    tx(svg, X(v), 218, v >= 1000 ? `${v / 1000} kN` : `${v} N`, { 'text-anchor': 'middle', 'font-size': 10, fill: '#6d6a63' });
+  });
+  const rows = [
+    { label: 'Pour pressure on core', v: 2 * 0.027 * 1000, note: '~2 kPa × 270 cm²', c: '#9bb2c3' },
+    { label: 'Release pull (5 kPa grip)', v: 135, note: '~135 N', c: '#6f8fa6' },
+    { label: 'Hand pull, hard', v: 400, note: '~400 N', c: '#6f8fa6' },
+    { label: '1.2 mm PLA shell capacity', v: 17000, note: '~17 kN', c: '#c8402a' }
+  ];
+  rows.forEach((r, i) => {
+    const y = 34 + i * 42;
+    tx(svg, 0, y + 13, r.label, { 'font-size': 11.5 });
+    el('rect', { x: L, y, width: X(r.v) - L, height: 20, fill: r.c }, svg);
+    tx(svg, X(r.v) + 6, y + 14, r.note, { 'font-size': 10.5, fill: '#3a3833' });
+  });
+  el('path', { d: `M${X(400)} 196 L${X(17000)} 196`, stroke: '#141414', 'stroke-width': 1, 'marker-end': 'url(#fa)', 'marker-start': 'url(#fa)' }, svg);
+  const defs = el('defs', {}, svg);
+  const mk = el('marker', { id: 'fa', viewBox: '0 0 10 10', refX: 5, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' }, defs);
+  el('path', { d: 'M0 0L10 5L0 10z', fill: '#141414' }, mk);
+  tx(svg, (X(400) + X(17000)) / 2, 192, '40× even against a hard yank', { 'text-anchor': 'middle', 'font-size': 10.5 });
+})();
+
+/* ---------- heat chart (illustrative) ---------- */
+(function heatChart() {
+  const svg = document.getElementById('heatChart');
+  const L = 44, R = 540, T = 14, B = 190;
+  const X = m => L + m / 120 * (R - L), Y = c => B - (c - 15) / (85 - 15) * (B - T);
+  [20, 40, 60, 80].forEach(c => { el('line', { x1: L, y1: Y(c), x2: R, y2: Y(c), stroke: '#e3dfd5' }, svg); tx(svg, L - 6, Y(c) + 4, `${c}°`, { 'text-anchor': 'end', 'font-size': 10, fill: '#6d6a63' }); });
+  [0, 30, 60, 90, 120].forEach(m => tx(svg, X(m), B + 16, `${m} min`, { 'text-anchor': 'middle', 'font-size': 10, fill: '#6d6a63' }));
+  el('rect', { x: L, y: Y(60), width: R - L, height: Y(52) - Y(60), fill: '#c8402a', opacity: .12 }, svg);
+  tx(svg, R - 4, Y(60) + 12, 'PLA creeps under load (~52–60 °C)', { 'text-anchor': 'end', 'font-size': 10.5, fill: '#c8402a' });
+  el('line', { x1: L, y1: Y(80), x2: R, y2: Y(80), stroke: '#6f8fa6', 'stroke-dasharray': '4 3' }, svg);
+  tx(svg, R - 4, Y(80) - 5, 'PETG Tg ~80 °C', { 'text-anchor': 'end', 'font-size': 10.5, fill: '#6f8fa6' });
+  const curve = (peak, at, label, dash) => {
+    const pts = [];
+    for (let m = 0; m <= 120; m += 2) {
+      const c = 21 + (peak - 21) * Math.exp(-((m - at) ** 2) / (2 * (at * 0.55) ** 2)) * (m < at ? 1 : Math.exp(-(m - at) / 70));
+      pts.push(`${X(m).toFixed(1)},${Y(c).toFixed(1)}`);
+    }
+    el('polyline', { points: pts.join(' '), fill: 'none', stroke: '#141414', 'stroke-width': 1.8, 'stroke-dasharray': dash || '' }, svg);
+    tx(svg, X(at) + 6, Y(peak) - 6, label, { 'font-size': 10.5 });
+  };
+  curve(48, 38, 'thick piece (1.5 L)');
+  curve(36, 32, 'thin piece / cool water', '5 3');
+  tx(svg, L, B + 34, 'Illustrative curves; actual peaks depend on plaster mass, water temperature and mix ratio.', { 'font-size': 10, fill: '#6d6a63' });
+})();
+
+/* ---------- tier figure: exploded ring unit ---------- */
+(function tierFig() {
+  const svg = document.getElementById('tierFig');
+  const cx = 280, s = 1.6;
+  const UNI = '#6f8fa6', WARE = '#c8402a', HW = '#d9a21b';
+  const X = x => cx + x * s;
+  // lid (universal) at top
+  const lidY = 40;
+  el('rect', { x: X(-95), y: lidY, width: 190 * s, height: 10, fill: UNI }, svg);
+  [-90, 86].forEach(x => el('rect', { x: X(x), y: lidY + 10, width: 4 * s, height: 10, fill: UNI }, svg));
+  [-55, 55].forEach(x => { el('rect', { x: X(x) - 5, y: lidY - 12, width: 10, height: 12, fill: HW }, svg); });
+  tx(svg, X(98), lidY + 10, 'Lid · universal', { 'font-size': 11.5, fill: UNI, 'font-weight': 600 });
+  tx(svg, X(-55) - 10, lidY - 18, 'jack screws', { 'font-size': 10, fill: '#7a5806', 'text-anchor': 'middle' });
+  // sleeves
+  const sy = 120, sh = 150;
+  [[-1, -40], [1, 40]].forEach(([side, off]) => {
+    el('rect', { x: X(side > 0 ? 85 + off / s : -88 + off / s), y: sy, width: 3 * s, height: sh, fill: UNI }, svg);
+    el('rect', { x: X(side > 0 ? 85 + off / s : -88 + off / s) + (side > 0 ? 3 * s : -10), y: sy + 50, width: 10, height: 18, fill: HW }, svg);
+  });
+  tx(svg, X(85) + 40 + 20, sy + 12, 'Sleeve halves · universal', { 'font-size': 11.5, fill: UNI, 'font-weight': 600 });
+  tx(svg, X(85) + 40 + 20, sy + 64, 'pry notch', { 'font-size': 10, fill: '#7a5806' });
+  // core (ware) hollow
+  const cy = 200, ch = 130;
+  const corePath = `M${X(-46)} ${cy + ch} L${X(-40)} ${cy} L${X(40)} ${cy} L${X(46)} ${cy + ch}`;
+  el('path', { d: corePath + ' Z', fill: '#f3d6cf', stroke: WARE, 'stroke-width': 3 }, svg);
+  for (let i = 1; i < 7; i++) el('path', { d: `M${X(-40 + i * 2)} ${cy + 10 + i * 16} L${X(40 - i * 2)} ${cy + 10 + i * 16}`, stroke: WARE, 'stroke-width': .6, opacity: .5 }, svg);
+  tx(svg, X(-160), cy + 40, 'Core · ware-specific', { 'font-size': 11.5, fill: WARE, 'font-weight': 600 });
+  tx(svg, X(-160), cy + 56, 'hollow, 3 walls, 5–10% gyroid', { 'font-size': 10.5, fill: '#3a3833' });
+  tx(svg, X(-160), cy + 70, 'fine layers on the forming face', { 'font-size': 10.5, fill: '#3a3833' });
+  // collar + spigot
+  el('rect', { x: X(-50), y: cy + ch - 8, width: 100 * s, height: 8, fill: HW }, svg);
+  el('rect', { x: X(-20), y: cy + ch, width: 40 * s, height: 20, fill: WARE }, svg);
+  tx(svg, X(52), cy + ch - 1, 'thick collar at the joint', { 'font-size': 10, fill: '#7a5806' });
+  tx(svg, X(30), cy + ch + 16, 'spigot', { 'font-size': 10, fill: WARE });
+  // bed plate (universal) with socket
+  const py = 390;
+  el('path', { d: `M${X(-100)} ${py} H${X(-20)} V${py + 14} H${X(20)} V${py} H${X(100)} V${py + 18} H${X(-100)} Z`, fill: UNI }, svg);
+  [-75, 70].forEach(x => el('path', { d: `M${X(x)} ${py} l6 -8 l6 8 z`, fill: '#4c6a80' }, svg));
+  [-55, 55].forEach(x => el('rect', { x: X(x) - 5, y: py + 18, width: 10, height: 12, fill: HW }, svg));
+  tx(svg, X(-100), py + 46, 'Bed plate · universal per Ø: keys, rim, core socket, jack screws', { 'font-size': 11.5, fill: UNI, 'font-weight': 600 });
+  el('path', { d: `M${X(0)} ${cy + ch + 24} V${py + 4}`, stroke: '#141414', 'stroke-dasharray': '3 3' }, svg);
+})();
+
+/* ---------- sleeve figure: today vs drop-in lid ---------- */
+(function sleeveFig() {
+  const svg = document.getElementById('sleeveFig');
+  const UNI = '#6f8fa6', WARE = '#c8402a';
+  const unit = (ox, h, label) => {
+    el('rect', { x: ox, y: 210 - h, width: 6, height: h, fill: UNI }, svg);
+    el('rect', { x: ox + 64, y: 210 - h, width: 6, height: h, fill: UNI }, svg);
+    el('rect', { x: ox - 6, y: 210 - h - 6, width: 82, height: 6, fill: UNI, opacity: .85 }, svg);
+    el('rect', { x: ox + 6, y: 210 - h, width: 58, height: h, fill: '#ece6d6' }, svg);
+    el('path', { d: `M${ox + 24} 210 L${ox + 27} ${210 - h} L${ox + 43} ${210 - h} L${ox + 46} 210 Z`, fill: '#f3d6cf', stroke: WARE }, svg);
+    tx(svg, ox + 35, 228, label, { 'text-anchor': 'middle', 'font-size': 10, fill: '#6d6a63' });
+  };
+  tx(svg, 10, 16, 'Today: one sleeve pair per unit height', { 'font-size': 11.5, 'font-weight': 600 });
+  unit(14, 50, 'footer 40'); unit(104, 150, 'ring 90'); unit(194, 40, 'well 30');
+  // drop-in
+  const ox = 330;
+  tx(svg, ox, 16, 'Drop-in lid: one tall sleeve pair', { 'font-size': 11.5, 'font-weight': 600 });
+  [[ox + 20, 70, 'unit h = 40'], [ox + 120, 140, 'unit h = 90']].forEach(([x, h, label]) => {
+    el('rect', { x, y: 50, width: 6, height: 160, fill: UNI }, svg);
+    el('rect', { x: x + 64, y: 50, width: 6, height: 160, fill: UNI }, svg);
+    el('rect', { x: x + 6, y: 210 - h, width: 58, height: h, fill: '#ece6d6' }, svg);
+    el('path', { d: `M${x + 24} 210 L${x + 27} ${210 - h} L${x + 43} ${210 - h} L${x + 46} 210 Z`, fill: '#f3d6cf', stroke: WARE }, svg);
+    el('rect', { x: x + 6.5, y: 210 - h - 6, width: 57, height: 6, fill: UNI, opacity: .85 }, svg);
+    tx(svg, x + 35, 228, label, { 'text-anchor': 'middle', 'font-size': 10, fill: '#6d6a63' });
+  });
+  tx(svg, ox + 95, 245, 'the lid rests on the core top', { 'text-anchor': 'middle', 'font-size': 10, fill: '#3a3833' });
+})();
+
+/* ---------- standard diameter series ---------- */
+(function seriesFig() {
+  const svg = document.getElementById('seriesFig');
+  const L = 60, R = 1070, lo = 120, hi = 380, axisY = 230;
+  const X = d => L + (d - lo) / (hi - lo) * (R - L);
+  el('rect', { x: X(lo), y: 30, width: X(302) - X(lo), height: axisY - 30, fill: '#6f8fa6', opacity: .08 }, svg);
+  tx(svg, X(lo) + 8, 46, 'prints whole on the Bambu H2S (Ø ≤ 300)', { 'font-size': 11.5, fill: '#4c6a80', 'font-weight': 600 });
+  el('line', { x1: X(302), y1: 30, x2: X(302), y2: axisY, stroke: '#4c6a80', 'stroke-dasharray': '5 4' }, svg);
+  tx(svg, X(306), 46, 'tiled plate + lid, cottle walls', { 'font-size': 11.5, fill: '#141414', 'font-weight': 600 });
+  el('line', { x1: X(232), y1: 60, x2: X(232), y2: axisY, stroke: '#b7b2a6', 'stroke-dasharray': '2 4' }, svg);
+  tx(svg, X(232) + 4, 210, '256 mm printer limit', { 'font-size': 9.5, fill: '#8d887d' });
+  el('line', { x1: L, y1: axisY, x2: R, y2: axisY, stroke: '#141414' }, svg);
+  for (let d = 125; d <= 375; d += 25) { el('line', { x1: X(d), y1: axisY, x2: X(d), y2: axisY + 5, stroke: '#141414' }, svg); tx(svg, X(d), axisY + 18, `Ø${d}`, { 'text-anchor': 'middle', 'font-size': 10, fill: '#6d6a63' }); }
+  [150, 175, 200, 230, 280, 350].forEach(d => {
+    el('rect', { x: X(d) - 4, y: axisY - 10, width: 8, height: 20, fill: d <= 300 ? '#6f8fa6' : '#141414' }, svg);
+    tx(svg, X(d), axisY + 34, `Ø${d}`, { 'text-anchor': 'middle', 'font-size': 11.5, 'font-weight': 600 });
+  });
+  tx(svg, L, axisY + 56, 'Proposed series', { 'font-size': 10.5, fill: '#6d6a63' });
+  const forms = [
+    ['Tapered tumbler', 150, 150], ['Straight cylinder', 150, 150], ['Braz mug', 170, 175], ['Bottle', 180, 200],
+    ['Hourglass', 180, 200], ['Belly jar', 190, 200], ['Vessel V2', 200, 200], ['Open bowl', 230, 230], ['Braz plate', 350, 350]
+  ];
+  forms.forEach(([name, fit, std], i) => {
+    const y = 70 + i * 17;
+    const user = name.startsWith('Braz') || name === 'Vessel V2';
+    el('circle', { cx: X(fit), cy: y, r: 5, fill: user ? '#c8402a' : '#fff', stroke: '#c8402a', 'stroke-width': 1.5 }, svg);
+    tx(svg, X(fit) + 9, y + 4, name, { 'font-size': 11, fill: user ? '#141414' : '#3a3833', 'font-weight': user ? 600 : 400 });
+    if (std !== fit) {
+      el('path', { d: `M${X(fit)} ${y + 7} Q${X((fit + std) / 2)} ${axisY - 4} ${X(std)} ${axisY - 12}`, fill: 'none', stroke: '#c8402a', 'stroke-dasharray': '3 3' }, svg);
+    }
+  });
+  tx(svg, R, 22, '● your forms   ○ concept samples', { 'text-anchor': 'end', 'font-size': 10.5, fill: '#6d6a63' });
+})();
+</script>
+</body>
+</html>

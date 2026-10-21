@@ -11,12 +11,13 @@ import { getLineTheme, applyLineTheme, loadLineFonts, switchToClassic } from './
 const APP_LABELS = {
     dinnerware: 'Dinnerware',
     vessel: 'Vessel',
-    'vessel-v2': 'Vessel V2',
+    'vessel-v2': 'Bezier Vessel',
     'vessel-v3': 'Vessel V3',
     handle: 'Handle',
-    castform: 'Cast Form'
+    castform: 'Cast Form',
+    stackedmold: 'Stacked Mold'
 };
-const ACTION_LABELS = { open: 'Open', duplicate: 'Copy', castform: 'Cast', delete: 'Delete' };
+const ACTION_LABELS = { open: 'Open', duplicate: 'Copy', castform: 'Cast', stackedmold: 'Stack', delete: 'Delete' };
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const el = (tag, className, html = '') => {

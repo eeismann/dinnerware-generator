@@ -246,7 +246,7 @@ try {
     };
     await fileItem('Save');
     await page.locator('#saveModal').waitFor({ state: 'visible' });
-    assert.equal(await page.locator('#saveProjectName').inputValue(), 'Untitled Vessel V2');
+    assert.equal(await page.locator('#saveProjectName').inputValue(), 'Untitled Bezier Vessel');
     await page.keyboard.press('Escape');
     await page.locator('#saveModal').waitFor({ state: 'hidden' });
     await fileItem('Export STL');

@@ -132,10 +132,10 @@ export const LINE_APPS = [
     { id: 'dashboard', name: 'Dashboard', path: 'dashboard.html' },
     { id: 'dinnerware', name: 'Dinnerware', path: 'index.html' },
     { id: 'vessel', name: 'Vessel', path: 'vessel-generator/index.html' },
-    { id: 'vessel-v2', name: 'Vessel V2', path: 'vessel-v2-generator/index.html' },
-    { id: 'vessel-v3', name: 'Vessel V3', path: 'vessel-v3-generator/index.html' },
+    { id: 'vessel-v2', name: 'Bezier Vessel', path: 'vessel-v2-generator/index.html' },
     { id: 'handle', name: 'Handle', path: 'handle-generator/index.html' },
-    { id: 'castform', name: 'Cast Form', path: 'cast-form-generator/index.html' }
+    { id: 'castform', name: 'Cast Form', path: 'cast-form-generator/index.html' },
+    { id: 'stackedmold', name: 'Stacked Mold', path: 'stacked-mold-generator/index.html' }
 ];
 
 const ICONS = {

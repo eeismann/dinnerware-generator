@@ -5,7 +5,7 @@
  *
  * Control spec:
  *   { type: 'toggle', label, get(), set(value), labels?: [offLabel, onLabel] }
- *   { type: 'select', label, options: [{ value, label }], get(), set(value) }
+ *   { type: 'select', label, options: [{ value, label }] | () => [...], get(), set(value) }
  *   { type: 'slider', label, min, max, step, get(), set(value, { interactive }), format?(value) }
  *     (set runs with interactive: true while dragging, false on release)
  *   { type: 'actions', items: [{ label, run() }] }
@@ -106,15 +106,27 @@ export function createDkControls() {
             row.classList.add('dk-select-row');
             const select = document.createElement('select');
             select.setAttribute('aria-label', name);
-            select.innerHTML = control.options
-                .map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('');
+            // `options` may be a function, re-read on sync (e.g. one per generated unit)
+            let optionSignature = null;
+            const fillOptions = () => {
+                const options = typeof control.options === 'function' ? control.options() : control.options;
+                const next = options.map(opt => `${opt.value}:${opt.label}`).join('|');
+                if (next === optionSignature) return;
+                optionSignature = next;
+                select.innerHTML = options
+                    .map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('');
+            };
+            fillOptions();
             select.addEventListener('change', () => {
                 control.set(select.value);
                 sync();
             });
             row.appendChild(select);
             row.insertAdjacentHTML('beforeend', `<svg class="dk-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`);
-            refresh = () => { select.value = String(control.get()); };
+            refresh = () => {
+                fillOptions();
+                select.value = String(control.get());
+            };
         } else if (control.type === 'slider') {
             // Reads like a DialKit slider: the fill shows the value; a real
             // range input on top keeps pointer and keyboard behaviour

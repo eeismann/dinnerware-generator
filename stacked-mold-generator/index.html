@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Apply the remembered parameters visibility before first paint -->
+    <script>try{if(localStorage.getItem('stackedmold_dials_visible')==='0')document.documentElement.classList.add('params-hidden');}catch(e){}</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stacked Mold Generator - Playground Ceramics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Monospace numerals only; the theme manager loads the selected UI typeface -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/shared.css">
+    <link rel="stylesheet" href="../styles/themes.css">
+    <link rel="stylesheet" href="../styles/dialkit-chrome.css">
+    <link rel="stylesheet" href="../styles/stacked-mold-dials.css">
+</head>
+<body>
+    <header class="dk-header">
+        <div class="header-left">
+            <a href="../dashboard.html" class="dk-icon-btn" id="btnBackToDashboard" title="Back to Dashboard" aria-label="Back to Dashboard">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/>
+                </svg>
+            </a>
+            <h1 class="app-title">Stacked Mold</h1>
+        </div>
+        <div class="header-center">
+            <span class="project-name" id="projectName" contenteditable="plaintext-only" role="textbox" aria-label="Project name" title="Rename project" spellcheck="false">Untitled Stacked Mold</span>
+            <span class="unsaved-indicator" id="unsavedIndicator" hidden>•</span>
+        </div>
+        <div class="header-right">
+            <div class="dk-menu" id="fileMenu">
+                <button class="dk-btn" id="btnFileMenu" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="fileMenuList">
+                    File
+                    <svg class="dk-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dk-menu-list" id="fileMenuList" role="menu" aria-labelledby="btnFileMenu" hidden>
+                    <button class="dk-menu-item" id="newBtn" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                        <span>New</span>
+                    </button>
+                    <button class="dk-menu-item" id="openSavedBtn" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                        <span>Open Saved…</span>
+                    </button>
+                    <button class="dk-menu-item" id="loadFileBtn" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                        <span>Load File…</span>
+                    </button>
+                    <button class="dk-menu-item" id="saveBtn" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <span>Save…</span>
+                    </button>
+                    <div class="dk-menu-divider" role="separator"></div>
+                    <button class="dk-menu-item" id="chooseSourceBtn" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3h8l-1 4c3 2 4 5 4 8a6 6 0 0 1-6 6h-2a6 6 0 0 1-6-6c0-3 1-6 4-8z"/></svg>
+                        <span>Choose Source…</span>
+                    </button>
+                    <div class="dk-menu-divider" role="separator"></div>
+                    <button class="dk-menu-item" id="exportBtn" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <span>Export Parts…</span>
+                    </button>
+                    <button class="dk-menu-item" id="downloadJsonBtn" type="button" role="menuitem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M10 13l-2 2 2 2"/><path d="M14 13l2 2-2 2"/></svg>
+                        <span>Download Project (.json)</span>
+                    </button>
+                </div>
+            </div>
+            <button class="dk-icon-btn dk-panel-toggle" id="btnTogglePanel" type="button" aria-pressed="true" aria-controls="parameterPanel" title="Hide parameters" aria-label="Parameters">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="16" rx="2.5"/><line x1="15" y1="4" x2="15" y2="20"/>
+                    <rect class="dk-panel-fill" x="15" y="4" width="6" height="16" fill="currentColor" stroke="none"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="app-main">
+        <!-- Parameter card: source, DialKit panels (scripts/ui/dialkit/stackedMoldDials.js),
+             then the mold summary, unit list and warnings (moved below the dials) -->
+        <aside class="dk-dials-card" id="parameterPanel" aria-label="Parameters">
+            <section class="dk-source-card" id="sourceCard" aria-live="polite">
+                <span class="dk-source-dot" aria-hidden="true"></span>
+                <div class="dk-source-text">
+                    <span class="dk-source-name" id="sourceName">No source chosen</span>
+                    <span class="dk-source-meta" id="sourceMeta"></span>
+                </div>
+                <button class="dk-btn dk-source-btn" id="btnChooseSource" type="button">Choose…</button>
+            </section>
+
+            <section class="sm-card sm-summary" id="summaryCard" hidden aria-live="polite">
+                <dl class="sm-stats" id="summaryStats"></dl>
+            </section>
+            <section class="sm-card sm-units" id="unitsCard" hidden>
+                <div class="sm-card-header">
+                    <span class="sm-card-title">Casting Units</span>
+                    <span class="sm-card-note" id="unitsNote"></span>
+                </div>
+                <ol class="sm-unit-list" id="unitList"></ol>
+                <details class="sm-demold">
+                    <summary>Demold order</summary>
+                    <ol id="demoldList"></ol>
+                </details>
+            </section>
+            <section class="sm-card sm-warnings" id="warningsCard" hidden>
+                <div class="sm-card-header">
+                    <span class="sm-card-title">Warnings</span>
+                    <span class="sm-count" id="warningCount">0</span>
+                </div>
+                <ul class="sm-warning-list" id="warningList"></ul>
+            </section>
+        </aside>
+
+        <div class="viewport-container">
+            <div class="viewport" id="viewport"></div>
+
+            <!-- Profile analysis (2D), top left -->
+            <section class="sm-profile-card" id="profileCard" hidden aria-label="Profile analysis">
+                <div class="sm-profile-head">
+                    <span class="sm-card-title">Profile</span>
+                    <span class="sm-legend"><i class="sm-key-down"></i>faces down</span>
+                </div>
+                <div id="profileSvg"></div>
+            </section>
+
+            <!-- Selected unit caption, top centre -->
+            <div class="sm-unit-caption" id="unitCaption" hidden></div>
+
+            <!-- Start: nothing is generated until a source is chosen -->
+            <div class="dk-start-card dk-modal" id="emptyState" hidden>
+                <div class="modal-content modal-small">
+                    <div class="modal-header">
+                        <h2>Start a Stacked Mold</h2>
+                    </div>
+                    <div class="modal-body">
+                        <p>Choose a form to cast. Its outer profile is sliced at bellies and waists into PLA casting units you pour plaster into; the plaster pieces stack into one cylindrical mold.</p>
+                        <p class="dk-start-hint">Sources: a Dinnerware item, a <strong>Bezier Vessel</strong> project, an STL/OBJ, or one of the concept sample forms.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="dk-btn" id="emptySampleBtn" type="button">Try a Sample</button>
+                        <button class="dk-btn dk-btn-primary" id="emptyChooseBtn" type="button">Choose Source…</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sm-status" role="status" id="statusText">Ready</div>
+        </div>
+    </main>
+
+    <input type="file" id="fileInput" accept=".stl,.obj" hidden>
+    <input type="file" id="projectFileInput" accept=".json,application/json" hidden>
+
+    <!-- Source picker -->
+    <div class="modal dk-modal" id="sourceModal" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Choose a Source</h2>
+                <button class="dk-icon-btn btn-close" data-close type="button" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div class="dk-switch sm-source-tabs" id="sourceTabs" role="group" aria-label="Source type">
+                    <button class="dk-seg" type="button" data-source="sample" aria-pressed="true">Samples</button>
+                    <button class="dk-seg" type="button" data-source="dinnerware" aria-pressed="false">Dinnerware</button>
+                    <button class="dk-seg" type="button" data-source="vessel-v2" aria-pressed="false">Bezier Vessel</button>
+                </div>
+                <p class="modal-description" id="sourceDescription"></p>
+                <div class="project-list" id="sourceList"></div>
+                <div class="dk-row sm-import-row">
+                    <span class="dk-row-label">Or import a file</span>
+                    <button class="dk-chip" id="importFileBtn" type="button">STL / OBJ…</button>
+                </div>
+                <p class="sm-error" id="sourceError" role="alert" hidden></p>
+            </div>
+            <div class="modal-footer">
+                <button class="dk-btn" data-close type="button">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export -->
+    <div class="modal dk-modal" id="exportModal" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Export Printable Parts</h2>
+                <button class="dk-icon-btn btn-close" data-close type="button" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div class="dk-section">
+                    <div class="dk-section-header">
+                        <span class="dk-section-title" id="exportSummary">STL files</span>
+                        <div class="dk-section-actions">
+                            <button class="dk-chip" id="exportAll" type="button">All</button>
+                            <button class="dk-chip" id="exportNone" type="button">None</button>
+                        </div>
+                    </div>
+                    <div class="sm-export-files" id="exportFiles"></div>
+                </div>
+                <p class="modal-description">Each part is saved in its print orientation (Z up, no supports), plus a README with the pour and demold steps. Sleeve halves print twice.</p>
+                <p class="sm-error" id="exportError" role="alert" hidden></p>
+            </div>
+            <div class="modal-footer">
+                <button class="dk-btn" data-close type="button">Cancel</button>
+                <button class="dk-btn dk-btn-primary" id="exportZip" type="button">Download ZIP</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save -->
+    <div class="modal dk-modal" id="saveModal" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2>Save Project</h2>
+                <button class="dk-icon-btn btn-close" data-close type="button" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <label class="dk-row dk-text-row" for="saveProjectName">
+                    <span class="dk-row-label">Name</span>
+                    <input type="text" id="saveProjectName" placeholder="Project name">
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button class="dk-btn" data-close type="button">Cancel</button>
+                <button class="dk-btn dk-btn-primary" id="saveConfirm" type="button">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Open saved -->
+    <div class="modal dk-modal" id="loadModal" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Open Saved Project</h2>
+                <button class="dk-icon-btn btn-close" data-close type="button" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div class="project-list" id="savedList"></div>
+                <p class="modal-description" id="noSaved" hidden>No saved stacked molds yet.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="dk-btn" data-close type="button">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm -->
+    <div class="modal dk-modal" id="confirmModal" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2 id="confirmTitle">Confirm</h2>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="dk-btn" data-close type="button">Cancel</button>
+                <button class="dk-btn dk-btn-primary" id="confirmOk" type="button">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="../scripts/stackedMold/stackedMoldMain.js"></script>
+</body>
+</html>

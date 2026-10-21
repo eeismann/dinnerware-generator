@@ -14,7 +14,8 @@ const gates = [
         'vesselHandleImportGate', 'vesselHandlePreviewGate',
         'castFormPatternMoldGate', 'castFormMultiWallRegistrationKeyGate',
         'castFormTwoPartRegistrationKeyGate', 'castFormMaterialVolumeGate',
-        'vesselV2MotifGate', 'vesselV3SpoutGate', 'vesselV3LidGate', 'handleMoldGeneratorGate'
+        'vesselV2MotifGate', 'vesselV3SpoutGate', 'vesselV3LidGate', 'handleMoldGeneratorGate',
+        'stackedMoldSlicerGate', 'stackedMoldGeometryGate', 'stackedMoldSetGate'
     ].map(name => [`scripts/benchmarks/${name}.mjs`, ...(name === 'castFormPatternMoldGate' ? ['--correctness-only'] : [])])
 ];
 let failures = 0;

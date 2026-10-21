@@ -20,6 +20,11 @@
 - Independent control per section (height, diameter, curvature)
 - Multiple lip styles and flat wall mode options
 
+### 2b. Bezier Vessel (`vessel-v2-generator/`)
+- Entry point: `scripts/vesselV2/vesselV2Main.js`. Shown to users as **Bezier Vessel** (renamed from "Vessel V2"
+  on 2026-10-21); code, app id `vessel-v2` and storage key `playground_ceramics_vessel_v2_projects` are unchanged.
+- Pen-point profile with bezier handles, revolved; per-segment surface motifs.
+
 ### 3. Handle Generator (`handle-generator/`)
 - Entry point: `scripts/handle/handleMain.js`
 - Integrates with Dinnerware Designer mug data
@@ -35,11 +40,17 @@
 
 ### 5. Dashboard (`dashboard.html`)
 - Entry point: `scripts/dashboard/dashboard.js`
+- Intro tour: `scripts/dashboard/introTour.js` (5 steps; opens once on a first visit, key `pc_intro_tour_seen_v1`;
+  Settings → Intro Tour and the empty state reopen it). Browser tests pre-set that key; `dashboardTourBrowser.mjs`
+  covers the tour.
 - Central hub for managing all projects
 - Project storage: `scripts/dashboard/projectStorage.js`
 - Theme system (light/dark mode, accent colors, typefaces)
 
-### 6. Vessel Designer V3 (`vessel-v3-generator/`)
+### 6. Vessel Designer V3 (`vessel-v3-generator/`), retired 2026-10-21
+- **Not accessible**: off the dashboard chooser and project list, the Handle/Stacked Mold source pickers, the Line
+  app list and the Vite build; its page redirects to the dashboard and dashboard import refuses V3 files. Code and
+  saved projects (`playground_ceramics_vessel_v3_projects`) are kept; delete the redirect line to restore it.
 - Entry point: `scripts/vesselV3/vesselV3Main.js`
 - Forked from Vessel Designer V2's freeform profile editor and per-segment surface
   motif system (points, bezier handles, segment-scoped motifs all carry over unchanged)
@@ -53,6 +64,30 @@
   now imports Vessel V2/V3 projects as a source (alongside Dinnerware mugs), reusing
   its existing radius-at-height attachment geometry
 - Own localStorage key (`playground_ceramics_vessel_v3_projects`), separate from V2
+
+### 7. Stacked Mold Generator (`stacked-mold-generator/`)
+- Entry point: `scripts/stackedMold/stackedMoldMain.js`; plan and concept in `stacked-cylinder-mold/`
+- Slip-casting molds made by pouring plaster into 3D-printed PLA casting units; the plaster pieces stack
+  into one cylinder (footer, ring/split units, well collar). Separate from Cast Form.
+- `geometry/bandSlicer.js`: pure port of the concept's `analyze()` (monotonic band slicing; pour
+  orientation, ring vs split, key/plate bookkeeping). `profileExtractor.js` turns any source (STL/OBJ,
+  Dinnerware item, Vessel V2/V3 project, sample form) into an outer r(z) profile + base underside.
+- Tooling is a **universal kit per standard diameter** (`geometry/kitSpec.js`: series Ø150…360, printers,
+  default Bambu H2S) plus **ware parts** (`geometry/castingUnitParts.js`, built with `solidBuilder.js`: welded
+  loops/strips/triangulated faces, no CSG). Kit: bed plate (centre pit, key-plug and M5 jack-screw bores),
+  drop-in lid resting on the core top (so one tall sleeve per diameter serves every unit), sleeve segments
+  (pry-bevelled ears), swap-in bump/pocket key plugs, locating puck; plates/lids wider than the printer
+  are cut into dovetailed tiles. Ware parts: ring cores with a cone pit over the puck, footer bases (stub +
+  locating ring in one piece, pull tabs at the sleeve seams, carries the footer's key bumps; Ø360: flanged centre +
+  dovetailed ring tiles on a 45° seat), split inserts, well slit tube (edges meet,
+  taped inside; no wedge) + spoked locator. `stackedMoldExporter.js` writes kit and ware
+  folders (one Z-up STL per part, turned to fit the bed) + README.
+- `geometry/setPlanner.js` + `tools/planSet.mjs` plan a whole ware set into the fewest kits
+  (`node scripts/stackedMold/tools/planSet.mjs test-files/stacked-mold/braz-set --out output/stacked-mold/braz-set`).
+- Own localStorage key (`playground_ceramics_stacked_mold_projects`, `appType: 'stackedmold'`)
+- Gates: `stackedMoldSlicerGate.mjs` (concept forms + `test-files/stacked-mold/` STLs incl. the Braz set),
+  `stackedMoldGeometryGate.mjs` (watertight, ≤ 45° overhang, fits the printer, keys mate through the plugs),
+  `stackedMoldSetGate.mjs` (Braz set → 3 kits)
 
 ## DialKit interface (`dialkit-dinnerware` branch)
 
@@ -100,12 +135,14 @@ dinnerware-generator/
 ├── vessel-generator/index.html       # Vessel Generator
 ├── handle-generator/index.html       # Handle Generator
 ├── cast-form-generator/index.html    # Cast Form Generator
+├── stacked-mold-generator/index.html # Stacked Mold Generator
 ├── scripts/
 │   ├── main.js                       # Dinnerware entry point
 │   ├── dashboard/                    # Dashboard logic & storage
 │   ├── vessel/                       # Vessel app (geometry, state, UI)
 │   ├── handle/                       # Handle app (geometry, state, UI)
 │   ├── castForm/                     # Cast Form app (mold generation)
+│   ├── stackedMold/                  # Stacked Mold app (band slicer, PLA casting units)
 │   ├── geometry/                     # Dinnerware mesh generation
 │   ├── state/                        # Dinnerware state management
 │   ├── ui/                           # Shared UI components (viewport, themes)
@@ -205,11 +242,6 @@ npm test             # Node regression suite (unit tests + geometry/cast-form ga
 npm run test:browser # Playwright browser workflows (software WebGL)
 npm run benchmark:dinnerware  # Dinnerware preview/export/validation timings
 ```
-
-Review comments (dev server only): every page has a Comment pill (or press **C**). Notes are saved
-by the `page-comments` Vite middleware in `vite.config.js` to `feedback/page-comments.json`
-(gitignored); the layer is `scripts/ui/pageComments/`. Resolve with
-`PATCH /api/page-comments {"id","status":"resolved"}`.
 
 ## Common Development Tasks
 

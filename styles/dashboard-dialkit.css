@@ -645,6 +645,191 @@ body.dk-dashboard {
     }
 }
 
+/* ---------- Intro tour (scripts/dashboard/introTour.js) ---------- */
+
+.dk-dashboard .tour-content {
+    max-width: 560px;
+}
+
+.dk-dashboard .tour-kicker {
+    margin: 0 0 2px;
+    padding: 0 6px;
+    font-family: var(--dk-font);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-dashboard .tour-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 268px;
+    padding: 4px 6px 0;
+}
+
+.dk-dashboard .tour-lede {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--dk-text-label);
+}
+
+.dk-dashboard .tour-note {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-dashboard .tour-hero {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px 0;
+}
+
+.dk-dashboard .tour-hero .tour-tool {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 4px 10px;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+}
+
+.dk-dashboard .tour-hero .tour-tool svg {
+    flex: none;
+}
+
+.dk-dashboard .tour-hero .tour-tool b {
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.25;
+    text-align: center;
+    color: var(--dk-text-root);
+}
+
+.dk-dashboard .tour-hero svg {
+    width: 34px;
+    height: 34px;
+}
+
+.dk-dashboard .tour-apps {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dk-dashboard .tour-app {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+}
+
+.dk-dashboard .tour-app-icon {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--dk-radius);
+    background: var(--dk-surface);
+    color: var(--dk-text-label);
+}
+
+.dk-dashboard .tour-app-icon svg {
+    width: 26px;
+    height: 26px;
+}
+
+.dk-dashboard .tour-glyph svg {
+    width: 20px;
+    height: 20px;
+}
+
+.dk-dashboard .tour-hero .pc-app-icon,
+.dk-dashboard .tour-app-icon .pc-app-icon {
+    color: var(--dk-text-label) !important;
+}
+
+.dk-dashboard .tour-app-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.dk-dashboard .tour-app-text b {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--dk-text-root);
+}
+
+.dk-dashboard .tour-app-text span {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--dk-text-tertiary);
+}
+
+.dk-dashboard .tour-actions .dk-btn {
+    flex: 0 0 auto;
+    min-width: 96px;
+}
+
+.dk-dashboard .tour-actions .dk-btn-primary {
+    min-width: 132px;
+}
+
+.dk-dashboard .tour-dots {
+    display: flex;
+    flex: 1;
+    gap: 6px;
+    padding: 0 6px;
+}
+
+.dk-dashboard .tour-dot {
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--dk-border-hover);
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+}
+
+.dk-dashboard .tour-dot.on {
+    background: var(--dk-text-root);
+    transform: scale(1.15);
+}
+
+.dk-dashboard .tour-dot:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--dk-focus-ring);
+}
+
+.dk-dashboard .tour-empty-link {
+    margin-top: 2px;
+    background: transparent;
+}
+
+@media (max-width: 640px) {
+    .dk-dashboard .tour-hero {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .dk-dashboard .project-card,
     .dk-dashboard .modal-dashboard-content {

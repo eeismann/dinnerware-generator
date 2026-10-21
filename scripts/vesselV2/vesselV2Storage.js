@@ -62,7 +62,7 @@ export class VesselV2Storage {
             appType: 'vessel-v2',
             project: {
                 id: projectData.id || projectData.project?.id,
-                name: projectData.project?.name || 'Untitled Vessel V2',
+                name: projectData.project?.name || 'Untitled Bezier Vessel',
                 dateCreated: projectData.project?.dateCreated,
                 lastModified: projectData.project?.lastModified,
                 isDirty: false
@@ -124,13 +124,13 @@ export class VesselV2Storage {
                     if (format === 'enhanced') {
                         const deserialized = ProjectFileFormat.deserialize(data);
                         if (deserialized.fileFormat.appType !== 'vessel-v2') {
-                            throw new Error('This is not a Vessel V2 project file');
+                            throw new Error('This is not a Bezier Vessel project file');
                         }
                         stateData = deserialized.state;
                     } else if (data.appType === 'vessel-v2' || data.profile?.points) {
                         stateData = data;
                     } else {
-                        throw new Error('Invalid Vessel V2 file format');
+                        throw new Error('Invalid Bezier Vessel file format');
                     }
 
                     vesselV2State.loadState(stateData);

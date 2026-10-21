@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- Vessel V3 is retired (2026-10-21): send anyone who lands here back to the dashboard.
+         The code and saved projects are kept; delete this line to restore access. -->
+    <script>location.replace('../dashboard.html');</script>
     <!-- Apply the remembered parameters visibility before first paint -->
     <script>try{if(localStorage.getItem('vessel_v3_dials_visible')==='0')document.documentElement.classList.add('params-hidden');}catch(e){}</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -216,6 +219,5 @@
     </div>
 
     <script type="module" src="../scripts/vesselV3/vesselV3Main.js"></script>
-    <script type="module" src="../scripts/ui/pageComments/pageComments.js"></script>
 </body>
 </html>

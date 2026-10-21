@@ -12,6 +12,7 @@ const VESSEL_PROJECTS_STORAGE_KEY = 'playground_ceramics_vessel_projects';
 const VESSEL_V2_PROJECTS_STORAGE_KEY = 'playground_ceramics_vessel_v2_projects';
 const VESSEL_V3_PROJECTS_STORAGE_KEY = 'playground_ceramics_vessel_v3_projects';
 const CASTFORM_PROJECTS_STORAGE_KEY = 'playground_ceramics_castform_projects';
+const STACKEDMOLD_PROJECTS_STORAGE_KEY = 'playground_ceramics_stacked_mold_projects';
 
 export function readProjectCollection(key) {
     const raw = localStorage.getItem(key);
@@ -34,7 +35,8 @@ export function writeProjectCollection(key, projects) {
 
 export function saveAuxiliaryProject(project, appType) {
     const key = appType === 'handle' ? HANDLE_PROJECTS_STORAGE_KEY
-        : appType === 'castform' ? CASTFORM_PROJECTS_STORAGE_KEY : null;
+        : appType === 'castform' ? CASTFORM_PROJECTS_STORAGE_KEY
+            : appType === 'stackedmold' ? STACKEDMOLD_PROJECTS_STORAGE_KEY : null;
     if (!key) throw new Error(`Unsupported project type: ${appType}`);
     const projects = readProjectCollection(key);
     projects.push(project);
@@ -51,11 +53,12 @@ export function getAllProjects() {
     const handleProjects = getHandleProjects();
     const vesselProjects = getVesselProjects();
     const vesselV2Projects = getVesselV2Projects();
-    const vesselV3Projects = getVesselV3Projects();
+    // Vessel V3 is retired: its projects stay in storage but are not listed
     const castFormProjects = getCastFormProjects();
+    const stackedMoldProjects = getStackedMoldProjects();
 
     // Combine and sort by last modified date (newest first)
-    const allProjects = [...dinnerwareProjects, ...handleProjects, ...vesselProjects, ...vesselV2Projects, ...vesselV3Projects, ...castFormProjects];
+    const allProjects = [...dinnerwareProjects, ...handleProjects, ...vesselProjects, ...vesselV2Projects, ...castFormProjects, ...stackedMoldProjects];
     return allProjects.sort((a, b) => 
         new Date(b.lastModified) - new Date(a.lastModified)
     );
@@ -145,7 +148,7 @@ export function getVesselV2Projects() {
             const projects = JSON.parse(data);
             return projects.map(p => ({
                 id: p.id || p.project?.id,
-                projectName: p.project?.name || 'Untitled Vessel V2',
+                projectName: p.project?.name || 'Untitled Bezier Vessel',
                 dateCreated: p.project?.dateCreated || p.dateCreated,
                 lastModified: p.project?.lastModified || p.lastModified,
                 thumbnail: p.thumbnail || null,
@@ -218,6 +221,30 @@ export function getCastFormProjects() {
 }
 
 /**
+ * Get stacked mold projects only
+ * @returns {Array} Array of stacked mold project objects
+ */
+export function getStackedMoldProjects() {
+    try {
+        const data = localStorage.getItem(STACKEDMOLD_PROJECTS_STORAGE_KEY);
+        if (data) {
+            return JSON.parse(data).map(p => ({
+                id: p.id || p.project?.id,
+                projectName: p.project?.name || 'Untitled Stacked Mold',
+                dateCreated: p.project?.dateCreated || p.dateCreated,
+                lastModified: p.project?.lastModified || p.lastModified,
+                thumbnail: p.thumbnail || null,
+                appType: 'stackedmold',
+                stackedMoldData: p
+            })).sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+        }
+    } catch (e) {
+        console.warn('Failed to load stacked mold projects:', e);
+    }
+    return [];
+}
+
+/**
  * Get a single project by ID (searches dinnerware, handle, vessel, and cast form projects)
  * @param {string} projectId 
  * @returns {Object|null} Project object or null
@@ -252,6 +279,9 @@ export function getProject(projectId) {
     const castFormProjects = getCastFormProjects();
     const castFormProject = castFormProjects.find(p => p.id === projectId);
     if (castFormProject) return castFormProject;
+
+    const stackedMoldProject = getStackedMoldProjects().find(p => p.id === projectId);
+    if (stackedMoldProject) return stackedMoldProject;
     
     return null;
 }
@@ -377,6 +407,17 @@ export function deleteProject(projectId) {
                 return true;
             }
         }
+
+        // Try to delete from stacked mold projects
+        const stackedMoldData = localStorage.getItem(STACKEDMOLD_PROJECTS_STORAGE_KEY);
+        if (stackedMoldData) {
+            const stackedMoldProjects = JSON.parse(stackedMoldData);
+            const filteredStackedMold = stackedMoldProjects.filter(p => (p.id || p.project?.id) !== projectId);
+            if (filteredStackedMold.length !== stackedMoldProjects.length) {
+                localStorage.setItem(STACKEDMOLD_PROJECTS_STORAGE_KEY, JSON.stringify(filteredStackedMold));
+                return true;
+            }
+        }
         
         if (getDinnerwareDraftProjects().some(project => project.id === projectId)) {
             removeDinnerwareDraft(projectId);
@@ -402,6 +443,8 @@ export function clearAllProjects() {
         localStorage.removeItem(VESSEL_V2_PROJECTS_STORAGE_KEY);
         localStorage.removeItem(VESSEL_V3_PROJECTS_STORAGE_KEY);
         localStorage.removeItem(CASTFORM_PROJECTS_STORAGE_KEY);
+        localStorage.removeItem(STACKEDMOLD_PROJECTS_STORAGE_KEY);
+        localStorage.removeItem('stacked_mold_autosave');
         localStorage.removeItem('dinnerware_current_project');
         localStorage.removeItem('vessel_autosave');
         localStorage.removeItem('vessel_v2_autosave');

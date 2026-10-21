@@ -771,6 +771,11 @@ body.dashboard-page {
     --app-color-rgb: 196, 92, 38;
 }
 
+.app-select-card[data-app="stackedmold"] {
+    --app-color: #D9A21B;
+    --app-color-rgb: 217, 162, 27;
+}
+
 .app-select-card:hover {
     background:
         linear-gradient(

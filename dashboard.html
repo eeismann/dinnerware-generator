@@ -57,6 +57,12 @@
                             </div>
                         </div>
                         <div class="dk-menu-divider" role="separator"></div>
+                        <button class="dk-menu-item" id="btnIntroTour" type="button">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2.2-2.4 3.7"/><path d="M12 17.2v.1"/>
+                            </svg>
+                            <span>Intro Tour</span>
+                        </button>
                         <button class="dk-menu-item dk-menu-item-danger" id="btnClearAll" type="button">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -101,6 +107,7 @@
                         </svg>
                         Create Your First Project
                     </button>
+                    <button class="dk-btn tour-empty-link" id="btnEmptyTour" type="button">Take the intro tour</button>
                 </div>
             </section>
         </main>
@@ -160,23 +167,15 @@
                     <div class="app-select-icon" aria-hidden="true"></div>
                     <div class="app-select-info">
                         <h3 class="app-select-title">Vessel</h3>
-                        <p class="app-select-description">Design vessels with bezier curve controls and multi-section body.</p>
+                        <p class="app-select-description">Build a vessel section by section, from lip and neck down to waist and foot.</p>
                     </div>
                 </button>
 
                 <button class="app-select-card" data-app="vessel-v2">
                     <div class="app-select-icon" aria-hidden="true"></div>
                     <div class="app-select-info">
-                        <h3 class="app-select-title">Vessel V2</h3>
+                        <h3 class="app-select-title">Bezier Vessel</h3>
                         <p class="app-select-description">Draw a vessel profile with pen points and bezier handles, then revolve it into a radial form.</p>
-                    </div>
-                </button>
-
-                <button class="app-select-card" data-app="vessel-v3">
-                    <div class="app-select-icon" aria-hidden="true"></div>
-                    <div class="app-select-info">
-                        <h3 class="app-select-title">Vessel V3</h3>
-                        <p class="app-select-description">V2's profile editor, plus a foundation for spout, lid, and handle attachments coming next.</p>
                     </div>
                 </button>
 
@@ -185,6 +184,14 @@
                     <div class="app-select-info">
                         <h3 class="app-select-title">Cast Form</h3>
                         <p class="app-select-description">Generate 4-part slip casting molds from vessels. Includes registration keys.</p>
+                    </div>
+                </button>
+
+                <button class="app-select-card" data-app="stackedmold">
+                    <div class="app-select-icon" aria-hidden="true"></div>
+                    <div class="app-select-info">
+                        <h3 class="app-select-title">Stacked Mold</h3>
+                        <p class="app-select-description">Slice a form into PLA casting units you pour plaster into; the pieces stack into one cylindrical slip mold.</p>
                     </div>
                 </button>
             </div>
@@ -197,6 +204,5 @@
     </div>
 
     <script type="module" src="./scripts/dashboard/dashboard.js"></script>
-    <script type="module" src="./scripts/ui/pageComments/pageComments.js"></script>
 </body>
 </html>

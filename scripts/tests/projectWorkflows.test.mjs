@@ -29,7 +29,7 @@ const fixtures = {
     dinnerware: () => manager().getInitialState(),
     vessel: getDefaultState,
     'vessel-v2': getDefaultVesselV2State,
-    'vessel-v3': getDefaultVesselV3State,
+    // vessel-v3 is retired from the dashboard list; its saver is still checked below
     handle: () => ({ handleParams: structuredClone(DEFAULT_HANDLE_PARAMS), mugData: { loaded: false } }),
     castform: () => ({ params: structuredClone(DEFAULT_PARAMS), input: { sourceApp: 'vessel' } })
 };
@@ -158,7 +158,7 @@ test('failed writes throw for every shared saver and leave the old collection in
     localStorage.setItem = () => { throw Object.assign(new Error('blocked'), { name: 'SecurityError' }); };
     for (const save of [() => saveProject({ id: original.id, projectName: 'Changed', state: sm.state }),
         () => saveVesselProject(fixtures.vessel()), () => saveVesselV2Project(fixtures['vessel-v2']()),
-        () => saveVesselV3Project(fixtures['vessel-v3']())]) assert.throws(save, /blocked/);
+        () => saveVesselV3Project(getDefaultVesselV3State())]) assert.throws(save, /blocked/);
     assert.equal(localStorage.getItem('playground_ceramics_projects'), before);
 });
 

@@ -13,7 +13,7 @@
     "verify:cast-volume": "node scripts/benchmarks/castFormMaterialVolumeGate.mjs",
     "preview": "vite preview",
     "test": "node scripts/benchmarks/regressionGate.mjs",
-    "test:browser": "node scripts/tests/browserWorkflows.mjs && node scripts/tests/dinnerwareBrowser.mjs && node scripts/tests/vesselDialsBrowser.mjs && node scripts/tests/vesselV2DialsBrowser.mjs && node scripts/tests/vesselV3DialsBrowser.mjs && node scripts/tests/handleDialsBrowser.mjs && node scripts/tests/castFormDialsBrowser.mjs && node scripts/tests/pageCommentsBrowser.mjs",
+    "test:browser": "node scripts/tests/browserWorkflows.mjs && node scripts/tests/dinnerwareBrowser.mjs && node scripts/tests/vesselDialsBrowser.mjs && node scripts/tests/vesselV2DialsBrowser.mjs && node scripts/tests/handleDialsBrowser.mjs && node scripts/tests/castFormDialsBrowser.mjs && node scripts/tests/stackedMoldDialsBrowser.mjs && node scripts/tests/dashboardTourBrowser.mjs",
     "benchmark:dinnerware": "node scripts/benchmarks/dinnerwarePerfBench.mjs",
     "verify:cast-topology": "node scripts/benchmarks/castFormTopologyGate.mjs",
     "verify:cast-cleanup": "node scripts/benchmarks/castFormCleanupGate.mjs",

@@ -34,6 +34,12 @@ const APP_COLORS = {
         light: '#FFE0C2',
         mid: '#A84D1F',
         dark: '#6F2D10'
+    },
+    stackedmold: {
+        base: '#D9A21B',
+        light: '#FFF0C2',
+        mid: '#B8860B',
+        dark: '#7A5806'
     }
 };
 
@@ -111,6 +117,20 @@ function lineIcon(appType, size) {
                 <path d="M33.8 7.3l7.4 7.4l-7.6 7.6l-7.4-7.4z"/>
                 <path d="M28.9 20.1l-2.7 6l6-2.7"/>
                 <path d="M31.2 12.4l7.2 7.2" ${soft}/>
+            </g>
+        `, attrs);
+    }
+
+    if (appType === 'stackedmold') {
+        // Stacked plaster cylinder: footer, rings and collar with a cavity
+        return svg(size, `
+            <g fill="none" ${common}>
+                <path d="M10 10.5h28v28H10z"/>
+                <path d="M10 17.5h28M10 26h28M10 33h28"/>
+                <path d="M19.5 10.5v7c0 2.6-3 5.5-3 9.2c0 3.4 2.2 5.4 3.6 6.3M28.5 10.5v7c0 2.6 3 5.5 3 9.2c0 3.4-2.2 5.4-3.6 6.3" ${soft}/>
+                <circle cx="13.6" cy="17.5" r="1.6" ${dot}/>
+                <circle cx="34.4" cy="26" r="1.6" ${dot}/>
+                <circle cx="13.6" cy="33" r="1.6" ${dot}/>
             </g>
         `, attrs);
     }
@@ -569,6 +589,22 @@ function plateIcon(appType, size) {
         `, attrs);
     }
 
+    if (appType === 'stackedmold') {
+        // Stacked cylinder mold in section: slices on flat parting lines, the
+        // ware cavity, cone keys and the pour well
+        return plateSvg(size, `
+            <g ${construction}><path d="M24 3v41"/></g>
+            <g ${ink}>
+                <path d="M7 7h34v34H7z"/>
+                <path d="M7 13h34M7 24h34M7 34h34"/>
+                <path d="M19 7v6h-1.5c0 3-3.5 5.5-3.5 11c0 5 2.5 8 4 10h12c1.5-2 4-5 4-10c0-5.5-3.5-8-3.5-11H29V7"/>
+            </g>
+            <g ${fine}>
+                <path d="M9.5 24l1.5 2l1.5-2M35.5 24l1.5 2l1.5-2M9.5 34l1.5 2l1.5-2M35.5 34l1.5 2l1.5-2"/>
+            </g>
+        `, attrs);
+    }
+
     if (appType === 'castform') {
         // Mold in section: three parts on parting lines, the vessel cavity,
         // registration keys and the pour opening
@@ -611,13 +647,15 @@ export function getAppIconSvg(appType, idSuffix, size = 48, variant = APP_ICON_V
         return lineIcon(normalizedAppType, size);
     }
 
+    // Shaded variants draw the stacked mold with the cast form's mold
+    const shadedType = normalizedAppType === 'stackedmold' ? 'castform' : normalizedAppType;
     if (normalizedVariant === APP_ICON_VARIANTS.signature) {
-        return signatureIcon(normalizedAppType, size, safe);
+        return signatureIcon(shadedType, size, safe);
     }
 
     if (normalizedVariant === APP_ICON_VARIANTS.plate) {
         return plateIcon(normalizedAppType, size);
     }
 
-    return studioObjectIcon(normalizedAppType, size);
+    return studioObjectIcon(shadedType, size);
 }

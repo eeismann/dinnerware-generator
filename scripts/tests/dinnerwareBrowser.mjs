@@ -20,6 +20,8 @@ try {
         args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader']
     });
     const context = await browser.newContext({ acceptDownloads: true });
+    // The dashboard intro tour opens on a first visit; it has its own suite (dashboardTourBrowser.mjs)
+    await context.addInitScript(() => localStorage.setItem('pc_intro_tour_seen_v1', '1'));
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -354,7 +356,7 @@ try {
     assert.equal(await dash.locator('.dk-bar #btnNewProject.dk-btn-primary').count(), 1);
     await plates.first().hover();
     assert.deepEqual(await plates.first().locator('.card-action-btn').evaluateAll(buttons => buttons.map(b => b.dataset.action)),
-        ['open', 'duplicate', 'castform', 'delete']);
+        ['open', 'duplicate', 'castform', 'stackedmold', 'delete']);
     await dash.locator('#btnSettings').click();
     assert.equal(await dash.locator('#btnSettings').getAttribute('aria-expanded'), 'true');
     await dash.locator('.zoom-option[data-zoom="large"]').click();
@@ -365,7 +367,7 @@ try {
     await dash.keyboard.press('Escape');
     assert.equal(await dash.locator('#btnSettings').getAttribute('aria-expanded'), 'false');
     await dash.locator('#btnNewProject').click();
-    assert.equal(await dash.locator('#appSelectModal .app-select-card').count(), 6);
+    assert.equal(await dash.locator('#appSelectModal .app-select-card').count(), 6); // Vessel V3 retired
     await dash.locator('#btnCloseAppSelect').click();
     await dash.locator('.search-input').fill('zzz-no-match');
     await dash.waitForFunction(() => document.querySelectorAll('.project-card:not(.new-project)').length === 0);
@@ -379,7 +381,6 @@ try {
     const DIALKIT_APPS = [
         ['vessel-generator', ['#btnExportSTL']],
         ['vessel-v2-generator', ['#btnExportSTL']],
-        ['vessel-v3-generator', ['#btnExportSTL', '#btnExportLidSTL']],
         ['handle-generator', ['#btnExportSTL', '#btnExportMoldKit']],
         ['cast-form-generator', ['#exportBtn']]
     ];
@@ -405,7 +406,7 @@ try {
         assert.deepEqual(appErrors, [], `${dir}: runtime errors`);
         await app.close();
     }
-    pass('Vessel, Vessel V2, Vessel V3, Handle and Cast Form boot into the DialKit frame with the view dock, without errors');
+    pass('Vessel, Bezier Vessel, Handle and Cast Form boot into the DialKit frame with the view dock, without errors');
     await context.close();
 } finally {
     await browser?.close();

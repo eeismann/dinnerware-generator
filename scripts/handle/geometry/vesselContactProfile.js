@@ -45,7 +45,7 @@ export function getOuterContactRadius(profile, height) {
  */
 export function compileVesselContactProfile(project, sourceType = project?.appType) {
     if (!['vessel-v2', 'vessel-v3'].includes(sourceType)) {
-        throw new Error('Select a Vessel V2 or V3 project.');
+        throw new Error('Select a Bezier Vessel project.');
     }
     if (!Array.isArray(project?.profile?.points)) {
         throw new Error('The vessel project has no valid profile point list.');
