@@ -9,7 +9,7 @@ import { stateManager, parameterResolver, ITEM_TYPES, ITEM_NAMES } from '../stat
 import { generateItemMesh, buildItemCrossSection, calculateGeometryValues } from '../geometry/meshGenerator.js';
 import { planSetLayout } from '../geometry/setLayout.js';
 import { RenderScheduler } from './renderScheduler.js';
-import { createWorldAxes } from './studio/worldAxes.js';
+import { createWorldAxes } from './worldAxes.js';
 import { createOrbitPanMode } from './orbitPanMode.js';
 import { createOutlineMaterial, createViewerStyle } from './viewerStyle.js';
 import { shadedPalette } from './viewerSettings.js';

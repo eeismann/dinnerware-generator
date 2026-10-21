@@ -9,7 +9,7 @@ import castFormState from '../state/castFormState.js';
 import { PART_COLORS } from '../state/castFormDefaults.js';
 import { buildWallCaseBox, buildFootCaseBox, buildContinuousWallCaseBox } from '../geometry/caseBoxGenerator.js';
 import { RenderScheduler } from '../../ui/renderScheduler.js';
-import { createWorldAxes } from '../../ui/studio/worldAxes.js';
+import { createWorldAxes } from '../../ui/worldAxes.js';
 import { createOrbitPanMode } from '../../ui/orbitPanMode.js';
 import { getViewerSettings, shadedPalette, FLOOR_GRID_Y } from '../../ui/viewerSettings.js';
 import { createViewerStyle } from '../../ui/viewerStyle.js';

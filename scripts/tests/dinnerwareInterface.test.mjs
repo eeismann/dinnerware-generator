@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { StateManager } from '../state/projectState.js';
 import { DesignHistory } from '../state/history.js';
-import { evaluateExpression, quantize } from '../ui/numericFields.js';
 import { inflateRawSync } from 'node:zlib';
 import { createZip, crc32 } from '../storage/zipWriter.js';
 import {
@@ -103,24 +102,6 @@ test('undo marks the project dirty and survives reset', async () => {
     assert.equal(history.canUndo(), false);
     assert.equal(history.canRedo(), false);
     history.dispose();
-});
-
-test('number fields evaluate arithmetic safely', () => {
-    assert.equal(evaluateExpression('2.5+0.3'), 2.8);
-    assert.equal(evaluateExpression(' 140 / 2 '), 70);
-    assert.equal(evaluateExpression('-(3 - 5) * 2'), 4);
-    assert.equal(evaluateExpression('1,5'), 1.5);
-    assert.equal(evaluateExpression('.5'), 0.5);
-    for (const bad of ['', 'abc', '2+', 'alert(1)', '1/0', '(2', '2)']) {
-        assert.ok(Number.isNaN(evaluateExpression(bad)), bad);
-    }
-});
-
-test('quantize snaps to the step, clamps, and supports fine steps', () => {
-    assert.equal(quantize(2.537, { min: 0.8, max: 10, step: 0.1 }), 2.5);
-    assert.equal(quantize(12, { min: 0.8, max: 10, step: 0.1 }), 10);
-    assert.equal(quantize(2.537, { step: 0.1, fine: true }), 2.54);
-    assert.equal(quantize(7, { min: -45, max: 45, step: 5 }), 5);
 });
 
 function sections() {

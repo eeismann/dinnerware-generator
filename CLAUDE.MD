@@ -11,8 +11,8 @@
 - Creates complete dinnerware sets with 7 item types
 - Global style parameters with per-item overrides
 - Items: Plate, Soup Bowl, Pasta Bowl, Mug, Tumbler, Saucer, Serving Bowl
-- **`dialkit-dinnerware` branch**: every generator and the dashboard use [DialKit](https://www.dialkit.dev)
-  (`dialkit/vanilla`). See "DialKit interface" below.
+- Every generator and the dashboard use [DialKit](https://www.dialkit.dev) (`dialkit/vanilla`). See
+  "DialKit interface" below.
 
 ### 2. Vessel Generator (`vessel-generator/`)
 - Entry point: `scripts/vessel/vesselMain.js`
@@ -48,8 +48,8 @@
 - Theme system (light/dark mode, accent colors, typefaces)
 
 ### 6. Vessel Designer V3 (`vessel-v3-generator/`), retired 2026-10-21
-- **Not accessible**: off the dashboard chooser and project list, the Handle/Stacked Mold source pickers, the Line
-  app list and the Vite build; its page redirects to the dashboard and dashboard import refuses V3 files. Code and
+- **Not accessible**: off the dashboard chooser and project list, the Handle/Stacked Mold source pickers
+  and the Vite build; its page redirects to the dashboard and dashboard import refuses V3 files. Code and
   saved projects (`playground_ceramics_vessel_v3_projects`) are kept; delete the redirect line to restore it.
 - Entry point: `scripts/vesselV3/vesselV3Main.js`
 - Forked from Vessel Designer V2's freeform profile editor and per-segment surface
@@ -89,7 +89,7 @@
   `stackedMoldGeometryGate.mjs` (watertight, ≤ 45° overhang, fits the printer, keys mate through the plugs),
   `stackedMoldSetGate.mjs` (Braz set → 3 kits)
 
-## DialKit interface (`dialkit-dinnerware` branch)
+## DialKit interface
 
 - Each generator's parameters are DialKit panels mounted in a right-hand `.dk-dials-card`
   (`#parameterPanel`), defined per app in `scripts/ui/dialkit/<app>Dials.js` on the shared host
@@ -100,9 +100,10 @@
 - Shared chrome: `scripts/ui/dialkit/dkChrome.js` (File menu, parameters show/hide toggle; each page
   applies the stored toggle state in an inline `<head>` script) and `styles/dialkit-chrome.css`
   (tokens, header, card, menus, `.dk-modal` dialogs, rows). Page CSS: `styles/<app>-dials.css`,
-  `styles/dashboard-dialkit.css`. No footers; Studio/Line shells are not loaded on these pages.
+  `styles/dashboard-dialkit.css`. No footers. DialKit is the only interface: the earlier Classic, Studio
+  (`?ui=studio`) and Line (`?ui=line`) shells were deleted on 2026-10-21 (old `?ui=` links are ignored).
 - View controls live in the shared **view dock** (`scripts/ui/dialkit/viewDock.js`): a floating card in
-  the lower left of each viewport with the Studio shell's X/Y/Z orientation cube (click a face to snap,
+  the lower left of each viewport with an X/Y/Z orientation cube (`scripts/ui/dialkit/viewCube.js`) (click a face to snap,
   drag to orbit, reset button) and an expand icon revealing the app's view controls plus global
   Appearance: Interface and Background light/dark (independent), Axes, Line Art. Apps pass sections of
   toggle/select/slider/actions/group controls.
@@ -208,13 +209,10 @@ Each application follows similar state patterns:
 
 ### UI Components
 - `scripts/ui/viewport.js` - Dinnerware Three.js viewport (geometry cache, selection, compare ghosts)
-- `scripts/ui/profilePanel.js` - Dinnerware 2D profile editor and silhouette lineup
-- `scripts/ui/numericFields.js`, `scripts/ui/accessibility.js` - label scrubbing/arithmetic, a11y helpers
+- `scripts/ui/accessibility.js` - a11y helpers
 - `scripts/state/history.js`, `scripts/state/presets.js` - Dinnerware undo/redo and style presets
-- `scripts/ui/line/` - "Line" interface (`?ui=line`, remembered): Patterns Line-edition chrome for every
-  page. `lineAppShell.js` is the shared frame; `lineShell.js` (dinnerware), `lineDashboard.js` and
-  `adapters/*Line.js` configure it by reparenting classic controls. Styles: `styles/line-base.css`,
-  `line-app.css`, `line-dashboard.css`
+- `scripts/ui/dialkit/` - the interface (see "DialKit interface"); `viewCube.js` is the view dock's cube,
+  `scripts/ui/worldAxes.js` the viewports' axis lines
 - `scripts/ui/themeManager.js` - Global theme system
 - `scripts/vessel/ui/` - Vessel UI components
 - `scripts/handle/ui/` - Handle UI components

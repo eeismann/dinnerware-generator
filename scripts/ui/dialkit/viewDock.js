@@ -17,7 +17,7 @@
  * after state changes made elsewhere.
  */
 
-import { createViewCube } from '../studio/viewCube.js';
+import { createViewCube } from './viewCube.js';
 import { getMode, setMode } from '../themeManager.js';
 import { getViewerSettings, setViewerSetting, onViewerSettings } from '../viewerSettings.js';
 import { createDkControls } from './dkControls.js';

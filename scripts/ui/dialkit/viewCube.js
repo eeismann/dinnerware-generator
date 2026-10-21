@@ -7,7 +7,6 @@
  * - Drag the cube  → camera orbits (spherical mutation, radius preserved).
  * - Click a face   → app's native preset where provided, else eased spherical snap.
  */
-import { icon } from './icons.js';
 
 const FACES = ['Front', 'Back', 'Right', 'Left', 'Top', 'Bottom'];
 const EPS = 0.035;
@@ -67,7 +66,7 @@ export function createViewCube({ rig, presets = {}, onReset }) {
       <div class="st-vc-scene"><div class="st-viewcube">
         ${FACES.map(f => `<div class="st-vc-face st-vc-${f.toLowerCase()}" data-view="${f}">${f}</div>`).join('')}
       </div></div>
-      <button class="st-vc-reset" title="Reset view">${icon('reset')}</button>`;
+      <button class="st-vc-reset" title="Reset view"><svg class="st-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6L3.5 8.5"/><path d="M3.5 3.5v5h5"/></svg></button>`;
 
     const cube = wrap.querySelector('.st-viewcube');
     const scene = wrap.querySelector('.st-vc-scene');

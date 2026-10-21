@@ -264,14 +264,6 @@ export function initSettingsMenu() {
     const savedFont = getFont();
     setFont(savedFont);
 
-    // Interface (Classic / Studio) toggle — lazy import keeps classic pages lean.
-    // Pages without the alternate shells opt out with data-no-ui-toggle.
-    const menu = document.getElementById('settingsMenu');
-    if (menu && !menu.querySelector('.ui-mode-row') && !menu.hasAttribute('data-no-ui-toggle')) {
-        import('./studio/studioShell.js')
-            .then(m => m.injectClassicToggle('#settingsMenu'))
-            .catch(() => { /* studio modules unavailable — toggle omitted */ });
-    }
 }
 
 /**
