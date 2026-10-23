@@ -12,7 +12,8 @@
 
 import { createTourScene, TOOL_INFO } from './introTourScene.js';
 
-const SEEN_KEY = 'pc_intro_tour_seen_v1';
+// v2: the line-art tour; bumping the key shows it once more to everyone who saw v1
+const SEEN_KEY = 'pc_intro_tour_seen_v2';
 
 const TOOL_TEXT = {
     dinnerware: 'Plates, bowls, mugs, tumblers and saucers that share one style, with per-item overrides.',

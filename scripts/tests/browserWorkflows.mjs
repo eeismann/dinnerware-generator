@@ -16,7 +16,7 @@ try {
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({ deviceScaleFactor: 2 });
     // The dashboard intro tour opens on a first visit; it has its own suite (dashboardTourBrowser.mjs)
-    await context.addInitScript(() => localStorage.setItem('pc_intro_tour_seen_v1', '1'));
+    await context.addInitScript(() => localStorage.setItem('pc_intro_tour_seen_v2', '1'));
     const page = await context.newPage();
     const errors = [];
     const dialogs = [];

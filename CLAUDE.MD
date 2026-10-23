@@ -40,7 +40,7 @@
 
 ### 5. Dashboard (`dashboard.html`)
 - Entry point: `scripts/dashboard/dashboard.js`
-- Intro tour: `scripts/dashboard/introTour.js` (5 steps; opens once on a first visit, key `pc_intro_tour_seen_v1`;
+- Intro tour: `scripts/dashboard/introTour.js` (5 steps; opens once on a first visit, key `pc_intro_tour_seen_v2`;
   Settings → Intro Tour and the empty state reopen it). Browser tests pre-set that key; `dashboardTourBrowser.mjs`
   covers the tour. Its drawing is `introTourScene.js`: one line-art SVG scene (View settings Line Art style) that
   carries across the steps (floor of dinnerware → forms → handle and molds → generator → project cards); it only

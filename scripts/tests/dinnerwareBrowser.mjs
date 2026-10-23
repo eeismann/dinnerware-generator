@@ -21,7 +21,7 @@ try {
     });
     const context = await browser.newContext({ acceptDownloads: true });
     // The dashboard intro tour opens on a first visit; it has its own suite (dashboardTourBrowser.mjs)
-    await context.addInitScript(() => localStorage.setItem('pc_intro_tour_seen_v1', '1'));
+    await context.addInitScript(() => localStorage.setItem('pc_intro_tour_seen_v2', '1'));
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
