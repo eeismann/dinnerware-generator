@@ -42,7 +42,9 @@
 - Entry point: `scripts/dashboard/dashboard.js`
 - Intro tour: `scripts/dashboard/introTour.js` (5 steps; opens once on a first visit, key `pc_intro_tour_seen_v1`;
   Settings → Intro Tour and the empty state reopen it). Browser tests pre-set that key; `dashboardTourBrowser.mjs`
-  covers the tour.
+  covers the tour. Its drawing is `introTourScene.js`: one line-art SVG scene (View settings Line Art style) that
+  carries across the steps (floor of dinnerware → forms → handle and molds → generator → project cards); it only
+  animates while the tour is open. `dashboard.html?new=1` opens the New Project chooser.
 - Central hub for managing all projects
 - Project storage: `scripts/dashboard/projectStorage.js`
 - Theme system (light/dark mode, accent colors, typefaces)

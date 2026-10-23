@@ -59,6 +59,16 @@ function init() {
         tour.open();
     });
     document.getElementById('btnEmptyTour')?.addEventListener('click', () => tour.open());
+
+    // dashboard.html?new=1 opens the project selector (links that start a new project)
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('new')) {
+        tour.close();
+        showAppSelectModal();
+        params.delete('new');
+        const query = params.toString();
+        history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+    }
 }
 
 /**

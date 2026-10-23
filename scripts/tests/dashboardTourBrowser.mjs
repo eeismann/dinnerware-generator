@@ -38,7 +38,7 @@ try {
     assert.equal(await title(), 'Inside a generator');
     await page.locator('.tour-dot').nth(1).click();
     assert.equal(await title(), 'Start with a form');
-    const forms = await page.locator('.tour-app-text b').allTextContents();
+    const forms = await page.locator('.tour-cols b').allTextContents();
     assert.deepEqual(forms, ['Dinnerware Set', 'Vessel', 'Bezier Vessel']);
     pass('five steps, Next/Back, arrow keys and dots; the form step lists Bezier Vessel');
 
