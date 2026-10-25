@@ -18,7 +18,7 @@ import { RenderScheduler } from '../../ui/renderScheduler.js';
 import { createOrbitPanMode } from '../../ui/orbitPanMode.js';
 import { getViewerSettings, shadedPalette, FLOOR_GRID_Y } from '../../ui/viewerSettings.js';
 import { createViewerStyle } from '../../ui/viewerStyle.js';
-import { plasterLoop, wareSliceLoop } from '../geometry/castingUnitParts.js';
+import { plasterLoop, wareSliceLoop, KEY } from '../geometry/castingUnitParts.js';
 import { printSolid } from '../geometry/stackedMoldExporter.js';
 
 const C = {
@@ -331,13 +331,13 @@ export class StackedMoldViewport {
         dims.keyAngles.forEach(a => {
             const x = K * Math.cos(a), z = -K * Math.sin(a);
             if (u.plasterBottom === 'male') {
-                const cone = new THREE.ConeGeometry(6, 5, 32);
+                const cone = new THREE.ConeGeometry(KEY.r, KEY.h, 32);
                 cone.rotateX(Math.PI);
-                cone.translate(x, u.a - 2.5, z);
+                cone.translate(x, u.a - KEY.h / 2, z);
                 group.add(this.mesh(cone, C.key, C.key, { edges: false, flat: false }));
             }
             if (u.plasterTop === 'sockets') {
-                const disc = new THREE.CircleGeometry(6.15, 32);
+                const disc = new THREE.CircleGeometry(KEY.r, 32);
                 disc.rotateX(-Math.PI / 2);
                 disc.translate(x, u.b + 0.15, z);
                 const m = new THREE.Mesh(disc, new THREE.MeshBasicMaterial({ color: C.socket, clippingPlanes: this.planes, clipIntersection: true }));

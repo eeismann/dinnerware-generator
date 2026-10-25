@@ -10,8 +10,8 @@
  *                    bleed holes, lift tabs
  *     sleeve         one tall sleeve, in as many segments as the printer needs,
  *                    seam ears with teardrop bolt holes and pry bevels
- *     key plugs      bump (→ plaster socket) and pocket (→ plaster male cone,
- *                    with a bleed at its tip); 3 of each serve every unit
+ *     key plugs      bump (→ plaster socket) and pocket (→ plaster male cone);
+ *                    3 of each serve every unit
  *     locating puck  centres ring cores and the well locator on the bed plate
  *   Plates and lids too wide for the printer are cut into dovetailed tiles.
  *
@@ -42,8 +42,11 @@ export const PART_DEFAULTS = Object.freeze({
     printer: 'bambu-h2s'
 });
 
-// Keys and plugs (mm)
-const KEY = { maleR: 6, maleH: 5, socketR: 6.15, socketH: 6 };
+// Keys and plugs (mm). Male cone and socket are one 45° cone, so the flanks
+// close as the faces meet.
+const KEY = { r: 6, h: 6 };
+// Plugs seat on a 45° chamfer that lies on the bore's own chamfer, so a plug
+// sits flush (and centred) with the plaster face; flange and shank are clear.
 const PLUG = { holeR: 7.5, shankR: 7.35, cbR: 9.7, flangeR: 9.5, cbDepth: 2.2 };
 // Jack screws: M5 heat-set insert from the outside face, screw tip flush with the plaster face
 const JACK = { insertR: 3.2, insertDepth: 6, clearR: 2.75 };
@@ -323,7 +326,7 @@ function rimArcs(d, n, k, r0, r1, h) {
 
 /**
  * Slab between y0 and y1 with features:
- *   bump {cx, cw, r, h} · pocket {cx, cw, r, depth} · hole {cx, cw, r}
+ *   bump {cx, cw} · pocket {cx, cw} (key formers) · hole {cx, cw, r}
  *   bore {cx, cw, profile: [[r, y], ...] from y1 down to y0} (stepped through hole)
  *   pit {cx, cw, profile: [[r, y], ...] from y1 down to a flat floor}
  *   boss {poly, h} · core {profile, n} (lathe from (ρ0, y1) to the axis)
@@ -335,18 +338,10 @@ function plate(b, { outline, y0, y1, features }) {
     const P3 = (y) => ([u, w]) => [u, y, -w];
     for (const f of features) {
         const axis = [f.cx ?? 0, y1, -(f.cw ?? 0)];
-        if (f.kind === 'bump') {
-            const ring2 = circle2(f.cx, f.cw, f.r, KEY_SEG);
-            top.push(ring2);
-            const ring = b.loop(ring2.map(P3(y1)));
-            const apex = b.vertex([f.cx, y1 + f.h, -f.cw]);
-            b.axialStrip(ring, ring.map(() => apex), axis, [0, 1, 0], true);
-        } else if (f.kind === 'pocket') {
-            const ring2 = circle2(f.cx, f.cw, f.r, KEY_SEG);
-            top.push(ring2);
-            const ring = b.loop(ring2.map(P3(y1)));
-            const apex = b.vertex([f.cx, y1 - f.depth, -f.cw]);
-            b.axialStrip(ring, ring.map(() => apex), axis, [0, 1, 0], false);
+        if (f.kind === 'bump' || f.kind === 'pocket') {
+            top.push(circle2(f.cx, f.cw, KEY.r, KEY_SEG));
+            keyFormer(b, f.kind, (r, h) => b.loop(circle2(f.cx, f.cw, r, KEY_SEG).map(P3(y1 + h))),
+                (h) => b.vertex([f.cx, y1 + h, -f.cw]), axis, [0, 1, 0]);
         } else if (f.kind === 'hole') {
             const ring2 = circle2(f.cx, f.cw, f.r, f.n || BLEED_SEG);
             top.push(ring2);
@@ -388,6 +383,17 @@ function finish(b, meta) {
 }
 
 const polar = (r, a) => ({ cx: r * Math.cos(a), cw: r * Math.sin(a) });
+
+/**
+ * Key former (the key cone) on a face: `ringAt(r, h)` gives its base loop of
+ * vertex ids, `apexAt(h)` the tip at height h along the axis (h < 0 goes into
+ * the face). Bumps (→ sockets) stand out of the face, pockets (→ male cones) sink into it.
+ */
+function keyFormer(b, former, ringAt, apexAt, axisP, axisDir) {
+    const ring = ringAt(KEY.r, 0);
+    const apex = apexAt(former === 'pocket' ? -KEY.h : KEY.h);
+    b.axialStrip(ring, ring.map(() => apex), axisP, axisDir, former === 'bump');
+}
 
 /* ---------- universal kit ---------- */
 
@@ -477,14 +483,12 @@ function keyPlug(d, type) {
     const b = new SolidBuilder();
     const T = d.T;
     const cb = PLUG.cbDepth;
-    const flank = [[PLUG.flangeR, 0], [PLUG.flangeR, cb], [PLUG.shankR, cb + (PLUG.flangeR - PLUG.shankR)], [PLUG.shankR, T]];
+    // The flange chamfer lies on the bore's chamfer (cbR at cb, 45° inward)
+    const flank = [[PLUG.flangeR, 0], [PLUG.flangeR, cb + PLUG.cbR - PLUG.flangeR], [PLUG.shankR, cb + PLUG.cbR - PLUG.shankR], [PLUG.shankR, T]];
     if (type === 'bump') {
-        b.lathe([[0, 0], ...flank, [KEY.socketR, T], [0, T + KEY.socketH]], { n: KEY_SEG });
+        b.lathe([[0, 0], ...flank, [KEY.r, T], [0, T + KEY.h]], { n: KEY_SEG });
     } else {
-        // Pocket with a bleed hole from its tip through the flange
-        const neckY = T - KEY.maleH * (1 - BLEED_R / KEY.maleR);
-        const loop = [[BLEED_R, 0], ...flank, [KEY.maleR, T], [BLEED_R, neckY]];
-        b.lathe([...loop, loop[0]], { n: KEY_SEG });
+        b.lathe([[0, 0], ...flank, [KEY.r, T], [0, T - KEY.h]], { n: KEY_SEG });
     }
     return finish(b, { toPrint: IDENTITY });
 }
@@ -671,13 +675,11 @@ function keyBumps(b, d, n, k, rIn) {
     const P3 = (y) => ([u, w]) => [u, y, -w];
     const out = [];
     d.keyAngles.forEach(a => {
-        if (!inTile(a, n, k, d.K) || d.K - KEY.socketR < rIn + 2) return;
+        if (!inTile(a, n, k, d.K) || d.K - KEY.r < rIn + 2) return;
         const { cx, cw } = polar(d.K, a);
-        const ring2 = circle2(cx, cw, KEY.socketR, KEY_SEG);
-        out.push(ring2);
-        const ring = b.loop(ring2.map(P3(0)));
-        const apex = b.vertex([cx, KEY.socketH, -cw]);
-        b.axialStrip(ring, ring.map(() => apex), [cx, 0, -cw], [0, 1, 0], true);
+        out.push(circle2(cx, cw, KEY.r, KEY_SEG));
+        keyFormer(b, 'bump', (r, h) => b.loop(circle2(cx, cw, r, KEY_SEG).map(P3(h))),
+            (h) => b.vertex([cx, h, -cw]), [cx, 0, -cw], [0, 1, 0]);
     });
     return out;
 }
@@ -690,7 +692,7 @@ function centreFlange(d, rb) {
     const { t } = FOOT_RING;
     const rOut = d.rimIn - 0.3;
     const bedR = (Math.min(d.printer.x, d.printer.y) - 6) / 2 - t;
-    return Math.max(rb, Math.min(bedR, rOut - t - 26, d.K - KEY.socketR - 3 - t));
+    return Math.max(rb, Math.min(bedR, rOut - t - 26, d.K - KEY.r - 3 - t));
 }
 
 /**
@@ -793,16 +795,13 @@ function splitInsert(d, u, prof, former) {
     const boltYs = boltHeights(d.sleeveH).filter(y => y > 6 && y < h - 6);
     const P0 = (s) => (sc, tc) => [0, tc, s * sc];
     for (const s of [1, -1]) {
-        const keys = ys.map(y => circle2(keyZ, y, former === 'bumps' ? KEY.socketR : KEY.maleR, KEY_SEG));
+        const keys = ys.map(y => circle2(keyZ, y, KEY.r, KEY_SEG));
         const bolts = boltYs.map(y => circle2(d.boltS, y, BOLT_R, BLEED_SEG));
         const outline = [[fl, 0], [fl, h], ...[...prof].reverse().map(([rho, y]) => [rho, y])];
         b.face(outline, [...keys, ...bolts], P0(s), [1, 0, 0]);
-        keys.forEach((ring2, i) => {
-            const ring = b.loop(ring2.map(([sc, tc]) => P0(s)(sc, tc)));
-            const axisP = [0, ys[i], s * keyZ];
-            const apex = b.vertex(former === 'bumps' ? [KEY.socketH, ys[i], s * keyZ] : [-KEY.maleH, ys[i], s * keyZ]);
-            b.axialStrip(ring, ring.map(() => apex), axisP, [1, 0, 0], former === 'bumps');
-        });
+        ys.forEach(y => keyFormer(b, former === 'bumps' ? 'bump' : 'pocket',
+            (r, hx) => b.loop(circle2(keyZ, y, r, KEY_SEG).map(([sc, tc]) => [hx, tc, s * sc])),
+            (hx) => b.vertex([hx, y, s * keyZ]), [0, y, s * keyZ], [1, 0, 0]));
         bolts.forEach((ring2, i) => {
             const a = b.loop(ring2.map(([sc, tc]) => [0, tc, s * sc]));
             const c = b.loop(ring2.map(([sc, tc]) => [-T, tc, s * sc]));
@@ -884,7 +883,7 @@ function fusedFooterPlate(d, core) {
     const T = Math.max(d.T, dip + 2);
     const features = [
         ...rimArcs(d, 1, 0, d.rimIn, d.rimOut, RIM_H),
-        ...d.keyAngles.map(a => ({ kind: 'bump', ...polar(d.K, a), r: KEY.socketR, h: KEY.socketH })),
+        ...d.keyAngles.map(a => ({ kind: 'bump', ...polar(d.K, a) })),
         { kind: 'core', profile: core, n: circleSegments(core[0][0], 1.2, 64, 256) }
     ];
     plate(b, { outline: disc(d.pr, d.nBig), y0: -T, y1: 0, features });

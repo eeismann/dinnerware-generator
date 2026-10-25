@@ -29,8 +29,10 @@ export function getPrinter(id) {
  * Kit geometry revision. Bump it when a kit part changes shape, so a kit
  * exported before the change is offered for export again.
  * r2 (2026-10-20): 4 mm plate rim (sleeve stands on the footer locating ring), no pit cap.
+ * r3 (2026-10-25): bump and pocket plugs share one 45° key cone (no bleed hole);
+ *     plug flange chamfers lie on the bore chamfer so plugs seat flush.
  */
-export const KIT_REVISION = 2;
+export const KIT_REVISION = 3;
 
 export const KIT_PLATE_T = 8;
 

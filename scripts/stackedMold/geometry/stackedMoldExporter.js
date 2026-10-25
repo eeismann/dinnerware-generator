@@ -167,7 +167,7 @@ export function buildReadme(mold, projectName) {
     });
     lines.push('',
         `Kit hardware: 6 × M5 heat-set inserts + 6 × M5 × ${mold.dims.T} mm set screws (headless jack screws, 2.5 mm hex key), M3 bolts for the sleeve ears.`,
-        `Kit revision r${KIT_REVISION}: reprint kits from earlier revisions (r2 raised the plate rim to 4 mm and dropped the pit cap).`,
+        `Kit revision r${KIT_REVISION}: reprint kits from earlier revisions (r2 raised the plate rim to 4 mm and dropped the pit cap; r3 gave the bump and pocket plugs one key cone with no bleed hole, so male cones and sockets fit snugly, and seats the plugs flush).`,
         '',
         'Casting each unit:',
         '  1. Bed plate on the bench (tiles: slide the dovetails together and tape the seams). Push the key plugs the unit',
@@ -179,7 +179,8 @@ export function buildReadme(mold, projectName) {
         '  3. Stand the sleeve segments inside the rim (on the locating ring for a footer) and bolt the ears. Well collar: slide',
         '     the slit tube over the locator rim and tape its edges together on the inside. Soap every surface plaster will touch.',
         '  4. Pour. Lidded units: fill a little above the core top, put the plugs in the lid, and lower the lid until it',
-        '     rests on the core top; surplus and air leave through the bleeds. Footer and well collar: pour to height and let it level.',
+        '     rests on the core top; surplus and air leave through the lid\'s bleed holes. Pocket plugs in a lid face down and would',
+        '     trap air: fill each pocket with plaster first. Footer and well collar: pour to height and let it level.',
         '  5. Split units: stand insert A on the plate, bolt one sleeve segment to its divider flanges, pour, lid. Then insert B.',
         '  6. Once set: turn the lid\'s set screws down evenly (or lift it by its tabs), unbolt and pry the sleeve open at the ear',
         '     bevels. Lay the plate across two blocks and turn its set screws up from below (2 mm breaks the plaster free), then',

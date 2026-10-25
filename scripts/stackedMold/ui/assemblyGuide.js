@@ -13,7 +13,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { extractMeshProfile } from '../geometry/profileExtractor.js';
 import { computeMold } from '../geometry/stackedMoldPipeline.js';
-import { plasterLoop, wareSliceLoop, boltHeights, PUCK, TUBE_T, SLIT_ANGLE } from '../geometry/castingUnitParts.js';
+import { plasterLoop, wareSliceLoop, boltHeights, KEY, PUCK, TUBE_T, SLIT_ANGLE } from '../geometry/castingUnitParts.js';
 import { DEFAULT_PARAMS, deepClone } from '../state/stackedMoldDefaults.js';
 import { solidGeometry, latheGeometry } from './stackedMoldViewport.js';
 
@@ -144,13 +144,13 @@ export async function mountAssemblyGuide({ canvasHost, stepsEl, tabsEl, titleEl,
         dims.keyAngles.forEach(a => {
             const [x, , z] = at(dims.K, a, 0);
             if (u.plasterBottom === 'male') {
-                const c = new THREE.ConeGeometry(6, 5, 32);
+                const c = new THREE.ConeGeometry(KEY.r, KEY.h, 32);
                 c.rotateX(Math.PI);
-                c.translate(x, u.a - 2.5, z);
+                c.translate(x, u.a - KEY.h / 2, z);
                 out.push(new THREE.Mesh(c, new THREE.MeshLambertMaterial({ color: COLOR.cone, transparent: true })));
             }
             if (u.plasterTop === 'sockets') {
-                const d = new THREE.CircleGeometry(6.15, 32);
+                const d = new THREE.CircleGeometry(KEY.r, 32);
                 d.rotateX(-Math.PI / 2);
                 d.translate(x, u.b + 0.2, z);
                 const m = new THREE.Mesh(d, new THREE.MeshBasicMaterial({ color: COLOR.socket, side: THREE.DoubleSide, transparent: true }));

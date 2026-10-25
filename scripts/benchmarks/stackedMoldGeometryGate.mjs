@@ -5,10 +5,12 @@
  * part and ware part is a closed, consistently oriented 2-manifold with
  * positive volume; no print overhang exceeds 45° in its saved print
  * orientation; every file fits the printer (tiles and sleeve segments
- * included); keys mate across every joint through the swap-in plugs (a
- * 6.15 mm bump ring on one side, a 6 mm pocket ring on the other, at the same
- * key circle and angles); the plates carry the plug and jack bores; split
- * dividers mate; export names and STL bytes are well formed.
+ * included); keys mate across every joint through the swap-in plugs (a bump
+ * on one side, a pocket on the other, at the same key circle and angles, and
+ * the male cone's flank lies on the socket's: no play, faces close); plugs
+ * seat flush on the bore chamfer;
+ * the plates carry the plug and jack bores; split dividers mate; export names
+ * and STL bytes are well formed.
  */
 
 import { readFileSync } from 'node:fs';
@@ -17,7 +19,7 @@ import { SAMPLE_FORMS } from '../stackedMold/geometry/sampleForms.js';
 import { extractMeshProfile, controlFormProfile } from '../stackedMold/geometry/profileExtractor.js';
 import { computeMold } from '../stackedMold/geometry/stackedMoldPipeline.js';
 import { transformSolid, measureOverhang } from '../stackedMold/geometry/solidBuilder.js';
-import { composeMatrix, IDENTITY, FOOT_RING } from '../stackedMold/geometry/castingUnitParts.js';
+import { composeMatrix, IDENTITY, FOOT_RING, KEY, PLUG } from '../stackedMold/geometry/castingUnitParts.js';
 import { buildExportFiles, solidToSTL, buildReadme } from '../stackedMold/geometry/stackedMoldExporter.js';
 import { DEFAULT_PARAMS, deepClone } from '../stackedMold/state/stackedMoldDefaults.js';
 
@@ -49,6 +51,35 @@ const sources = [
 const toMold = (u) => u.orient === 'inverted'
     ? [1, 0, 0, 0, 0, -1, 0, u.b, 0, 0, -1, 0]
     : [1, 0, 0, 0, 0, 1, 0, u.a, 0, 0, 1, 0];
+
+/**
+ * Key cone vertices about `center` (axis index `axis`), as [r, d]: d is the
+ * depth past the face along `sign`, r the distance from the key axis.
+ */
+function keyVerts(positions, center, axis, sign) {
+    const out = [];
+    for (let i = 0; i < positions.length; i += 3) {
+        const p = [positions[i], positions[i + 1], positions[i + 2]];
+        const d = sign * (p[axis] - center[axis]);
+        const r = Math.hypot(...p.map((v, k) => (k === axis ? 0 : v - center[k])));
+        if (r <= KEY.r + 0.01 && d > -0.01) out.push([r, d]);
+    }
+    return out;
+}
+
+/**
+ * Male cone (pocket former) in its socket (bump former): both are the same
+ * cone, every vertex on r + d = KEY.r from the face ring to the apex, so the
+ * faces close with the flanks touching. No bleed hole: nothing else inside.
+ */
+function keyFit(bump, pocket, center, axis, sign) {
+    const cone = (vs) => vs.filter(([, d]) => d <= KEY.h + 0.01);
+    const b = cone(keyVerts(bump, center, axis, sign));
+    const p = cone(keyVerts(pocket, center, axis, sign));
+    const onCone = (vs) => vs.length >= 32 && vs.every(([r, d]) => Math.abs(r + d - KEY.r) < 0.02);
+    const tip = (vs) => vs.some(([r, d]) => r < 0.01 && Math.abs(d - KEY.h) < 0.01);
+    return onCone(b) && onCone(p) && tip(b) && tip(p);
+}
 
 /** Vertices on a ring of radius `rad` about `center`, in the plane normal to `axis`. */
 function ringHits(positions, center, rad, axis) {
@@ -122,6 +153,25 @@ for (const [name, src, opts] of sources) {
     }) && dims.jackAngles.every(a => ringHits(bed, [dims.K * Math.cos(a), -T, -dims.K * Math.sin(a)], 3.2, 1) >= 10);
     check(bores, `${name}: plug bores at r ${dims.K} (0°/120°/240°) and jack bores between`);
 
+    // Plugs seat on the bore chamfer: the flange chamfer lies on the bore's
+    // 45° line r + h = cbR + cbDepth (h from the bench face), so they sit flush
+    const seatLine = PLUG.cbR + PLUG.cbDepth;
+    const seated = ['plugbump', 'plugpocket'].every(role => {
+        const plug = kit.parts.find(p => p.role === role).solid.positions;
+        const pts = [];
+        for (let i = 0; i < plug.length; i += 3) pts.push([Math.hypot(plug[i], plug[i + 2]), plug[i + 1]]);
+        const chamfer = pts.filter(([r, h]) => r > PLUG.shankR - 0.01 && r < PLUG.flangeR + 0.01 && h > PLUG.cbDepth - 0.01 && h < 2 * PLUG.cbDepth + 0.5);
+        return chamfer.length >= 32 && chamfer.every(([r, h]) => Math.abs(r + h - seatLine) < 0.01);
+    });
+    const c0 = [dims.K, 0, 0];
+    const boreChamfer = [];
+    for (let i = 0; i < bed.length; i += 3) {
+        const r = Math.hypot(bed[i] - c0[0], bed[i + 2] - c0[2]);
+        const h = bed[i + 1] + T;
+        if (r > PLUG.holeR - 0.01 && r < PLUG.cbR + 0.01 && h > PLUG.cbDepth - 0.01 && h < 2 * PLUG.cbDepth + 0.01) boreChamfer.push(r + h);
+    }
+    check(seated && boreChamfer.length >= 32 && boreChamfer.every(v => Math.abs(v - seatLine) < 0.01), `${name}: key plugs seat flush on the bore chamfer`);
+
     // Keys mate across every joint, through the plugs each unit uses
     const plugsOf = (e) => e.kitUse.filter(use => /^plug/.test(use.role)).map(use => {
         const plug = kit.parts.find(p => p.role === use.role);
@@ -136,11 +186,12 @@ for (const [name, src, opts] of sources) {
         const upperPlugs = plugsOf(upper);
         const mated = dims.keyAngles.every(a => {
             const c = [dims.K * Math.cos(a), zj, -dims.K * Math.sin(a)];
-            const bumps = lowerPlugs.filter(p => ringHits(p, c, 6.15, 1) >= 16).length;
-            const pockets = upperPlugs.filter(p => ringHits(p, c, 6.0, 1) >= 16).length;
-            return bumps === 1 && pockets === 1;
+            const bumps = lowerPlugs.filter(p => ringHits(p, c, KEY.r, 1) >= 16);
+            const pockets = upperPlugs.filter(p => ringHits(p, c, KEY.r, 1) >= 16);
+            // Sockets open on the lower piece's top face, male cones point down: depth runs −y
+            return bumps.length === 1 && pockets.length === 1 && keyFit(bumps[0], pockets[0], c, 1, -1);
         });
-        check(mated, `${name}: ${lower.unit.id}→${upper.unit.id} keys mate at z ${zj.toFixed(1)} (r ${dims.K}, 0°/120°/240°)`);
+        check(mated, `${name}: ${lower.unit.id}→${upper.unit.id} keys mate snugly at z ${zj.toFixed(1)} (r ${dims.K}, 0°/120°/240°)`);
     }
     // Footer base: the stub surface above the ring face is the ware's own profile;
     // a wide base's ring tiles seat on its flange's 45° edge; the tabs pass the rim gaps
@@ -200,9 +251,11 @@ for (const [name, src, opts] of sources) {
         const zk = dims.R - 12;
         const ok = [0.25, 0.75].every(f => [1, -1].every(s => {
             const c = [0, e.unit.h * f, s * zk];
-            return ringHits(A, c, 6.15, 0) >= 16 && ringHits(B, c, 6.0, 0) >= 16;
+            // A's bumps stand on +x; B, turned half a turn in use, has its pockets on −x
+            const Bt = B.map((v, i) => (i % 3 === 1 ? v : -v));
+            return ringHits(A, c, KEY.r, 0) >= 16 && ringHits(B, c, KEY.r, 0) >= 16 && keyFit(A, Bt, [0, c[1], s * zk], 0, 1);
         }));
-        check(ok, `${name}: ${e.unit.id} divider keys mate (A bumps / B pockets)`);
+        check(ok, `${name}: ${e.unit.id} divider keys mate snugly (A bumps / B pockets)`);
     }
     console.log(`${name}: ${kit.id}, ${result.units.length} units, ${all.length} parts, ${files.length} files`);
 }
