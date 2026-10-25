@@ -93,6 +93,22 @@
             <section class="sm-card sm-summary" id="summaryCard" hidden aria-live="polite">
                 <dl class="sm-stats" id="summaryStats"></dl>
             </section>
+            <section class="sm-card sm-mix" id="mixCard" hidden>
+                <div class="sm-card-header">
+                    <span class="sm-card-title">Plaster Mix</span>
+                    <span class="sm-card-note" id="mixNote"></span>
+                    <div class="dk-switch sm-mix-units" id="mixUnits" role="group" aria-label="Mix units">
+                        <button class="dk-seg" type="button" data-units="metric" aria-pressed="true" title="Grams and millilitres">g · ml</button>
+                        <button class="dk-seg" type="button" data-units="imperial" aria-pressed="false" title="Pounds and ounces (water weighed too)">lb · oz</button>
+                    </div>
+                </div>
+                <table class="sm-mix-table">
+                    <thead><tr><th scope="col">Pour</th><th scope="col">Plaster</th><th scope="col">Water</th></tr></thead>
+                    <tbody id="mixRows"></tbody>
+                    <tfoot id="mixTotal"></tfoot>
+                </table>
+                <p class="sm-mix-hint" id="mixHint"></p>
+            </section>
             <section class="sm-card sm-units" id="unitsCard" hidden>
                 <div class="sm-card-header">
                     <span class="sm-card-title">Casting Units</span>

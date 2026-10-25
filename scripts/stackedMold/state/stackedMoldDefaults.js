@@ -8,6 +8,7 @@
 import { SLICER_DEFAULTS } from '../geometry/bandSlicer.js';
 import { PART_DEFAULTS } from '../geometry/castingUnitParts.js';
 import { KIT_SERIES, PRINTERS, DEFAULT_PRINTER, getPrinter } from '../geometry/kitSpec.js';
+import { MIX_DEFAULTS, MIX_UNITS } from '../geometry/plasterMix.js';
 
 export const STORAGE_KEY = 'playground_ceramics_stacked_mold_projects';
 export const AUTOSAVE_KEY = 'stacked_mold_autosave';
@@ -41,6 +42,12 @@ export const DEFAULT_PARAMS = {
         sleeveWall: PART_DEFAULTS.sleeveWall,
         plateT: PART_DEFAULTS.plateT,
         strapGroove: PART_DEFAULTS.strapGroove
+    },
+    // Plaster mix: shown per pour, never changes the geometry
+    plaster: {
+        consistency: MIX_DEFAULTS.consistency,
+        allowance: MIX_DEFAULTS.allowance,
+        units: MIX_DEFAULTS.units
     }
 };
 
@@ -64,6 +71,9 @@ export const PARAM_CONSTRAINTS = {
     'parts.sleeveWall': { min: 2, max: 6, step: 0.2 },
     'parts.plateT': { min: 8, max: 12, step: 0.5 },
     'parts.strapGroove': { type: 'boolean' },
+    'plaster.consistency': { min: 55, max: 90, step: 1 },
+    'plaster.allowance': { min: 0, max: 30, step: 1 },
+    'plaster.units': { options: MIX_UNITS },
     'kit.diameter': { options: [{ value: 'auto', label: 'Auto (standard)' }, ...KIT_SERIES.map(d => ({ value: String(d), label: `Ø${d}` })), { value: 'fitted', label: 'Fitted (one-off)' }] },
     'kit.sleeveH': { options: [{ value: 'auto', label: 'Auto' }, ...[60, 80, 100, 120, 140, 160, 180, 200, 240, 300].map(h => ({ value: String(h), label: `${h} mm` }))] },
     'kit.printer': { options: Object.entries(PRINTERS).map(([value, p]) => ({ value, label: p.label })) }

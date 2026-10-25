@@ -3,8 +3,8 @@
  *
  * Panel definitions for the shared DialKit host (dialHost.js): the universal
  * kit (standard cylinder diameter, tall-sleeve height, printer), mold
- * (shrinkage, plaster margin, footer, seam, well), slicing rules and printed
- * parts. View options live in the view dock. Stacked mold state stays the
+ * (shrinkage, plaster margin, footer, seam, well), slicing rules, printed
+ * parts and the plaster mix (consistency, extra mix %, metric or lb/oz). View options live in the view dock. Stacked mold state stays the
  * source of truth; dial edits go through `api.setParam` (see
  * scripts/stackedMold/stackedMoldMain.js initDials()) and `sync()` pushes state
  * back after loads, new projects and source changes.
@@ -61,6 +61,14 @@ const PANELS = [
             sleeveWall: 'parts.sleeveWall',
             plateThickness: 'parts.plateT',
             strapGroove: 'parts.strapGroove'
+        }
+    },
+    {
+        id: 'stackedmold-plaster', name: 'Plaster Mix',
+        keys: {
+            consistency: 'plaster.consistency',
+            extraMix: 'plaster.allowance',
+            units: 'plaster.units'
         }
     }
 ];

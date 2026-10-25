@@ -16,6 +16,7 @@ import { transformSolid, dropToBed } from './solidBuilder.js';
 import { demoldOrder } from './bandSlicer.js';
 import { fitOnBed } from './castingUnitParts.js';
 import { KIT_REVISION } from './kitSpec.js';
+import { formatGrams, formatWater } from './plasterMix.js';
 import { Z_UP_HEADER_TAG } from '../../geometry/stlCore.js';
 import { createZip } from '../../storage/zipWriter.js';
 
@@ -189,6 +190,13 @@ export function buildReadme(mold, projectName) {
         '     an edge of the slit tube inward to free the bore.',
         '',
         'Every piece has male cones below and sockets on top; stack them footer first.',
+        '');
+    const mix = mold.mix;
+    const u = mix.units;
+    lines.push(`Plaster mix per pour (consistency ${mix.consistency}: ${mix.consistency} parts water to 100 parts dry plaster, by weight; ${mix.allowance}% extra for bucket loss and overfill):`);
+    mix.pours.forEach(p => lines.push(`  ${p.id.padEnd(4)} ${p.kind.padEnd(6)} ${p.litres.toFixed(2)} L · ${formatGrams(p.plasterG, u).padStart(13)} plaster + ${formatWater(p.waterG, u).padStart(13)} water`));
+    lines.push(`  Total       ${mix.total.litres.toFixed(2)} L · ${formatGrams(mix.total.plasterG, u).padStart(13)} plaster + ${formatWater(mix.total.waterG, u).padStart(13)} water`,
+        '  Sift the plaster onto the water, let it slake 2–3 min, then mix 2–3 min.',
         '',
         'Demold order:');
     demoldOrder(result).forEach((s, i) => lines.push(`  ${i + 1}. ${s.text} (${s.ids.join(', ')})`));

@@ -65,7 +65,7 @@ try {
     await page.waitForFunction(() => window.__stackedMold);
     assert.equal(await page.locator('#emptyState').isVisible(), true, 'start card on an empty project');
     assert.match(await page.locator('#sourceName').textContent(), /No source chosen/);
-    for (const name of ['Kit', 'Mold', 'Slicing', 'Printed Parts']) assert.equal(await section(name).count(), 1, `${name} panel`);
+    for (const name of ['Kit', 'Mold', 'Slicing', 'Printed Parts', 'Plaster Mix']) assert.equal(await section(name).count(), 1, `${name} panel`);
     for (const label of ['Shrinkage', 'Plaster Margin', 'Footer Thickness', 'Foot Seam', 'Well Height', 'Ledge Width']) {
         assert.equal(await section('Mold').getByRole('slider', { name: label, exact: true }).count(), 1, label);
     }
@@ -98,6 +98,35 @@ try {
         const { stackedMoldState } = await import('/scripts/stackedMold/state/stackedMoldState.js');
         stackedMoldState.setState('params.mold.plasterMin', 25);
     });
+
+    // --- Plaster mix: one row per pour; consistency re-mixes without regenerating
+    await page.waitForFunction(() => window.__stackedMold?.mold?.summary.diameter === 200);
+    assert.equal(await page.locator('#mixCard').isVisible(), true, 'plaster mix card');
+    assert.equal(await page.locator('#mixRows tr').count(), 4, 'one mix row per pour');
+    const mixBefore = await page.evaluate(() => ({ g: window.__stackedMold.mold.mix.total.plasterG }));
+    await page.evaluate(() => { window.__moldBefore = window.__stackedMold.mold; });
+    await page.evaluate(async () => {
+        const { stackedMoldState } = await import('/scripts/stackedMold/state/stackedMoldState.js');
+        stackedMoldState.setState('params.plaster.consistency', 80);
+    });
+    await page.waitForFunction(() => window.__stackedMold.mold.mix.consistency === 80);
+    assert.ok(await page.evaluate(() => window.__stackedMold.mold === window.__moldBefore), 'mix change keeps the mold');
+    assert.ok(await page.evaluate(() => window.__stackedMold.mold.mix.total.plasterG) < mixBefore.g, 'thinner mix → less plaster');
+    assert.match(await page.locator('#mixHint').textContent(), /Consistency 80/);
+    pass(`plaster mix card: 4 pours, ${(mixBefore.g / 1000).toFixed(2)} kg dry plaster at consistency 70; re-mixes without regenerating`);
+    await page.evaluate(async () => {
+        const { stackedMoldState } = await import('/scripts/stackedMold/state/stackedMoldState.js');
+        stackedMoldState.setState('params.plaster.consistency', 70);
+    });
+    await page.locator('#mixUnits [data-units="imperial"]').click();
+    await page.waitForFunction(() => /lb/.test(document.getElementById('mixTotal').textContent));
+    const imperialTotal = (await page.locator('#mixTotal').innerText()).trim();
+    assert.match(imperialTotal, /^Total\s*\d+ lb( [\d.]+ oz)?\s*\d+ lb( [\d.]+ oz)?$/, 'totals in lb/oz');
+    assert.equal(await section('Plaster Mix').getByText('Imperial (lb, oz)').count() > 0, true, 'units dial shows Imperial');
+    assert.equal(await page.locator('#mixUnits [data-units="imperial"]').getAttribute('aria-pressed'), 'true', 'card toggle shows lb · oz');
+    pass(`plaster mix in pounds and ounces (card toggle): ${imperialTotal.replace(/\s+/g, ' ')}`);
+    await page.locator('#mixUnits [data-units="metric"]').click();
+    await page.waitForFunction(() => /kg|\d g/.test(document.getElementById('mixTotal').textContent));
 
     // --- User test forms (STL)
     await page.locator('#btnChooseSource').click();

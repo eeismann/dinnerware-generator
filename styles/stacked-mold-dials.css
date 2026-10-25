@@ -148,6 +148,78 @@ body {
     color: var(--dk-text-root);
 }
 
+.sm-mix .sm-card-header {
+    align-items: center;
+}
+
+.sm-mix .sm-card-note {
+    margin-left: auto;
+}
+
+.sm-mix-units .dk-seg {
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 5px;
+    font-size: 11px;
+    color: var(--dk-text-tertiary);
+}
+
+.sm-mix-table {
+    width: 100%;
+    margin-top: 8px;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.sm-mix-table th,
+.sm-mix-table td {
+    padding: 4px 6px;
+    font-weight: 400;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.sm-mix-table th:first-child {
+    text-align: left;
+}
+
+.sm-mix-table thead th {
+    padding-top: 0;
+    font-size: 11px;
+    color: var(--dk-text-tertiary);
+}
+
+.sm-mix-table tbody th {
+    font-weight: 600;
+    color: var(--dk-text-root);
+}
+
+.sm-mix-table td {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px;
+    color: var(--dk-text-root);
+}
+
+.sm-mix-kind {
+    margin-left: 4px;
+    font-weight: 400;
+    color: var(--dk-text-label);
+}
+
+.sm-mix-table tfoot th,
+.sm-mix-table tfoot td {
+    border-top: 1px solid var(--dk-border);
+    font-weight: 600;
+    color: var(--dk-text-root);
+}
+
+.sm-mix-hint {
+    margin: 8px 0 0;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--dk-text-tertiary);
+}
+
 .sm-unit-list {
     display: flex;
     flex-direction: column;

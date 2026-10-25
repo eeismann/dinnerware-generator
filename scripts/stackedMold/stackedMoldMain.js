@@ -16,6 +16,7 @@ import { initDkMenu, initPanelToggle } from '../ui/dialkit/dkChrome.js';
 import stackedMoldState from './state/stackedMoldState.js';
 import { computeMold } from './geometry/stackedMoldPipeline.js';
 import { demoldOrder } from './geometry/bandSlicer.js';
+import { plasterSchedule, formatGrams, formatWater } from './geometry/plasterMix.js';
 import { KIT_REVISION } from './geometry/kitSpec.js';
 import { buildExportFiles, downloadExport, sanitizeName } from './geometry/stackedMoldExporter.js';
 import { StackedMoldViewport } from './ui/stackedMoldViewport.js';
@@ -188,7 +189,13 @@ class StackedMoldApp {
     }
 
     subscribe() {
-        stackedMoldState.subscribe('params', () => this.scheduleRegenerate());
+        stackedMoldState.subscribe('params', (_, paths) => {
+            // The plaster mix never changes the geometry: re-mix without regenerating
+            if (this.mold && paths.every(p => p.startsWith('params.plaster.') || p === 'project.isDirty')) {
+                this.mold.mix = plasterSchedule(this.mold.result, stackedMoldState.getState('params.plaster'));
+                this.renderMix();
+            } else this.scheduleRegenerate();
+        });
         stackedMoldState.subscribe('source', () => this.scheduleRegenerate(0));
         stackedMoldState.subscribe('view', (view) => {
             this.viewport.setView(view);
@@ -259,6 +266,7 @@ class StackedMoldApp {
 
     renderAll() {
         this.renderSummary();
+        this.renderMix();
         this.renderUnits();
         this.renderWarnings();
         this.renderProfile();
@@ -294,6 +302,26 @@ class StackedMoldApp {
         ];
         $('summaryCard').title = `Cylinder Ø${summary.diameter} (ware needs Ø${result.fittedS}). Universal kit ${parts.kit.id}: ${kitPrints} prints, made once per diameter.`;
         $('summaryStats').innerHTML = stats.map(([k, v]) => `<div class="sm-stat"><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+    }
+
+    renderMix() {
+        const card = $('mixCard');
+        card.hidden = !this.mold;
+        if (!this.mold) return;
+        const { pours, total, consistency, allowance, units } = this.mold.mix;
+        const plaster = (g) => formatGrams(g, units);
+        const water = (g) => formatWater(g, units);
+        const label = (p) => `${p.id} <span class="sm-mix-kind">${p.kind === 'well' ? 'Well' : KIND_LABEL[p.kind]}</span>`;
+        $('mixNote').textContent = `${total.litres.toFixed(2)} L set`;
+        $('mixUnits').querySelectorAll('[data-units]').forEach(btn => btn.setAttribute('aria-pressed', String(btn.dataset.units === units)));
+        $('mixRows').innerHTML = pours.map(p => `
+            <tr title="${p.litres.toFixed(2)} L of plaster; mix ${p.slurryL.toFixed(2)} L">
+                <th scope="row">${label(p)}</th><td>${plaster(p.plasterG)}</td><td>${water(p.waterG)}</td>
+            </tr>`).join('');
+        $('mixTotal').innerHTML = `<tr><th scope="row">Total</th><td>${plaster(total.plasterG)}</td><td>${water(total.waterG)}</td></tr>`;
+        const ratio = units === 'imperial' ? `${consistency} parts water to 100 parts dry plaster, both weighed` : `${consistency} g water per 100 g dry plaster, by weight`;
+        $('mixHint').textContent = `Consistency ${consistency}: ${ratio}, with ${allowance}% extra mixed for bucket loss and overfill. `
+            + 'Sift the plaster onto the water, let it slake 2–3 min, then mix 2–3 min.';
     }
 
     renderUnits() {
@@ -444,6 +472,10 @@ class StackedMoldApp {
         $('sourceTabs').querySelectorAll('[data-source]').forEach(btn => btn.addEventListener('click', () => {
             this.sourceTab = btn.dataset.source;
             this.renderSourceList();
+        }));
+        // Mix units, also on the Plaster Mix dial
+        $('mixUnits').querySelectorAll('[data-units]').forEach(btn => btn.addEventListener('click', () => {
+            stackedMoldState.setState('params.plaster.units', btn.dataset.units);
         }));
         $('importFileBtn').addEventListener('click', () => $('fileInput').click());
         $('saveConfirm').addEventListener('click', () => this.saveProject());

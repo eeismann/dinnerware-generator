@@ -2,13 +2,14 @@
  * Stacked Cylinder Mold - pipeline
  *
  * Source profile (ware size) → mold-size profile → slice → printable parts
- * → warnings. Pure (no DOM, no Three.js scene), shared by the app and the
+ * → warnings → plaster mix per pour. Pure (no DOM, no Three.js scene), shared by the app and the
  * Node gates.
  */
 
 import { makeControlProfile, makeSampledProfile, sliceProfile, countPieces } from './bandSlicer.js';
 import { buildCastingParts, moldDimensions } from './castingUnitParts.js';
 import { collectWarnings } from './moldWarnings.js';
+import { plasterSchedule } from './plasterMix.js';
 import { slicerParams, partParams } from '../state/stackedMoldDefaults.js';
 
 /**
@@ -46,6 +47,7 @@ export function computeMold(src, params, { parts = true } = {}) {
         dims,
         parts: built,
         warnings,
+        mix: plasterSchedule(result, params.plaster),
         summary: {
             units: result.units.length,
             pieces: countPieces(result),

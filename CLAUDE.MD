@@ -84,6 +84,9 @@
   dovetailed ring tiles on a 45° seat), split inserts, well slit tube (edges meet,
   taped inside; no wedge) + spoked locator. `stackedMoldExporter.js` writes kit and ware
   folders (one Z-up STL per part, turned to fit the bed) + README.
+- `geometry/plasterMix.js`: dry plaster + water per pour (a split unit pours twice) from each piece's volume, at a
+  consistency (default 70) plus an extra-mix %; shown in the Plaster Mix card and README. `params.plaster` re-mixes
+  without regenerating.
 - `geometry/setPlanner.js` + `tools/planSet.mjs` plan a whole ware set into the fewest kits
   (`node scripts/stackedMold/tools/planSet.mjs test-files/stacked-mold/braz-set --out output/stacked-mold/braz-set`).
 - Own localStorage key (`playground_ceramics_stacked_mold_projects`, `appType: 'stackedmold'`)

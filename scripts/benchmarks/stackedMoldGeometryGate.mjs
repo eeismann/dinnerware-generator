@@ -22,6 +22,8 @@ import { transformSolid, measureOverhang } from '../stackedMold/geometry/solidBu
 import { composeMatrix, IDENTITY, FOOT_RING, KEY, PLUG } from '../stackedMold/geometry/castingUnitParts.js';
 import { buildExportFiles, solidToSTL, buildReadme } from '../stackedMold/geometry/stackedMoldExporter.js';
 import { DEFAULT_PARAMS, deepClone } from '../stackedMold/state/stackedMoldDefaults.js';
+import { formatPounds, formatGrams, formatWater } from '../stackedMold/geometry/plasterMix.js';
+
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 let failures = 0;
@@ -30,6 +32,11 @@ const check = (ok, label) => {
     if (!ok || process.argv.includes('--verbose')) console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`);
     return ok;
 };
+
+// Plaster mix units: half-ounce steps, carrying into pounds
+check(formatPounds(326) === '11.5 oz' && formatPounds(1236) === '2 lb 11.5 oz' && formatPounds(453.59237) === '1 lb'
+    && formatPounds(907.18) === '2 lb' && formatGrams(1236) === '1.24 kg' && formatWater(302) === '300 ml'
+    && formatWater(1236, 'imperial') === '2 lb 11.5 oz', 'plaster mix formats metric and lb/oz');
 
 const readSTL = (path) => {
     const buf = readFileSync(path);
@@ -141,6 +148,16 @@ for (const [name, src, opts] of sources) {
         check(roles === expected, `${name} ${e.unit.id} ${e.unit.kind}: ware parts ${roles}`);
     }
     check(buildReadme(mold, name).includes('Demold order'), `${name}: README`);
+    // Plaster mix: one pour per piece (split halves apart), 925.7 g plaster + 648 g water per litre of slurry at C 70
+    const { mix } = mold;
+    const expectPours = result.units.reduce((n, u) => n + (u.kind === 'split' ? 2 : 1), 0);
+    const perL = 1000 / (1 / 2.63 + 0.7);
+    const mixOk = mix.pours.length === expectPours && mix.pours.length === mold.summary.pieces
+        && Math.abs(mix.total.litres - mold.summary.plasterLitres) < 1e-9
+        && Math.abs(mix.total.plasterG - mold.summary.plasterLitres * 1.1 * perL) < 0.01
+        && Math.abs(mix.total.waterG - mix.total.plasterG * 0.7) < 0.01
+        && buildReadme(mold, name).includes('Plaster mix per pour');
+    check(mixOk, `${name}: plaster mix ${mix.pours.length} pours, ${(mix.total.plasterG / 1000).toFixed(2)} kg plaster + ${(mix.total.waterG / 1000).toFixed(2)} L water`);
 
     // Plates and lids carry plug bores at the key circle and jack bores between
     const assembled = (role) => kit.parts.filter(p => p.role === role).flatMap(p => [...p.solid.positions]);
