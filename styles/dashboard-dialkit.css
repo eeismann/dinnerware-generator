@@ -414,9 +414,9 @@ body.dk-dashboard {
 /* ---------- Dialogs ---------- */
 
 .dk-dashboard .modal-dashboard-backdrop {
-    background: rgba(0, 0, 0, 0.35);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: var(--dk-scrim);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 
 .dk-dashboard .modal-dashboard-content {

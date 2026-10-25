@@ -12,6 +12,8 @@
 }
 
 :root {
+    /* Screen behind every dialog (same in light and dark) */
+    --dk-scrim: rgba(0, 0, 0, 0.65);
     --dk-page-bg: #171717;
     --dk-glass-bg: #212121;
     --dk-dropdown-bg: #2a2a2a;
@@ -237,9 +239,9 @@
 /* ---------- Dialogs ---------- */
 
 .dk-modal .modal-backdrop {
-    background: rgba(0, 0, 0, 0.35);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: var(--dk-scrim);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 
 .dk-modal .modal-content {
@@ -590,7 +592,7 @@
     justify-content: space-between;
     flex: none;
     box-sizing: border-box;
-    z-index: 100;
+    z-index: 950; /* above the start card's screen (Back and File stay usable), below dialogs */
     height: 52px;
     padding: 0 12px;
     background: var(--dk-glass-bg);
@@ -832,19 +834,18 @@
 /* ---------- Start card ----------
    Centered over the empty viewport until the generator has a source. */
 
+/* Start card: centred on the page over the dialog screen, like every dialog.
+   The header stays above it (Back, File → Open); dialogs (.modal) stack on top. */
 .dk-start-card {
-    position: absolute;
+    position: fixed;
     inset: 0;
-    z-index: 15;
+    z-index: 900;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding-right: 332px;
-    pointer-events: none;
-}
-
-.params-hidden .dk-start-card {
-    padding-right: 0;
+    background: var(--dk-scrim);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 
 .dk-start-card[hidden] {
@@ -852,7 +853,6 @@
 }
 
 .dk-start-card .modal-content {
-    pointer-events: auto;
     animation: none;
 }
 
